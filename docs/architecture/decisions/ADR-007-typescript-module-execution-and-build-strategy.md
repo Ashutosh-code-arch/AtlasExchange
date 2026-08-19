@@ -10,11 +10,11 @@
 
 Atlas has three TypeScript environments:
 
-| Workspace | Executes where | Compilation model |
-|---|---|---|
-| `@atlas/web` | Browser | Vite bundles the application |
-| `@atlas/api` | Node.js | TypeScript emits Node-compatible JavaScript |
-| `@atlas/contracts` | Web and API | Compile reusable JavaScript plus type declarations |
+| Workspace          | Executes where | Compilation model                                  |
+| ------------------ | -------------- | -------------------------------------------------- |
+| `@atlas/web`       | Browser        | Vite bundles the application                       |
+| `@atlas/api`       | Node.js        | TypeScript emits Node-compatible JavaScript        |
+| `@atlas/contracts` | Web and API    | Compile reusable JavaScript plus type declarations |
 
 They share strictness rules but require environment-specific TypeScript configurations. Browser code needs DOM types and bundler resolution; API code needs Node types and Node module resolution; contracts must not depend on browser or Node globals.
 
