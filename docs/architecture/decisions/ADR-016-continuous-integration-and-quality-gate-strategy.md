@@ -1,7 +1,7 @@
 # ADR-016 — Continuous Integration and Quality-Gate Strategy
 
 **Classification:** Canonical  
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-08-19  
 **Last reviewed:** 2026-08-19  
 **Canonical owner/source:** ADR-016

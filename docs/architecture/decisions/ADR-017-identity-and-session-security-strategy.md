@@ -1,7 +1,7 @@
 # ADR-017 — Identity and Session Security Strategy
 
 **Classification:** Canonical  
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-08-19  
 **Last reviewed:** 2026-08-19  
 **Canonical owner/source:** ADR-017
@@ -74,12 +74,10 @@ Unknown-email authentication must verify against a dummy Argon2id hash so the un
 
 Atlas uses short-lived access credentials and rotating refresh credentials stored in cookies.
 
-| Credential | Cookie name | Path | Expiry | Stored server-side |
-|---|---|---|---|---|
-| Environment | Access cookie | Refresh cookie | Secure |
-|---|---|---|---|
-| Staging / production | `__Host-atlas_access` | `__Secure-atlas_refresh` | `true` |
-| Local / test HTTP | `atlas_access` | `atlas_refresh` | `false` |
+| Credential | Staging/production cookie | Local/test cookie | Path                   | Lifetime   | Server storage                  |
+| ---------- | ------------------------- | ----------------- | ---------------------- | ---------- | ------------------------------- |
+| Access     | `__Host-atlas_access`     | `atlas_access`    | `/`                    | 10 minutes | Access-token digest and metadata |
+| Refresh    | `__Secure-atlas_refresh`  | `atlas_refresh`   | `/api/v1/auth/refresh` | 30 days    | Refresh-token record and digest  |
 
 Cookie properties:
 - Access cookie path: `/`.

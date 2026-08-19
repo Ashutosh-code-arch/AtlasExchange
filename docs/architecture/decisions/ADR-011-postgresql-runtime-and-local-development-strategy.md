@@ -1,7 +1,7 @@
 # ADR-011 — PostgreSQL Runtime and Local Development Strategy
 
 **Classification:** Canonical  
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-08-17  
 **Last reviewed:** 2026-08-18  
 **Canonical owner/source:** ADR-011

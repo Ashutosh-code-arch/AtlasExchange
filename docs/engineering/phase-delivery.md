@@ -8,7 +8,7 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 
 | Phase                     | Outcome                                                          | Status      |
 | ------------------------- | ---------------------------------------------------------------- | ----------- |
-| 1. Engineering foundation | Reproducible monorepo, web/API shells, PostgreSQL, quality gates | In Progress |
+| 1. Engineering foundation | Reproducible monorepo, web/API shells, PostgreSQL, quality gates | Implemented |
 | 2. Identity               | Registration, login, refresh-token rotation, RBAC, profiles      | Planned     |
 | 3. Financial foundation   | Assets, wallets, double-entry ledger, deposits, withdrawals      | Planned     |
 | 4. Trading                | Orders, reservation, matching, trades, atomic settlement         | Planned     |

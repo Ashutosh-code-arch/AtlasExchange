@@ -1,7 +1,7 @@
 # ADR-015 — API Health, Readiness, and Process Lifecycle Strategy
 
 **Classification:** Canonical  
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-08-18  
 **Last reviewed:** 2026-08-18  
 **Canonical owner/source:** ADR-015
