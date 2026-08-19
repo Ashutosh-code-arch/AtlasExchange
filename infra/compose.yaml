@@ -1,0 +1,23 @@
+name: atlas-exchange
+
+services:
+  postgres:
+    image: postgres:18.4
+    environment:
+      POSTGRES_DB: atlas
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: atlas_local_only
+    ports:
+      - "${ATLAS_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - atlas-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  atlas-postgres-data:

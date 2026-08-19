@@ -1,0 +1,47 @@
+{
+  "name": "atlas-exchange",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": "24.19.0"
+  },
+  "scripts": {
+    "build": "pnpm --filter @atlas/contracts build && pnpm --filter @atlas/api build && pnpm --filter @atlas/web build",
+    "dev": "pnpm --filter @atlas/contracts build && pnpm --parallel --filter @atlas/contracts --filter @atlas/api --filter @atlas/web dev",
+    "typecheck": "pnpm --filter @atlas/contracts build && pnpm --filter @atlas/api typecheck && pnpm --filter @atlas/web typecheck",
+    "lint": "eslint . --max-warnings 0",
+    "lint:boundaries": "node scripts/eslint/verify-boundaries.mjs",
+    "lint:fix": "pnpm lint --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm --filter @atlas/contracts build && pnpm --filter @atlas/contracts test && pnpm --filter @atlas/api test && pnpm --filter @atlas/web test",
+    "verify": "pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm format:check && pnpm test",
+    "db:up": "docker compose -f infra/compose.yaml up -d postgres",
+    "db:down": "docker compose -f infra/compose.yaml down",
+    "db:logs": "docker compose -f infra/compose.yaml logs -f postgres",
+    "db:migrate": "pnpm --filter @atlas/api db:migrate",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,tsx}": [
+      "eslint --fix --max-warnings 0",
+      "prettier --write"
+    ],
+    "*.{json,jsonc,yaml,yml,md,css,html}": "prettier --write"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.4",
+    "globals": "^17.11.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.67.0"
+  }
+}
