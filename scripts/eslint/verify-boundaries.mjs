@@ -61,3 +61,23 @@ const publicApiMessages = linter.verify('import "../../wallet/index.js";', [conf
 if (publicApiMessages.length > 0) {
   throw new Error("Boundary verification rejected a backend module public index import.");
 }
+
+const applicationOwnedTestCases = [
+  {
+    name: "API test importing a backend module internal",
+    filename: resolve("apps/api/tests/password-hasher.test.ts"),
+    source: 'import "../src/modules/identity/infrastructure/password-hasher.js";',
+  },
+  {
+    name: "web test importing a frontend feature internal",
+    filename: resolve("apps/web/tests/order-form.test.tsx"),
+    source: 'import "../src/features/orders/components/order-form.js";',
+  },
+];
+
+for (const testCase of applicationOwnedTestCases) {
+  const messages = linter.verify(testCase.source, [config], { filename: testCase.filename });
+  if (messages.length > 0) {
+    throw new Error(`Boundary verification rejected ${testCase.name}.`);
+  }
+}

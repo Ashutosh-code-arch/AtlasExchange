@@ -66,7 +66,7 @@ Passwords are accepted as Unicode without arbitrary composition requirements.
 
 The blocklist is local/offline; raw passwords are never sent to an external service.
 
-Argon2id parameters must be benchmarked on the target environment and recorded before implementation. The benchmark should consider the OWASP-documented acceptable configuration of approximately 19 MiB memory, two iterations, and parallelism 1, while selecting parameters appropriate to Atlas latency and resource limits.
+Argon2id parameters must be benchmarked on the target environment and recorded before implementation. The benchmark should consider the OWASP-documented acceptable configuration of approximately 19 MiB memory, two iterations, and parallelism 1, while selecting parameters appropriate to Atlas latency and resource limits. The current parameters and benchmark evidence are recorded in the [Identity Password Hashing Baseline](../../engineering/identity-password-hashing.md).
 
 Unknown-email authentication must verify against a dummy Argon2id hash so the unknown-user path does not become an obvious timing oracle.
 
@@ -400,10 +400,11 @@ Tests must cover at minimum:
 - [ADR-012 — Configuration, Environment, and Secrets Strategy](ADR-012-configuration-environment-and-secrets-strategy.md)
 - [ADR-014 — Structured Logging and Request Correlation Strategy](ADR-014-structured-logging-and-request-correlation-strategy.md)
 - [ADR-015 — API Health, Readiness, and Process Lifecycle Strategy](ADR-015-api-health-readiness-and-process-lifecycle-strategy.md)
+- [Identity Password Hashing Baseline](../../engineering/identity-password-hashing.md)
 
 ## 18. Deferred decisions
 
-- exact Argon2id parameters after benchmarking;
+- Argon2id re-benchmarking for production hardware and future work-factor upgrades;
 - exact authentication rate limits and distributed implementation;
 - production secret-manager integration;
 - durable `identity_security_events` persistence if not introduced initially;

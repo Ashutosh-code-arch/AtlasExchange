@@ -2,6 +2,8 @@ import path from "node:path";
 
 const API_MODULE_PATTERN = /\/apps\/api\/src\/modules\/([^/]+)\/(.*)$/;
 const WEB_FEATURE_PATTERN = /\/apps\/web\/src\/features\/([^/]+)\/(.*)$/;
+const API_TEST_PATTERN = /\/apps\/api\/tests\//;
+const WEB_TEST_PATTERN = /\/apps\/web\/tests\//;
 const PUBLIC_ENTRY_PATTERN = /^index(?:\.[cm]?[jt]sx?)?$/;
 const INFRASTRUCTURE_PACKAGES = new Set([
   "cors",
@@ -78,6 +80,8 @@ const enforceBoundaries = {
     const filename = normalize(context.filename);
     const sourceApiModule = filename.match(API_MODULE_PATTERN);
     const sourceWebFeature = filename.match(WEB_FEATURE_PATTERN);
+    const isApiTest = API_TEST_PATTERN.test(filename);
+    const isWebTest = WEB_TEST_PATTERN.test(filename);
 
     function inspectDependency(node, source) {
       const specifier = source?.value;
@@ -89,8 +93,12 @@ const enforceBoundaries = {
       const targetApiModule = targetPath?.match(API_MODULE_PATTERN) ?? null;
       const targetWebFeature = targetPath?.match(WEB_FEATURE_PATTERN) ?? null;
 
-      reportCrossBoundary(context, node, sourceApiModule, targetApiModule, "backend module");
-      reportCrossBoundary(context, node, sourceWebFeature, targetWebFeature, "frontend feature");
+      if (!isApiTest) {
+        reportCrossBoundary(context, node, sourceApiModule, targetApiModule, "backend module");
+      }
+      if (!isWebTest) {
+        reportCrossBoundary(context, node, sourceWebFeature, targetWebFeature, "frontend feature");
+      }
       reportInvalidBackendLayer(context, node, sourceApiModule, targetPath, specifier);
     }
 

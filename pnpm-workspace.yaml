@@ -4,6 +4,7 @@ packages:
   - "tests/e2e"
 
 allowBuilds:
+  argon2: true
   esbuild: true
 
 enableGlobalVirtualStore: false
