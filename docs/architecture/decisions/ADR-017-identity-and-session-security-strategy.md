@@ -116,7 +116,8 @@ Each refresh-token record contains:
 ```text
 tokenId
 sessionId
-familyId
+One session defines one refresh-token family.
+sessionId is the authoritative family boundary.
 secretDigest
 issuedAt
 expiresAt

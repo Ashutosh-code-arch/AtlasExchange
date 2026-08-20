@@ -1,7 +1,7 @@
 # ADR-018 — Identity Data Model and Persistence Strategy
 
 **Classification:** Canonical  
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-08-19  
 **Last reviewed:** 2026-08-20  
 **Canonical owner/source:** ADR-018
@@ -453,5 +453,3 @@ Revisit ADR-018 if Atlas introduces multiple Identity stores, an independently d
 **Proposed**
 
 ADR-018 defines Identity persistence and security-state ownership but does not authorize migrations or Identity implementation.
-
-The next architectural decision is **ADR-019 — Identity HTTP API, Cookie, CSRF, and Error Contract**. After ADR-019 is reviewed and accepted, Identity schema migrations and implementation may begin.
