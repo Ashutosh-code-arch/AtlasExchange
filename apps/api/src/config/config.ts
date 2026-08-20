@@ -12,7 +12,7 @@ const apiEnvironmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   ATLAS_ENV: z.enum(["local", "test", "ci", "staging", "production"]).default("local"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
-  EXPECTED_SCHEMA_VERSION: integerString.default("1"),
+  EXPECTED_SCHEMA_VERSION: integerString.default("2"),
   SHUTDOWN_TIMEOUT_MS: integerString
     .default("10000")
     .transform(Number)

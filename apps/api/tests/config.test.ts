@@ -13,7 +13,7 @@ describe("API configuration", () => {
     const config = parseApiConfig(validEnvironment);
 
     expect(config.http.port).toBe(3000);
-    expect(config.database.expectedSchemaVersion).toBe("1");
+    expect(config.database.expectedSchemaVersion).toBe("2");
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.database)).toBe(true);
   });
