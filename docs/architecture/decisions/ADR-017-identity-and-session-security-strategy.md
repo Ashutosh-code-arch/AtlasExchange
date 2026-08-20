@@ -116,8 +116,6 @@ Each refresh-token record contains:
 ```text
 tokenId
 sessionId
-One session defines one refresh-token family.
-sessionId is the authoritative family boundary.
 secretDigest
 issuedAt
 expiresAt
@@ -125,6 +123,8 @@ consumedAt
 revokedAt
 replacedByTokenId
 ```
+
+One session defines one refresh-token family. `sessionId` is the authoritative family boundary.
 
 Refresh rotation occurs in **one atomic PostgreSQL transaction**.
 
@@ -416,6 +416,6 @@ Tests must cover at minimum:
 
 ## 19. Status summary
 
-**Status: Proposed**
+**Status: Accepted**
 
-Identity implementation must not begin until this ADR receives final consistency review and is formally accepted. Acceptance also requires the related ADR links to resolve in the repository and the stated security invariants to be preserved during implementation.
+ADR-017 is formally accepted. Identity implementation must preserve the stated security invariants and keep the related decision links resolvable.

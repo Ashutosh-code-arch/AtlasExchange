@@ -216,9 +216,6 @@ Thus logout, administrative revocation, password change, suspension, and disable
 
 ## 11. Refresh-token persistence and rotation
 
-One session defines one refresh-token family.
-sessionId is the authoritative family boundary.
-
 **One session = one refresh-token family.**
 
 `session_id` is the authoritative family boundary. Reuse revokes the session and all credentials belonging to it.
@@ -446,10 +443,10 @@ Revisit ADR-018 if Atlas introduces multiple Identity stores, an independently d
 - [ADR-011 — PostgreSQL Runtime and Local Development Strategy](ADR-011-postgresql-runtime-and-local-development-strategy.md)
 - [ADR-014 — Structured Logging and Request Correlation Strategy](ADR-014-structured-logging-and-request-correlation-strategy.md)
 - [ADR-017 — Identity and Session Security Strategy](ADR-017-identity-and-session-security-strategy.md)
-- ADR-019 — Identity HTTP API, Cookie, CSRF, and Error Contract *(next decision)*
+- [ADR-019 — Identity HTTP API, Cookie, CSRF, and Error Contract](ADR-019-identity-http-api-cookie-csrf-and-error-contract.md)
 
 ## 26. Status
 
-**Proposed**
+**Accepted**
 
-ADR-018 defines Identity persistence and security-state ownership but does not authorize migrations or Identity implementation.
+ADR-018 is formally accepted. Together with accepted ADR-019, it authorizes Identity schema migrations and implementation subject to the related architectural decisions.

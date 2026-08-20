@@ -429,9 +429,9 @@ Security events must never contain passwords, password hashes, access/refresh se
 - Exact frontend refresh-lock primitive.
 - Detailed session-management UI fields.
 
-## Acceptance criteria
+## Acceptance confirmation
 
-ADR-019 may move from Proposed to Accepted only when:
+ADR-019 is accepted because:
 
 1. ADR-018 is amended, accepted, committed, and all referenced links resolve.
 2. The response envelope matches the contracts package.
@@ -441,4 +441,10 @@ ADR-019 may move from Proposed to Accepted only when:
 6. Frontend single-flight and cross-tab refresh coordination is mandatory and documented.
 7. Authentication error codes and status mappings are fixed.
 8. Request size, content type, caching, and rate-limit contracts are fixed.
-9. No migrations or Identity implementation begin before ADR-019 acceptance.
+9. Identity implementation remained blocked until ADR-019 was accepted.
+
+## Status
+
+**Accepted**
+
+ADR-019 completes the architectural prerequisites for Identity. Identity schema migrations and implementation may now proceed subject to ADR-017, ADR-018, and the related architectural decisions.
