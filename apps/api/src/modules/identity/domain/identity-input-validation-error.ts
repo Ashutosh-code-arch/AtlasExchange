@@ -5,7 +5,8 @@ export type IdentityInputValidationIssue =
   | "EMAIL_TOO_LONG"
   | "EMAIL_INTERNATIONALIZATION_UNSUPPORTED"
   | "PASSWORD_TOO_SHORT"
-  | "PASSWORD_TOO_LONG";
+  | "PASSWORD_TOO_LONG"
+  | "PASSWORD_COMPROMISED";
 
 export class IdentityInputValidationError extends Error {
   public constructor(
