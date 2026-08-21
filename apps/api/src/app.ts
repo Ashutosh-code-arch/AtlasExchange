@@ -7,7 +7,7 @@ import {
   type HealthReadyResponse,
 } from "@atlas/contracts";
 import cors from "cors";
-import express, { type ErrorRequestHandler, type Express } from "express";
+import express, { type ErrorRequestHandler, type Express, type Router } from "express";
 import helmet from "helmet";
 import type { Logger } from "pino";
 import { pinoHttp } from "pino-http";
@@ -19,6 +19,7 @@ export interface CreateAppOptions {
   readonly lifecycle: LifecycleState;
   readonly logger: Logger;
   readonly webOrigin: string;
+  readonly identityRouter?: Router;
   readonly applicationVersion?: string;
 }
 
@@ -34,12 +35,37 @@ function selectRequestId(header: string | readonly string[] | undefined): string
   return candidate !== undefined && requestIdPattern.test(candidate) ? candidate : randomUUID();
 }
 
+function mapHttpError(error: unknown): AppError | undefined {
+  if (error instanceof AppError) {
+    return error;
+  }
+  if (
+    error instanceof SyntaxError &&
+    "status" in error &&
+    error.status === 400 &&
+    "type" in error &&
+    error.type === "entity.parse.failed"
+  ) {
+    return new AppError(400, "VALIDATION_FAILED", "Request body is invalid JSON.");
+  }
+  if (
+    error instanceof Error &&
+    "status" in error &&
+    error.status === 413 &&
+    "type" in error &&
+    error.type === "entity.too.large"
+  ) {
+    return new AppError(413, "PAYLOAD_TOO_LARGE", "Request body exceeds the allowed size.");
+  }
+  return undefined;
+}
+
 export function createApp(options: CreateAppOptions): Express {
   const app = express();
 
   app.disable("x-powered-by");
   app.use(helmet());
-  app.use(cors({ origin: options.webOrigin }));
+  app.use(cors({ origin: options.webOrigin, credentials: true }));
   app.use(
     pinoHttp({
       logger: options.logger,
@@ -56,7 +82,15 @@ export function createApp(options: CreateAppOptions): Express {
       customErrorMessage: () => "HTTP request failed",
     }),
   );
+  app.use("/api/v1/auth", (_request, response, next) => {
+    response.setHeader("cache-control", "no-store");
+    next();
+  });
   app.use(express.json({ limit: "32kb" }));
+
+  if (options.identityRouter !== undefined) {
+    app.use("/api/v1/auth", options.identityRouter);
+  }
 
   app.get("/health/live", (_request, response) => {
     const body: HealthLiveResponse = { status: "ok" };
@@ -94,20 +128,20 @@ export function createApp(options: CreateAppOptions): Express {
   });
 
   const errorHandler: ErrorRequestHandler = (error: unknown, request, response, _next) => {
-    const isKnownError = error instanceof AppError;
-    const statusCode = isKnownError ? error.statusCode : 500;
+    const mappedError = mapHttpError(error);
+    const statusCode = mappedError?.statusCode ?? 500;
     const requestIdHeader = response.getHeader("x-request-id");
     const requestId = typeof requestIdHeader === "string" ? requestIdHeader : "unavailable";
     const body: ApiErrorResponse = {
       success: false,
       error: {
-        code: isKnownError ? error.code : "INTERNAL_SERVER_ERROR",
-        message: isKnownError ? error.message : "An unexpected error occurred.",
+        code: mappedError?.code ?? "INTERNAL_SERVER_ERROR",
+        message: mappedError?.message ?? "An unexpected error occurred.",
         requestId,
       },
     };
 
-    if (!isKnownError) {
+    if (mappedError === undefined) {
       request.log.error({ event: "http.request.failed", err: error }, "Unexpected request failure");
     }
 

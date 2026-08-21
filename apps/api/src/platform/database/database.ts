@@ -9,17 +9,17 @@ export interface DatabaseSchema {
   };
 }
 
-export interface DatabaseResources {
-  readonly database: Kysely<DatabaseSchema>;
+export interface DatabaseResources<Schema extends DatabaseSchema = DatabaseSchema> {
+  readonly database: Kysely<Schema>;
   checkReadiness(): Promise<boolean>;
   close(): Promise<void>;
 }
 
-export function createDatabaseResources(
+export function createDatabaseResources<Schema extends DatabaseSchema = DatabaseSchema>(
   databaseUrl: string,
   expectedSchemaVersion: string,
   onPoolError: (error: Error) => void = () => undefined,
-): DatabaseResources {
+): DatabaseResources<Schema> {
   const pool = new Pool({
     connectionString: databaseUrl,
     max: 10,
@@ -27,7 +27,7 @@ export function createDatabaseResources(
     idleTimeoutMillis: 30_000,
   });
   pool.on("error", onPoolError);
-  const database = new Kysely<DatabaseSchema>({
+  const database = new Kysely<Schema>({
     dialect: new PostgresDialect({ pool }),
   });
 
@@ -35,13 +35,13 @@ export function createDatabaseResources(
     database,
     async checkReadiness(): Promise<boolean> {
       try {
-        const result = await database
-          .selectFrom("atlas_system_metadata")
-          .select("value")
-          .where("key", "=", "schema_version")
-          .executeTakeFirst();
+        const result = await sql<{ value: string }>`
+          SELECT value
+          FROM atlas_system_metadata
+          WHERE key = 'schema_version'
+        `.execute(database);
         await sql`select 1`.execute(database);
-        return result?.value === expectedSchemaVersion;
+        return result.rows[0]?.value === expectedSchemaVersion;
       } catch {
         return false;
       }

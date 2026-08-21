@@ -2,7 +2,7 @@
 
 **Classification:** Canonical  
 **Status:** Active  
-**Last reviewed:** 2026-08-20  
+**Last reviewed:** 2026-08-21
 **Canonical owner/source:** ADR-017
 
 ## Purpose
@@ -81,6 +81,31 @@ Reconsider the parameters when:
 - the Argon2 implementation or Node.js runtime changes materially.
 
 Existing hashes are verified using their encoded PHC parameters. A successful login should rehash the password when the stored parameters no longer match the approved baseline.
+
+## Compromised-password blocklist
+
+Atlas performs compromised-password checks locally before Argon2 hashing. Runtime code never sends
+passwords or password-derived lookup values to an external service.
+
+The runtime blocklist format is:
+
+```text
+one lowercase or uppercase SHA-256 hexadecimal digest per line
+blank lines ignored
+lines beginning with # ignored
+```
+
+Passwords are NFC-normalized before their UTF-8 SHA-256 digest is calculated. Only digests remain
+resident in the checker. A missing, malformed, or empty configured file prevents Identity module
+startup.
+
+The committed `resources/development-password-blocklist.sha256` file is only a deterministic local
+and test baseline. It is not production security evidence. Staging and production must explicitly
+set `PASSWORD_BLOCKLIST_PATH` to a managed digest file prepared offline from an approved, curated
+source. Raw source passwords must not be committed to Atlas.
+
+Before production, record the source, source version/date, preparation method, entry count, and
+artifact checksum, then test startup memory and lookup latency with the deployed artifact.
 
 ## Sources
 

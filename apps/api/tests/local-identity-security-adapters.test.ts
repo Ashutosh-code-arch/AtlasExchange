@@ -12,7 +12,7 @@ import { LocalCompromisedPasswordChecker } from "../src/modules/identity/infrast
 describe("local Identity security adapters", () => {
   it("matches compromised passwords locally, exactly, and after NFC normalization", async () => {
     const decomposedPassword = "e\u0301".repeat(15);
-    const checker = new LocalCompromisedPasswordChecker([
+    const checker = LocalCompromisedPasswordChecker.fromPasswords([
       "correct horse battery staple",
       decomposedPassword,
     ]);
@@ -24,6 +24,24 @@ describe("local Identity security adapters", () => {
       checker.isCompromised(normalizePassword("Correct horse battery staple")),
     ).resolves.toBe(false);
     await expect(checker.isCompromised(normalizePassword("é".repeat(15)))).resolves.toBe(true);
+  });
+
+  it("loads the development blocklist from local digests and rejects malformed input", async () => {
+    const blocklistPath = new URL(
+      "../resources/development-password-blocklist.sha256",
+      import.meta.url,
+    );
+    const checker = await LocalCompromisedPasswordChecker.fromFile(blocklistPath.pathname);
+
+    await expect(
+      checker.isCompromised(normalizePassword("correct horse battery staple")),
+    ).resolves.toBe(true);
+    expect(() => LocalCompromisedPasswordChecker.fromSha256Digests(["not-a-digest"])).toThrow(
+      /line 1/,
+    );
+    expect(() => LocalCompromisedPasswordChecker.fromSha256Digests([])).toThrow(
+      /at least one digest/,
+    );
   });
 
   it("generates a 256-bit local secret and stores only its SHA-256 digest", () => {

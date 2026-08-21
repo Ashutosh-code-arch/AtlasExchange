@@ -4,7 +4,15 @@ import type { Logger } from "pino";
 
 import { createApp } from "./app.js";
 import { parseApiConfig } from "./config/config.js";
-import { createDatabaseResources, type DatabaseResources } from "./platform/database/database.js";
+import {
+  createIdentityModuleRouter,
+  type IdentityDatabaseSchema,
+} from "./modules/identity/index.js";
+import {
+  createDatabaseResources,
+  type DatabaseResources,
+  type DatabaseSchema,
+} from "./platform/database/database.js";
 import { LifecycleState } from "./platform/lifecycle/lifecycle-state.js";
 import {
   createSingleFlightShutdown,
@@ -15,9 +23,11 @@ import {
 } from "./platform/lifecycle/process-lifecycle.js";
 import { createLogger } from "./platform/logging/logger.js";
 
+type AtlasDatabaseSchema = DatabaseSchema & IdentityDatabaseSchema;
+
 interface RunningServer extends ManagedRuntime {
   readonly server: Server;
-  readonly database: DatabaseResources;
+  readonly database: DatabaseResources<AtlasDatabaseSchema>;
   readonly logger: Logger;
   readonly shutdownTimeoutMs: number;
 }
@@ -53,7 +63,7 @@ async function start(): Promise<RunningServer> {
   const logger = createLogger(config.logging);
   logger.info({ event: "api.starting" }, "Atlas API starting");
 
-  const database = createDatabaseResources(
+  const database = createDatabaseResources<AtlasDatabaseSchema>(
     config.database.url,
     config.database.expectedSchemaVersion,
     (error) => {
@@ -74,10 +84,16 @@ async function start(): Promise<RunningServer> {
   let runtime: RunningServer | undefined;
 
   try {
+    const identityRouter = await createIdentityModuleRouter({
+      database: database.database,
+      passwordBlocklistPath: config.identity.passwordBlocklistPath,
+      webOrigin: config.http.webOrigin,
+    });
     const app = createApp({
       lifecycle,
       logger,
       webOrigin: config.http.webOrigin,
+      identityRouter,
       applicationVersion: config.logging.applicationVersion,
     });
     const server = createServer(app);

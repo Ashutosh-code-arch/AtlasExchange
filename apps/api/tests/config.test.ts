@@ -14,6 +14,9 @@ describe("API configuration", () => {
 
     expect(config.http.port).toBe(3000);
     expect(config.database.expectedSchemaVersion).toBe("2");
+    expect(config.identity.passwordBlocklistPath).toMatch(
+      /resources\/development-password-blocklist\.sha256$/,
+    );
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.database)).toBe(true);
   });
@@ -40,5 +43,21 @@ describe("API configuration", () => {
     expect(() =>
       parseApiConfig({ ...validEnvironment, NODE_ENV: "production", ATLAS_ENV: "local" }),
     ).toThrow(/NODE_ENV, ATLAS_ENV/);
+  });
+
+  it("requires an explicit managed password blocklist in staging and production", () => {
+    expect(() => parseApiConfig({ ...validEnvironment, ATLAS_ENV: "staging" })).toThrowError(
+      new ConfigurationError(["PASSWORD_BLOCKLIST_PATH"]),
+    );
+
+    const config = parseApiConfig({
+      ...validEnvironment,
+      ATLAS_ENV: "production",
+      NODE_ENV: "production",
+      PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
+    });
+    expect(config.identity.passwordBlocklistPath).toBe(
+      "/run/secrets/atlas-password-blocklist.sha256",
+    );
   });
 });
