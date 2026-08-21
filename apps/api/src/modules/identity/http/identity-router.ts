@@ -1,21 +1,27 @@
 import {
   registerAcceptedResponseSchema,
   registerRequestSchema,
+  resendVerificationAcceptedResponseSchema,
+  resendVerificationRequestSchema,
   verifyEmailRequestSchema,
   type RegisterAcceptedResponse,
+  type ResendVerificationAcceptedResponse,
 } from "@atlas/contracts";
 import { Router, type RequestHandler } from "express";
 
 import { AppError } from "../../../http/errors/app-error.js";
 import type { RegisterUser } from "../application/register-user.js";
 import type { RegistrationRateLimiter } from "../application/registration-rate-limiter.js";
+import type { ResendVerification } from "../application/resend-verification.js";
 import type { VerifyEmail } from "../application/verify-email.js";
 import { IdentityInputValidationError } from "../domain/identity-input-validation-error.js";
 
 export interface IdentityRouterOptions {
   readonly registerUser: Pick<RegisterUser, "execute">;
+  readonly resendVerification: Pick<ResendVerification, "execute">;
   readonly verifyEmail: Pick<VerifyEmail, "execute">;
   readonly registrationRateLimiter: RegistrationRateLimiter;
+  readonly resendVerificationRateLimiter: RegistrationRateLimiter;
   readonly webOrigin: string;
 }
 
@@ -34,12 +40,12 @@ function requirePreSessionJsonRequest(webOrigin: string): RequestHandler {
   };
 }
 
-function enforceRegistrationRateLimit(options: IdentityRouterOptions): RequestHandler {
+function enforceRateLimit(rateLimiter: RegistrationRateLimiter, message: string): RequestHandler {
   return (request, response, next) => {
-    const rateLimit = options.registrationRateLimiter.consume(request.ip ?? "unknown");
+    const rateLimit = rateLimiter.consume(request.ip ?? "unknown");
     if (!rateLimit.allowed) {
       response.setHeader("retry-after", String(rateLimit.retryAfterSeconds));
-      next(new AppError(429, "RATE_LIMITED", "Registration rate limit exceeded."));
+      next(new AppError(429, "RATE_LIMITED", message));
       return;
     }
 
@@ -59,7 +65,7 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
   router.post(
     "/register",
     requirePreSessionJson,
-    enforceRegistrationRateLimit(options),
+    enforceRateLimit(options.registrationRateLimiter, "Registration rate limit exceeded."),
     async (request, response, next) => {
       const parsedRequest = registerRequestSchema.safeParse(request.body);
       if (!parsedRequest.success) {
@@ -77,6 +83,35 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
       } catch (error) {
         if (error instanceof IdentityInputValidationError) {
           next(new AppError(400, "VALIDATION_FAILED", "Registration request is invalid."));
+          return;
+        }
+        next(error);
+      }
+    },
+  );
+
+  router.post(
+    "/resend-verification",
+    requirePreSessionJson,
+    enforceRateLimit(
+      options.resendVerificationRateLimiter,
+      "Verification resend rate limit exceeded.",
+    ),
+    async (request, response, next) => {
+      const parsedRequest = resendVerificationRequestSchema.safeParse(request.body);
+      if (!parsedRequest.success) {
+        next(new AppError(400, "VALIDATION_FAILED", "Verification resend request is invalid."));
+        return;
+      }
+
+      try {
+        await options.resendVerification.execute(parsedRequest.data);
+        const body: ResendVerificationAcceptedResponse =
+          resendVerificationAcceptedResponseSchema.parse({ success: true, data: {} });
+        response.status(202).json(body);
+      } catch (error) {
+        if (error instanceof IdentityInputValidationError) {
+          next(new AppError(400, "VALIDATION_FAILED", "Verification resend request is invalid."));
           return;
         }
         next(error);

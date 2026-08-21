@@ -17,6 +17,13 @@ describe("API configuration", () => {
     expect(config.identity.passwordBlocklistPath).toMatch(
       /resources\/development-password-blocklist\.sha256$/,
     );
+    expect(config.identity.emailDelivery).toEqual({
+      host: "127.0.0.1",
+      port: 1025,
+      secure: false,
+      requireTls: false,
+      from: "Atlas Exchange <no-reply@atlas.local>",
+    });
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.database)).toBe(true);
   });
@@ -55,9 +62,41 @@ describe("API configuration", () => {
       ATLAS_ENV: "production",
       NODE_ENV: "production",
       PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
+      SMTP_HOST: "smtp.example.com",
+      SMTP_FROM: "Atlas Exchange <no-reply@example.com>",
     });
     expect(config.identity.passwordBlocklistPath).toBe(
       "/run/secrets/atlas-password-blocklist.sha256",
     );
+    expect(config.identity.emailDelivery.requireTls).toBe(true);
+  });
+
+  it("requires explicit SMTP routing in staging and production", () => {
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        ATLAS_ENV: "staging",
+        PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
+      }),
+    ).toThrowError(new ConfigurationError(["SMTP_HOST", "SMTP_FROM"]));
+  });
+
+  it("requires SMTP credentials as a pair and keeps them out of errors", () => {
+    const secret = "smtp-secret-must-not-leak";
+
+    expect(() => parseApiConfig({ ...validEnvironment, SMTP_PASSWORD: secret })).toThrowError(
+      expect.not.stringContaining(secret),
+    );
+    expect(() => parseApiConfig({ ...validEnvironment, SMTP_PASSWORD: secret })).toThrowError(
+      new ConfigurationError(["SMTP_USERNAME", "SMTP_PASSWORD"]),
+    );
+
+    expect(
+      parseApiConfig({
+        ...validEnvironment,
+        SMTP_USERNAME: "atlas",
+        SMTP_PASSWORD: secret,
+      }).identity.emailDelivery,
+    ).toMatchObject({ username: "atlas", password: secret });
   });
 });

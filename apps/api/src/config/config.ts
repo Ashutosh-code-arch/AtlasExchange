@@ -20,6 +20,18 @@ const apiEnvironmentSchema = z.object({
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
   EXPECTED_SCHEMA_VERSION: integerString.default("2"),
   PASSWORD_BLOCKLIST_PATH: z.string().min(1).optional(),
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: integerString
+    .default("1025")
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(65_535)),
+  SMTP_SECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  SMTP_USERNAME: z.string().min(1).optional(),
+  SMTP_PASSWORD: z.string().min(1).optional(),
+  SMTP_FROM: z.string().min(1).optional(),
   SHUTDOWN_TIMEOUT_MS: integerString
     .default("10000")
     .transform(Number)
@@ -43,6 +55,15 @@ export interface ApiConfig {
   }>;
   readonly identity: Readonly<{
     passwordBlocklistPath: string;
+    emailDelivery: Readonly<{
+      host: string;
+      port: number;
+      secure: boolean;
+      requireTls: boolean;
+      from: string;
+      username?: string;
+      password?: string;
+    }>;
   }>;
   readonly nodeEnvironment: "development" | "test" | "production";
 }
@@ -75,6 +96,15 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   ) {
     throw new ConfigurationError(["PASSWORD_BLOCKLIST_PATH"]);
   }
+  if ((values.SMTP_USERNAME === undefined) !== (values.SMTP_PASSWORD === undefined)) {
+    throw new ConfigurationError(["SMTP_USERNAME", "SMTP_PASSWORD"]);
+  }
+  if (
+    (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
+    (values.SMTP_HOST === undefined || values.SMTP_FROM === undefined)
+  ) {
+    throw new ConfigurationError(["SMTP_HOST", "SMTP_FROM"]);
+  }
 
   return Object.freeze({
     http: Object.freeze({
@@ -93,6 +123,16 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     }),
     identity: Object.freeze({
       passwordBlocklistPath: values.PASSWORD_BLOCKLIST_PATH ?? developmentPasswordBlocklistPath,
+      emailDelivery: Object.freeze({
+        host: values.SMTP_HOST ?? "127.0.0.1",
+        port: values.SMTP_PORT,
+        secure: values.SMTP_SECURE,
+        requireTls: values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production",
+        from: values.SMTP_FROM ?? "Atlas Exchange <no-reply@atlas.local>",
+        ...(values.SMTP_USERNAME === undefined || values.SMTP_PASSWORD === undefined
+          ? {}
+          : { username: values.SMTP_USERNAME, password: values.SMTP_PASSWORD }),
+      }),
     }),
     nodeEnvironment: values.NODE_ENV,
   });

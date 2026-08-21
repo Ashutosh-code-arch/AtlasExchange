@@ -6,6 +6,7 @@ import { createApp } from "./app.js";
 import { parseApiConfig } from "./config/config.js";
 import {
   createIdentityModuleRouter,
+  SmtpVerificationEmailDelivery,
   type IdentityDatabaseSchema,
 } from "./modules/identity/index.js";
 import {
@@ -84,9 +85,15 @@ async function start(): Promise<RunningServer> {
   let runtime: RunningServer | undefined;
 
   try {
+    const verificationEmailDelivery = new SmtpVerificationEmailDelivery({
+      ...config.identity.emailDelivery,
+      webOrigin: config.http.webOrigin,
+      logger,
+    });
     const identityRouter = await createIdentityModuleRouter({
       database: database.database,
       passwordBlocklistPath: config.identity.passwordBlocklistPath,
+      verificationEmailDelivery,
       webOrigin: config.http.webOrigin,
     });
     const app = createApp({

@@ -4,6 +4,7 @@ import { normalizePassword } from "../domain/password.js";
 import type { CompromisedPasswordChecker } from "./compromised-password-checker.js";
 import type { PasswordHasher } from "./password-hasher.js";
 import type { RegistrationTransactionRunner } from "./registration-transaction.js";
+import type { VerificationEmailDelivery } from "./verification-email-delivery.js";
 import type { VerificationSecretGenerator } from "./verification-secret-generator.js";
 
 export const emailVerificationLifetimeMilliseconds = 24 * 60 * 60 * 1_000;
@@ -29,6 +30,7 @@ export interface RegisterUserDependencies {
   readonly compromisedPasswordChecker: CompromisedPasswordChecker;
   readonly passwordHasher: PasswordHasher;
   readonly registrationTransactionRunner: RegistrationTransactionRunner;
+  readonly verificationEmailDelivery: VerificationEmailDelivery;
   readonly verificationSecretGenerator: VerificationSecretGenerator;
   readonly now?: () => Date;
 }
@@ -71,14 +73,17 @@ export class RegisterUser {
       return { status: "email_exists" };
     }
 
+    const verification = {
+      recipientEmail: email.display,
+      credential: `${persistenceResult.verificationTokenId}.${verificationSecret.secret}`,
+      expiresAt: verificationExpiresAt,
+    };
+    await this.dependencies.verificationEmailDelivery.deliver(verification);
+
     return {
       status: "created",
       userId: persistenceResult.userId,
-      verification: {
-        recipientEmail: email.display,
-        credential: `${persistenceResult.verificationTokenId}.${verificationSecret.secret}`,
-        expiresAt: verificationExpiresAt,
-      },
+      verification,
     };
   }
 }

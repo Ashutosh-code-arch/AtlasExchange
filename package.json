@@ -21,6 +21,8 @@
     "db:up": "docker compose -f infra/compose.yaml up -d postgres",
     "db:down": "docker compose -f infra/compose.yaml down",
     "db:logs": "docker compose -f infra/compose.yaml logs -f postgres",
+    "mail:up": "docker compose -f infra/compose.yaml up -d mailpit",
+    "mail:logs": "docker compose -f infra/compose.yaml logs -f mailpit",
     "db:migrate": "pnpm --filter @atlas/api db:migrate",
     "prepare": "husky"
   },

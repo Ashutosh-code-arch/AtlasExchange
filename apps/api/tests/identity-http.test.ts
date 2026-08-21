@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import type { RegisterUser } from "../src/modules/identity/application/register-user.js";
 import type { RegistrationRateLimiter } from "../src/modules/identity/application/registration-rate-limiter.js";
+import type { ResendVerification } from "../src/modules/identity/application/resend-verification.js";
 import type { VerifyEmail } from "../src/modules/identity/application/verify-email.js";
 import { IdentityInputValidationError } from "../src/modules/identity/domain/identity-input-validation-error.js";
 import { createIdentityRouter } from "../src/modules/identity/index.js";
@@ -21,11 +22,14 @@ function createTestApp(
     readonly execute?: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
     readonly verifyEmail?: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
     readonly registrationRateLimiter?: RegistrationRateLimiter;
+    readonly resendVerification?: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
+    readonly resendVerificationRateLimiter?: RegistrationRateLimiter;
   } = {},
 ): {
   readonly app: ReturnType<typeof createApp>;
   readonly execute: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
   readonly verifyEmail: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
+  readonly resendVerification: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
 } {
   const execute =
     options.execute ??
@@ -44,10 +48,17 @@ function createTestApp(
   const verifyEmail =
     options.verifyEmail ??
     vi.fn<VerifyEmail["execute"]>().mockResolvedValue({ status: "verified" });
+  const resendVerification =
+    options.resendVerification ??
+    vi.fn<ResendVerification["execute"]>().mockResolvedValue({ status: "not_issued" });
   const identityRouter = createIdentityRouter({
     registerUser: { execute },
+    resendVerification: { execute: resendVerification },
     verifyEmail: { execute: verifyEmail },
     registrationRateLimiter,
+    resendVerificationRateLimiter: options.resendVerificationRateLimiter ?? {
+      consume: () => ({ allowed: true as const }),
+    },
     webOrigin,
   });
   const lifecycle = new LifecycleState({ checkReadiness: () => Promise.resolve(true) });
@@ -61,6 +72,7 @@ function createTestApp(
     }),
     execute,
     verifyEmail,
+    resendVerification,
   };
 }
 
@@ -180,6 +192,50 @@ describe("Identity registration HTTP API", () => {
     expect(response.headers["retry-after"]).toBe("37");
     expect(response.body).toMatchObject({ error: { code: "RATE_LIMITED" } });
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it.each(["issued", "not_issued"] as const)(
+    "returns the same generic 202 when verification is %s",
+    async (status) => {
+      const resendVerification = vi
+        .fn<ResendVerification["execute"]>()
+        .mockResolvedValue(
+          status === "issued"
+            ? { status: "issued", userId: "must-not-leak" }
+            : { status: "not_issued" },
+        );
+      const { app } = createTestApp({ resendVerification });
+
+      const response = await request(app)
+        .post("/api/v1/auth/resend-verification")
+        .set("origin", webOrigin)
+        .send({ email: "user@example.com" });
+
+      expect(response.status).toBe(202);
+      expect(response.body).toEqual({ success: true, data: {} });
+      expect(JSON.stringify(response.body)).not.toContain("must-not-leak");
+    },
+  );
+
+  it("applies exact-origin, JSON-only, and independent rate limiting to verification resend", async () => {
+    const { app, resendVerification } = createTestApp({
+      resendVerificationRateLimiter: {
+        consume: () => ({ allowed: false, retryAfterSeconds: 19 }),
+      },
+    });
+    const wrongOrigin = await request(app)
+      .post("/api/v1/auth/resend-verification")
+      .set("origin", "https://evil.example")
+      .send({ email: "user@example.com" });
+    const rateLimited = await request(app)
+      .post("/api/v1/auth/resend-verification")
+      .set("origin", webOrigin)
+      .send({ email: "user@example.com" });
+
+    expect(wrongOrigin.status).toBe(403);
+    expect(rateLimited.status).toBe(429);
+    expect(rateLimited.headers["retry-after"]).toBe("19");
+    expect(resendVerification).not.toHaveBeenCalled();
   });
 
   it("consumes an email-verification credential and returns an empty 204", async () => {

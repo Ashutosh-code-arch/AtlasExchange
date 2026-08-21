@@ -44,6 +44,9 @@ describe("composed registration HTTP flow", () => {
         "../resources/development-password-blocklist.sha256",
         import.meta.url,
       ).pathname,
+      verificationEmailDelivery: {
+        deliver: () => Promise.resolve({ status: "delivered" }),
+      },
       webOrigin,
     });
     app = createApp({

@@ -13,6 +13,7 @@ import type {
   RegistrationTransactionRunner,
 } from "../src/modules/identity/application/registration-transaction.js";
 import type { VerificationSecretGenerator } from "../src/modules/identity/application/verification-secret-generator.js";
+import type { VerificationEmailDelivery } from "../src/modules/identity/application/verification-email-delivery.js";
 import { IdentityInputValidationError } from "../src/modules/identity/domain/identity-input-validation-error.js";
 
 const registeredAt = new Date("2026-08-21T12:00:00.000Z");
@@ -46,6 +47,7 @@ function createHarness(
   readonly isCompromised: ReturnType<typeof vi.fn<CompromisedPasswordChecker["isCompromised"]>>;
   readonly hashPassword: ReturnType<typeof vi.fn<PasswordHasher["hash"]>>;
   readonly transactionRunner: FakeRegistrationTransactionRunner;
+  readonly deliverVerificationEmail: ReturnType<typeof vi.fn<VerificationEmailDelivery["deliver"]>>;
 } {
   const isCompromised = vi
     .fn<CompromisedPasswordChecker["isCompromised"]>()
@@ -61,18 +63,23 @@ function createHarness(
     generate: vi.fn(() => ({ secret: "verification-secret", digest: verificationDigest })),
   };
   const transactionRunner = new FakeRegistrationTransactionRunner(transactionResult);
+  const deliverVerificationEmail = vi
+    .fn<VerificationEmailDelivery["deliver"]>()
+    .mockResolvedValue({ status: "delivered" });
 
   return {
     useCase: new RegisterUser({
       compromisedPasswordChecker,
       passwordHasher,
       registrationTransactionRunner: transactionRunner,
+      verificationEmailDelivery: { deliver: deliverVerificationEmail },
       verificationSecretGenerator,
       now: () => registeredAt,
     }),
     isCompromised,
     hashPassword,
     transactionRunner,
+    deliverVerificationEmail,
   };
 }
 
@@ -110,6 +117,11 @@ describe("RegisterUser", () => {
     });
     expect(harness.transactionRunner.receivedInput).not.toHaveProperty("password");
     expect(harness.transactionRunner.receivedInput).not.toHaveProperty("verificationSecret");
+    expect(harness.deliverVerificationEmail).toHaveBeenCalledWith({
+      recipientEmail: "User@Example.COM",
+      credential: "0198-token-id.verification-secret",
+      expiresAt: new Date(registeredAt.getTime() + emailVerificationLifetimeMilliseconds),
+    });
   });
 
   it("keeps an existing normalized email as an internal non-creation outcome", async () => {
@@ -123,6 +135,7 @@ describe("RegisterUser", () => {
     ).resolves.toEqual({ status: "email_exists" });
 
     expect(harness.hashPassword).toHaveBeenCalledOnce();
+    expect(harness.deliverVerificationEmail).not.toHaveBeenCalled();
   });
 
   it("rejects compromised passwords before hashing or opening a transaction", async () => {

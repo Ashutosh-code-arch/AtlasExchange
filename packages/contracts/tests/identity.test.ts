@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   registerAcceptedResponseSchema,
   registerRequestSchema,
+  resendVerificationAcceptedResponseSchema,
+  resendVerificationRequestSchema,
   verifyEmailRequestSchema,
   type RegisterRequest,
 } from "../src/index.js";
@@ -61,5 +63,21 @@ describe("Identity contracts", () => {
       false,
     );
     expect(verifyEmailRequestSchema.safeParse({ token: "a".repeat(513) }).success).toBe(false);
+  });
+
+  it("defines a strict, non-disclosing verification-resend contract", () => {
+    expect(resendVerificationRequestSchema.parse({ email: "  user@example.com  " })).toEqual({
+      email: "user@example.com",
+    });
+    expect(
+      resendVerificationRequestSchema.safeParse({ email: "user@example.com", userId: "leak" })
+        .success,
+    ).toBe(false);
+    expect(
+      resendVerificationAcceptedResponseSchema.safeParse({
+        success: true,
+        data: { accountExists: true },
+      }).success,
+    ).toBe(false);
   });
 });
