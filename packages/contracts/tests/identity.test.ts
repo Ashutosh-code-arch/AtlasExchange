@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   registerAcceptedResponseSchema,
   registerRequestSchema,
+  verifyEmailRequestSchema,
   type RegisterRequest,
 } from "../src/index.js";
 
@@ -50,5 +51,15 @@ describe("Identity contracts", () => {
         data: { userId: "account-disclosure" },
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts only a bounded opaque email-verification token", () => {
+    expect(verifyEmailRequestSchema.parse({ token: "token-id.secret" })).toEqual({
+      token: "token-id.secret",
+    });
+    expect(verifyEmailRequestSchema.safeParse({ token: "", userId: "not-allowed" }).success).toBe(
+      false,
+    );
+    expect(verifyEmailRequestSchema.safeParse({ token: "a".repeat(513) }).success).toBe(false);
   });
 });

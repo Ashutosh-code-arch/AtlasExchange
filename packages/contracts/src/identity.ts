@@ -10,5 +10,10 @@ export const registerAcceptedResponseSchema = z.strictObject({
   data: z.strictObject({}),
 });
 
+export const verifyEmailRequestSchema = z.strictObject({
+  token: z.string().min(1).max(512),
+});
+
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
 export type RegisterAcceptedResponse = z.infer<typeof registerAcceptedResponseSchema>;
+export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;

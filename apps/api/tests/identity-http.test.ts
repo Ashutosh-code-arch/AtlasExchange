@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import type { RegisterUser } from "../src/modules/identity/application/register-user.js";
 import type { RegistrationRateLimiter } from "../src/modules/identity/application/registration-rate-limiter.js";
+import type { VerifyEmail } from "../src/modules/identity/application/verify-email.js";
 import { IdentityInputValidationError } from "../src/modules/identity/domain/identity-input-validation-error.js";
 import { createIdentityRouter } from "../src/modules/identity/index.js";
 import { LifecycleState } from "../src/platform/lifecycle/lifecycle-state.js";
@@ -18,11 +19,13 @@ const validRegistration = {
 function createTestApp(
   options: {
     readonly execute?: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
+    readonly verifyEmail?: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
     readonly registrationRateLimiter?: RegistrationRateLimiter;
   } = {},
 ): {
   readonly app: ReturnType<typeof createApp>;
   readonly execute: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
+  readonly verifyEmail: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
 } {
   const execute =
     options.execute ??
@@ -38,8 +41,12 @@ function createTestApp(
   const registrationRateLimiter = options.registrationRateLimiter ?? {
     consume: () => ({ allowed: true as const }),
   };
+  const verifyEmail =
+    options.verifyEmail ??
+    vi.fn<VerifyEmail["execute"]>().mockResolvedValue({ status: "verified" });
   const identityRouter = createIdentityRouter({
     registerUser: { execute },
+    verifyEmail: { execute: verifyEmail },
     registrationRateLimiter,
     webOrigin,
   });
@@ -53,6 +60,7 @@ function createTestApp(
       identityRouter,
     }),
     execute,
+    verifyEmail,
   };
 }
 
@@ -172,5 +180,42 @@ describe("Identity registration HTTP API", () => {
     expect(response.headers["retry-after"]).toBe("37");
     expect(response.body).toMatchObject({ error: { code: "RATE_LIMITED" } });
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("consumes an email-verification credential and returns an empty 204", async () => {
+    const { app, verifyEmail } = createTestApp();
+    const response = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .set("origin", webOrigin)
+      .set("x-request-id", "email-verification-request")
+      .send({
+        token: `019c0000-0000-7000-8000-000000000001.${"a".repeat(43)}`,
+      });
+
+    expect(response.status).toBe(204);
+    expect(response.body).toEqual({});
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(verifyEmail).toHaveBeenCalledWith({
+      token: `019c0000-0000-7000-8000-000000000001.${"a".repeat(43)}`,
+      requestId: "email-verification-request",
+    });
+  });
+
+  it("returns the same safe validation error for malformed and invalid verification tokens", async () => {
+    const verifyEmail = vi.fn<VerifyEmail["execute"]>().mockResolvedValue({ status: "invalid" });
+    const { app } = createTestApp({ verifyEmail });
+    const invalidResponse = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .set("origin", webOrigin)
+      .send({ token: `019c0000-0000-7000-8000-000000000001.${"b".repeat(43)}` });
+    const malformedResponse = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .set("origin", webOrigin)
+      .send({ token: "malformed" });
+
+    expect(invalidResponse.status).toBe(400);
+    expect(malformedResponse.status).toBe(400);
+    expect(invalidResponse.body).toMatchObject({ error: { code: "VALIDATION_FAILED" } });
+    expect(malformedResponse.body).toMatchObject({ error: { code: "VALIDATION_FAILED" } });
   });
 });

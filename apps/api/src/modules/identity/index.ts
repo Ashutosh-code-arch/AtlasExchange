@@ -2,8 +2,10 @@ import type { Router } from "express";
 import type { Kysely } from "kysely";
 
 import { RegisterUser } from "./application/register-user.js";
+import { VerifyEmail } from "./application/verify-email.js";
 import { createIdentityRouter } from "./http/identity-router.js";
 import type { IdentityDatabaseSchema } from "./infrastructure/persistence/identity-database-schema.js";
+import { PostgresEmailVerificationTransactionRunner } from "./infrastructure/persistence/postgres-email-verification-transaction-runner.js";
 import { PostgresRegistrationTransactionRunner } from "./infrastructure/persistence/postgres-registration-transaction-runner.js";
 import { Argon2PasswordHasher } from "./infrastructure/security/argon2-password-hasher.js";
 import { CryptoVerificationSecretGenerator } from "./infrastructure/security/crypto-verification-secret-generator.js";
@@ -31,9 +33,13 @@ export async function createIdentityModuleRouter(
     registrationTransactionRunner: new PostgresRegistrationTransactionRunner(options.database),
     verificationSecretGenerator: new CryptoVerificationSecretGenerator(),
   });
+  const verifyEmail = new VerifyEmail({
+    transactionRunner: new PostgresEmailVerificationTransactionRunner(options.database),
+  });
 
   return createIdentityRouter({
     registerUser,
+    verifyEmail,
     registrationRateLimiter: new InMemoryRegistrationRateLimiter(),
     webOrigin: options.webOrigin,
   });

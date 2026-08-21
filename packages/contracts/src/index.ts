@@ -1,8 +1,10 @@
 export {
   registerAcceptedResponseSchema,
   registerRequestSchema,
+  verifyEmailRequestSchema,
   type RegisterAcceptedResponse,
   type RegisterRequest,
+  type VerifyEmailRequest,
 } from "./identity.js";
 
 export {

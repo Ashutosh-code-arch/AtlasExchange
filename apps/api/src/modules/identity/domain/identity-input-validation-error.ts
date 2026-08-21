@@ -1,4 +1,4 @@
-export type IdentityInputField = "email" | "password";
+export type IdentityInputField = "email" | "password" | "token";
 
 export type IdentityInputValidationIssue =
   | "EMAIL_INVALID"
@@ -6,7 +6,8 @@ export type IdentityInputValidationIssue =
   | "EMAIL_INTERNATIONALIZATION_UNSUPPORTED"
   | "PASSWORD_TOO_SHORT"
   | "PASSWORD_TOO_LONG"
-  | "PASSWORD_COMPROMISED";
+  | "PASSWORD_COMPROMISED"
+  | "VERIFICATION_TOKEN_INVALID";
 
 export class IdentityInputValidationError extends Error {
   public constructor(
