@@ -15,6 +15,11 @@ export const atlasArgon2Parameters = Object.freeze({
 
 const saltLengthBytes = 16;
 
+// Precomputed with the approved parameters. This is not a credential; it keeps unknown-account
+// verification on the same expensive Argon2id path as a known account.
+export const atlasDummyPasswordHash =
+  "$argon2id$v=19$m=65536,p=1,t=3$YXRsYXMtZHVtbXktc2FsdA$J2hTyX8rMraw8fjIfiXUCT9l7LfNuK6A6vR+Db7CQPM";
+
 export class Argon2PasswordHasher implements PasswordHasher {
   public async hash(password: string): Promise<string> {
     return hash(password, {

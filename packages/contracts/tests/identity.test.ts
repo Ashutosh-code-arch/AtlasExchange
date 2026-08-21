@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  loginRequestSchema,
   registerAcceptedResponseSchema,
   registerRequestSchema,
   resendVerificationAcceptedResponseSchema,
@@ -20,6 +21,22 @@ describe("Identity contracts", () => {
       email: "user@example.com",
       password: "correct horse battery staple",
     });
+  });
+
+  it("defines a strict login request without accepting session or role fields", () => {
+    expect(
+      loginRequestSchema.parse({
+        email: "  user@example.com  ",
+        password: "safe login password",
+      }),
+    ).toEqual({ email: "user@example.com", password: "safe login password" });
+    expect(
+      loginRequestSchema.safeParse({
+        email: "user@example.com",
+        password: "safe login password",
+        role: "admin",
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects malformed registration email addresses", () => {

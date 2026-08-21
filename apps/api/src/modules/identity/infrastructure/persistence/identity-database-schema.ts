@@ -1,5 +1,7 @@
 import type { ColumnType, JSONColumnType } from "kysely";
 
+import type { IdentityAccountState } from "../../domain/account-state.js";
+
 type GeneratedUuid = ColumnType<string, string | undefined, never>;
 type DatabaseTimestamp = ColumnType<Date, Date | string, Date | string>;
 type GeneratedTimestamp = ColumnType<Date, Date | string | undefined, Date | string>;
@@ -13,13 +15,11 @@ type JsonPrimitive = boolean | number | string | null;
 type JsonValue = JsonPrimitive | JsonValue[] | { readonly [key: string]: JsonValue };
 type JsonObject = { readonly [key: string]: JsonValue };
 
-export type IdentityUserState = "pending_verification" | "active" | "suspended" | "disabled";
-
 interface UsersTable {
   id: GeneratedUuid;
   display_email: string;
   normalized_email: string;
-  state: IdentityUserState;
+  state: IdentityAccountState;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
 }

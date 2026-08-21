@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   Argon2PasswordHasher,
   atlasArgon2Parameters,
+  atlasDummyPasswordHash,
 } from "../src/modules/identity/infrastructure/security/argon2-password-hasher.js";
 
 const password = "correct horse battery staple";
@@ -63,5 +64,11 @@ describe("Argon2PasswordHasher", () => {
   it("surfaces malformed stored hashes as persistence or operational failures", async () => {
     await expect(passwordHasher.verify(password, "not-a-phc-hash")).rejects.toThrow();
     expect(() => passwordHasher.needsRehash("not-a-phc-hash")).toThrow();
+  });
+
+  it("keeps unknown-account verification on the approved Argon2id path", async () => {
+    expect(atlasDummyPasswordHash).toMatch(/^\$argon2id\$v=19\$m=65536,p=1,t=3\$/);
+    expect(passwordHasher.needsRehash(atlasDummyPasswordHash)).toBe(false);
+    await expect(passwordHasher.verify(password, atlasDummyPasswordHash)).resolves.toBe(false);
   });
 });

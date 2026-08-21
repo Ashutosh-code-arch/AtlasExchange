@@ -6,6 +6,7 @@ import {
   maximumPasswordCodePoints,
   minimumPasswordCodePoints,
   normalizePassword,
+  normalizePasswordForAuthentication,
 } from "../src/modules/identity/domain/password.js";
 
 function expectValidationIssue(action: () => unknown, issue: string): void {
@@ -64,6 +65,15 @@ describe("Identity input validation", () => {
     );
     expect(normalizePassword("a".repeat(maximumPasswordCodePoints))).toHaveLength(
       maximumPasswordCodePoints,
+    );
+  });
+
+  it("normalizes login passwords without applying the password-creation minimum", () => {
+    expect(normalizePasswordForAuthentication("short")).toBe("short");
+    expectValidationIssue(() => normalizePasswordForAuthentication(""), "PASSWORD_TOO_SHORT");
+    expectValidationIssue(
+      () => normalizePasswordForAuthentication("a".repeat(maximumPasswordCodePoints + 1)),
+      "PASSWORD_TOO_LONG",
     );
   });
 });

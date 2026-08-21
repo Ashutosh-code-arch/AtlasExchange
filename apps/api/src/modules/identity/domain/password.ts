@@ -22,3 +22,17 @@ export function normalizePassword(input: string): NormalizedPassword {
 
   return normalized as NormalizedPassword;
 }
+
+export function normalizePasswordForAuthentication(input: string): NormalizedPassword {
+  const normalized = input.normalize("NFC");
+  const codePointLength = Array.from(normalized).length;
+
+  if (codePointLength === 0) {
+    throw new IdentityInputValidationError("password", "PASSWORD_TOO_SHORT");
+  }
+  if (codePointLength > maximumPasswordCodePoints) {
+    throw new IdentityInputValidationError("password", "PASSWORD_TOO_LONG");
+  }
+
+  return normalized as NormalizedPassword;
+}

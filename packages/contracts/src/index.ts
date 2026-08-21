@@ -1,10 +1,12 @@
 export {
+  loginRequestSchema,
   registerAcceptedResponseSchema,
   registerRequestSchema,
   resendVerificationAcceptedResponseSchema,
   resendVerificationRequestSchema,
   verifyEmailRequestSchema,
   type RegisterAcceptedResponse,
+  type LoginRequest,
   type RegisterRequest,
   type ResendVerificationAcceptedResponse,
   type ResendVerificationRequest,
