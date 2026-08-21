@@ -96,11 +96,14 @@ export function createApp(options: CreateAppOptions): Express {
   const errorHandler: ErrorRequestHandler = (error: unknown, request, response, _next) => {
     const isKnownError = error instanceof AppError;
     const statusCode = isKnownError ? error.statusCode : 500;
+    const requestIdHeader = response.getHeader("x-request-id");
+    const requestId = typeof requestIdHeader === "string" ? requestIdHeader : "unavailable";
     const body: ApiErrorResponse = {
       success: false,
       error: {
         code: isKnownError ? error.code : "INTERNAL_SERVER_ERROR",
         message: isKnownError ? error.message : "An unexpected error occurred.",
+        requestId,
       },
     };
 

@@ -36,7 +36,7 @@ describe("system contracts", () => {
     expect(
       apiErrorResponseSchema.safeParse({
         success: false,
-        error: { code: "NOT_FOUND", message: "Route not found." },
+        error: { code: "NOT_FOUND", message: "Route not found.", requestId: "atlas-request" },
       }).success,
     ).toBe(true);
   });

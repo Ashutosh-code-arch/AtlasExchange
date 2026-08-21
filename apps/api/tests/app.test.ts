@@ -72,12 +72,18 @@ describe("API application", () => {
 
   it("returns a safe structured error for unknown routes", async () => {
     const { app } = createTestApp();
-    const response = await request(app).get("/missing");
+    const response = await request(app)
+      .get("/missing")
+      .set("x-request-id", "atlas-missing-request");
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({
       success: false,
-      error: { code: "ROUTE_NOT_FOUND", message: "Route GET /missing not found." },
+      error: {
+        code: "ROUTE_NOT_FOUND",
+        message: "Route GET /missing not found.",
+        requestId: "atlas-missing-request",
+      },
     });
     expect(response.body).not.toHaveProperty("stack");
   });
