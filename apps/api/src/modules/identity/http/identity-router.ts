@@ -3,6 +3,7 @@ import {
   loginSuccessResponseSchema,
   currentUserResponseSchema,
   sessionsResponseSchema,
+  revokeSessionParamsSchema,
   logoutRequestSchema,
   logoutAllRequestSchema,
   refreshRequestSchema,
@@ -23,6 +24,7 @@ import { AppError } from "../../../http/errors/app-error.js";
 import type { LoginUser } from "../application/login-user.js";
 import type { AuthenticateAccess } from "../application/authenticate-access.js";
 import type { ListSessions } from "../application/list-sessions.js";
+import type { RevokeSession } from "../application/revoke-session.js";
 import type { LogoutSession } from "../application/logout-session.js";
 import type { LogoutAllSessions } from "../application/logout-all-sessions.js";
 import type { RegisterUser } from "../application/register-user.js";
@@ -45,6 +47,7 @@ import { getAuthenticationState, requireAuthentication } from "./require-authent
 export interface IdentityRouterOptions {
   readonly authenticateAccess: Pick<AuthenticateAccess, "execute">;
   readonly listSessions: Pick<ListSessions, "execute">;
+  readonly revokeSession: Pick<RevokeSession, "execute">;
   readonly loginUser: Pick<LoginUser, "execute">;
   readonly logoutSession: Pick<LogoutSession, "execute">;
   readonly logoutAllSessions: Pick<LogoutAllSessions, "execute">;
@@ -73,6 +76,16 @@ function requirePreSessionJsonRequest(webOrigin: string): RequestHandler {
       return;
     }
 
+    next();
+  };
+}
+
+function requireExactOrigin(webOrigin: string): RequestHandler {
+  return (request, _response, next) => {
+    if (request.get("origin") !== webOrigin) {
+      next(new AppError(403, "CSRF_FAILED", "Request origin is not allowed."));
+      return;
+    }
     next();
   };
 }
@@ -118,6 +131,43 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
         },
       });
       response.status(200).json(body);
+    },
+  );
+
+  router.delete(
+    "/sessions/:sessionId",
+    requireExactOrigin(options.webOrigin),
+    requireAuthentication({
+      authenticateAccess: options.authenticateAccess,
+      secureCookies: options.secureCookies,
+    }),
+    async (request, response, next) => {
+      const parsedParams = revokeSessionParamsSchema.safeParse(request.params);
+      if (!parsedParams.success) {
+        next(new AppError(400, "VALIDATION_FAILED", "Session revocation request is invalid."));
+        return;
+      }
+
+      try {
+        const authentication = getAuthenticationState(request);
+        const names = authenticationCookieNames(options.secureCookies);
+        const result = await options.revokeSession.execute({
+          context: authentication.context,
+          targetSessionId: parsedParams.data.sessionId,
+          csrfCookie: readRequestCookie(request, names.csrf),
+          csrfHeader: request.get("x-csrf-token"),
+        });
+        if (result.status === "csrf_failed") {
+          next(new AppError(403, "CSRF_FAILED", "CSRF validation failed."));
+          return;
+        }
+        if (result.revokedCurrentSession) {
+          clearSessionCookies(response, options.secureCookies);
+        }
+        response.status(204).end();
+      } catch (error) {
+        next(error);
+      }
     },
   );
 

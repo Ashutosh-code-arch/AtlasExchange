@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   currentUserResponseSchema,
   sessionsResponseSchema,
+  revokeSessionParamsSchema,
   loginRequestSchema,
   loginSuccessResponseSchema,
   logoutRequestSchema,
@@ -80,6 +81,23 @@ describe("session-list contract", () => {
       sessionsResponseSchema.safeParse({
         success: true,
         data: { sessions: [{ ...session, accessToken: "must-not-cross-the-contract" }] },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("session-revocation parameter contract", () => {
+  it("accepts only a UUID session identifier", () => {
+    expect(
+      revokeSessionParamsSchema.parse({
+        sessionId: "22222222-2222-4222-8222-222222222222",
+      }),
+    ).toEqual({ sessionId: "22222222-2222-4222-8222-222222222222" });
+    expect(revokeSessionParamsSchema.safeParse({ sessionId: "not-a-uuid" }).success).toBe(false);
+    expect(
+      revokeSessionParamsSchema.safeParse({
+        sessionId: "22222222-2222-4222-8222-222222222222",
+        userId: "must-not-be-accepted",
       }).success,
     ).toBe(false);
   });

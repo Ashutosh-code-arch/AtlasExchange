@@ -13,6 +13,7 @@ import {
   type IdentityDatabaseSchema,
 } from "../src/modules/identity/index.js";
 import { CryptoSessionCsrfTokenService } from "../src/modules/identity/infrastructure/security/crypto-session-csrf-token-service.js";
+import { Argon2PasswordHasher } from "../src/modules/identity/infrastructure/security/argon2-password-hasher.js";
 import { LifecycleState } from "../src/platform/lifecycle/lifecycle-state.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
 
@@ -402,6 +403,99 @@ describe("composed registration HTTP flow", () => {
     expect(event).toEqual({
       event_type: "identity.logout",
       request_id: "composed-logout-request",
+    });
+  });
+
+  it("revokes the current composed session and makes its access credential unusable", async () => {
+    const credentials = {
+      email: "revoke-current-composed@example.com",
+      password: "unique composed target revocation passphrase",
+    };
+    const user = await database
+      .insertInto("identity.users")
+      .values({
+        display_email: credentials.email,
+        normalized_email: credentials.email,
+        state: "active",
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await database
+      .insertInto("identity.password_credentials")
+      .values({
+        user_id: user.id,
+        password_hash: await new Argon2PasswordHasher().hash(credentials.password),
+      })
+      .execute();
+    await database
+      .insertInto("identity.user_roles")
+      .values({ user_id: user.id, role_code: "user" })
+      .execute();
+
+    const login = await request(app)
+      .post("/api/v1/auth/login")
+      .set("origin", webOrigin)
+      .send(credentials);
+    const loginCookies = login.headers["set-cookie"];
+    if (!Array.isArray(loginCookies)) {
+      throw new Error("Expected composed session-revocation login cookies");
+    }
+    const accessCredential = cookieValue(loginCookies, "atlas_access");
+    const csrfToken = cookieValue(loginCookies, "atlas_csrf");
+    const session = await database
+      .selectFrom("identity.sessions")
+      .select("id")
+      .where("user_id", "=", user.id)
+      .executeTakeFirstOrThrow();
+
+    const revocation = await request(app)
+      .delete(`/api/v1/auth/sessions/${session.id}`)
+      .set("origin", webOrigin)
+      .set("x-request-id", "composed-target-revoke-request")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", [`atlas_access=${accessCredential}`, `atlas_csrf=${csrfToken}`]);
+
+    expect(revocation.status).toBe(204);
+    expect(revocation.headers["set-cookie"]).toHaveLength(3);
+    const revokedSession = await database
+      .selectFrom("identity.sessions")
+      .select(["revoked_at", "revocation_reason"])
+      .where("id", "=", session.id)
+      .executeTakeFirstOrThrow();
+    const activeAccessTokens = await database
+      .selectFrom("identity.access_tokens")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("session_id", "=", session.id)
+      .where("revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    const activeRefreshTokens = await database
+      .selectFrom("identity.refresh_tokens")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("session_id", "=", session.id)
+      .where("revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    const event = await database
+      .selectFrom("identity.security_events")
+      .select(["event_type", "request_id", "metadata"])
+      .where("session_id", "=", session.id)
+      .where("event_type", "=", "identity.session.revoked")
+      .executeTakeFirstOrThrow();
+    expect(revokedSession.revoked_at).toBeInstanceOf(Date);
+    expect(revokedSession.revocation_reason).toBe("user_revoked_session");
+    expect(activeAccessTokens.count).toBe("0");
+    expect(activeRefreshTokens.count).toBe("0");
+    expect(event).toEqual({
+      event_type: "identity.session.revoked",
+      request_id: "composed-target-revoke-request",
+      metadata: { actorSessionId: session.id },
+    });
+
+    const currentUser = await request(app)
+      .get("/api/v1/auth/me")
+      .set("Cookie", `atlas_access=${accessCredential}`);
+    expect(currentUser.status).toBe(401);
+    expect(currentUser.body).toMatchObject({
+      error: { code: "AUTHENTICATION_REQUIRED" },
     });
   });
 });

@@ -17,6 +17,7 @@ import { PostgresLogoutAllSessionsTransactionRunner } from "../src/modules/ident
 import { PostgresPasswordAccountReader } from "../src/modules/identity/infrastructure/persistence/postgres-password-account-reader.js";
 import { PostgresRegistrationTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-registration-transaction-runner.js";
 import { PostgresRefreshSessionTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-refresh-session-transaction-runner.js";
+import { PostgresRevokeSessionTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-revoke-session-transaction-runner.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
 
 const baseDatabaseUrl =
@@ -41,6 +42,7 @@ const loginSessionRunner = new PostgresLoginSessionTransactionRunner(database);
 const logoutSessionRunner = new PostgresLogoutSessionTransactionRunner(database);
 const logoutAllSessionsRunner = new PostgresLogoutAllSessionsTransactionRunner(database);
 const refreshSessionRunner = new PostgresRefreshSessionTransactionRunner(database);
+const revokeSessionRunner = new PostgresRevokeSessionTransactionRunner(database);
 const accountReader = new PostgresPasswordAccountReader(database);
 const issuedAt = new Date("2026-08-22T12:00:00.000Z");
 
@@ -647,6 +649,118 @@ describe("PostgreSQL login-session persistence", () => {
       request_id: input.requestId,
       metadata: { revokedSessionCount: 2 },
     });
+  });
+
+  it("revokes only an owned target session and keeps repeats and foreign IDs idempotent", async () => {
+    const account = await createUser("target-revoke@example.com", "active", 15);
+    const actor = await issueRefreshFixture(account, 160);
+    const target = await issueRefreshFixture(account, 162);
+    const foreign = await createRefreshFixture("foreign-revoke@example.com", 16, 164);
+    const revokedAt = new Date("2026-08-22T12:05:00.000Z");
+    const input = {
+      actorUserId: account.userId,
+      actorSessionId: actor.sessionId,
+      targetSessionId: target.sessionId,
+      revokedAt,
+      requestId: "target-session-revoke",
+    };
+
+    await expect(
+      revokeSessionRunner.execute((transaction) => transaction.revokeOwnedSession(input)),
+    ).resolves.toEqual({ status: "revoked" });
+    await expect(
+      revokeSessionRunner.execute((transaction) => transaction.revokeOwnedSession(input)),
+    ).resolves.toEqual({ status: "not_active" });
+    await expect(
+      revokeSessionRunner.execute((transaction) =>
+        transaction.revokeOwnedSession({ ...input, targetSessionId: foreign.sessionId }),
+      ),
+    ).resolves.toEqual({ status: "not_active" });
+
+    const sessions = await database
+      .selectFrom("identity.sessions")
+      .select(["id", "revoked_at", "revocation_reason"])
+      .where("id", "in", [actor.sessionId, target.sessionId, foreign.sessionId])
+      .execute();
+    const activeTargetAccessTokens = await database
+      .selectFrom("identity.access_tokens")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("session_id", "=", target.sessionId)
+      .where("revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    const activeTargetRefreshTokens = await database
+      .selectFrom("identity.refresh_tokens")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("session_id", "=", target.sessionId)
+      .where("revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    const events = await database
+      .selectFrom("identity.security_events")
+      .select(["event_type", "session_id", "request_id", "metadata"])
+      .where("event_type", "=", "identity.session.revoked")
+      .where("session_id", "=", target.sessionId)
+      .execute();
+
+    expect(sessions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: actor.sessionId, revoked_at: null }),
+        expect.objectContaining({ id: foreign.sessionId, revoked_at: null }),
+        {
+          id: target.sessionId,
+          revoked_at: revokedAt,
+          revocation_reason: "user_revoked_session",
+        },
+      ]),
+    );
+    expect(activeTargetAccessTokens.count).toBe("0");
+    expect(activeTargetRefreshTokens.count).toBe("0");
+    expect(events).toEqual([
+      {
+        event_type: "identity.session.revoked",
+        session_id: target.sessionId,
+        request_id: input.requestId,
+        metadata: { actorSessionId: actor.sessionId },
+      },
+    ]);
+  });
+
+  it("cannot leave target credentials active when revocation races with refresh", async () => {
+    const account = await createUser("target-revoke-race@example.com", "active", 17);
+    const actor = await issueRefreshFixture(account, 170);
+    const target = await issueRefreshFixture(account, 172);
+    const endedAt = new Date("2026-08-22T12:05:00.000Z");
+
+    const [refreshResult, revokeResult] = await Promise.all([
+      refreshSessionRunner.execute((transaction) =>
+        transaction.rotate(refreshInput(target, 174, endedAt)),
+      ),
+      revokeSessionRunner.execute((transaction) =>
+        transaction.revokeOwnedSession({
+          actorUserId: account.userId,
+          actorSessionId: actor.sessionId,
+          targetSessionId: target.sessionId,
+          revokedAt: endedAt,
+          requestId: "target-session-revoke-race",
+        }),
+      ),
+    ]);
+
+    expect(["invalid_credential", "rotated"]).toContain(refreshResult.status);
+    expect(revokeResult).toEqual({ status: "revoked" });
+    const activeAccessTokens = await database
+      .selectFrom("identity.access_tokens")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("session_id", "=", target.sessionId)
+      .where("revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    const activeRefreshTokens = await database
+      .selectFrom("identity.refresh_tokens")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("session_id", "=", target.sessionId)
+      .where("revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    expect(activeAccessTokens.count).toBe("0");
+    expect(activeRefreshTokens.count).toBe("0");
   });
 
   it("serializes logout-all with a refresh on another device without deadlock", async () => {

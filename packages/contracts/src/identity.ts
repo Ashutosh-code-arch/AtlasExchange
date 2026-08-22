@@ -48,6 +48,10 @@ export const sessionsResponseSchema = z.strictObject({
   }),
 });
 
+export const revokeSessionParamsSchema = z.strictObject({
+  sessionId: z.uuid(),
+});
+
 export const registerAcceptedResponseSchema = z.strictObject({
   success: z.literal(true),
   data: z.strictObject({}),
@@ -73,6 +77,7 @@ export type IdentityRole = z.infer<typeof identityRoleSchema>;
 export type CurrentUserResponse = z.infer<typeof currentUserResponseSchema>;
 export type SessionSummary = z.infer<typeof sessionSummarySchema>;
 export type SessionsResponse = z.infer<typeof sessionsResponseSchema>;
+export type RevokeSessionParams = z.infer<typeof revokeSessionParamsSchema>;
 export type RegisterAcceptedResponse = z.infer<typeof registerAcceptedResponseSchema>;
 export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
 export type ResendVerificationRequest = z.infer<typeof resendVerificationRequestSchema>;

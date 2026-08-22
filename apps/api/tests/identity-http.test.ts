@@ -12,6 +12,7 @@ import type { RegisterUser } from "../src/modules/identity/application/register-
 import type { RefreshSession } from "../src/modules/identity/application/refresh-session.js";
 import type { RegistrationRateLimiter } from "../src/modules/identity/application/registration-rate-limiter.js";
 import type { ResendVerification } from "../src/modules/identity/application/resend-verification.js";
+import type { RevokeSession } from "../src/modules/identity/application/revoke-session.js";
 import type { SessionCsrfTokenService } from "../src/modules/identity/application/session-csrf-token-service.js";
 import type { VerifyEmail } from "../src/modules/identity/application/verify-email.js";
 import { IdentityInputValidationError } from "../src/modules/identity/domain/identity-input-validation-error.js";
@@ -95,6 +96,7 @@ function createTestApp(
     readonly refreshSession?: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
     readonly refreshRateLimiter?: RegistrationRateLimiter;
     readonly resendVerification?: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
+    readonly revokeSession?: ReturnType<typeof vi.fn<RevokeSession["execute"]>>;
     readonly resendVerificationRateLimiter?: RegistrationRateLimiter;
     readonly sessionCsrfIssue?: ReturnType<typeof vi.fn<SessionCsrfTokenService["issue"]>>;
     readonly secureCookies?: boolean;
@@ -110,6 +112,7 @@ function createTestApp(
   readonly refreshSession: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
   readonly verifyEmail: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
   readonly resendVerification: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
+  readonly revokeSession: ReturnType<typeof vi.fn<RevokeSession["execute"]>>;
   readonly sessionCsrfIssue: ReturnType<typeof vi.fn<SessionCsrfTokenService["issue"]>>;
 } {
   const execute =
@@ -150,9 +153,16 @@ function createTestApp(
   const resendVerification =
     options.resendVerification ??
     vi.fn<ResendVerification["execute"]>().mockResolvedValue({ status: "not_issued" });
+  const revokeSession =
+    options.revokeSession ??
+    vi.fn<RevokeSession["execute"]>().mockResolvedValue({
+      status: "completed",
+      revokedCurrentSession: false,
+    });
   const identityRouter = createIdentityRouter({
     authenticateAccess: { execute: authenticateAccess },
     listSessions: { execute: listSessions },
+    revokeSession: { execute: revokeSession },
     registerUser: { execute },
     refreshSession: { execute: refreshSession },
     loginUser: { execute: loginUser },
@@ -198,6 +208,7 @@ function createTestApp(
     refreshSession,
     verifyEmail,
     resendVerification,
+    revokeSession,
     sessionCsrfIssue,
   };
 }
@@ -302,6 +313,91 @@ describe("Identity session-listing HTTP API", () => {
     expect(response.status).toBe(401);
     expect(response.body).toMatchObject({ error: { code: "AUTHENTICATION_REQUIRED" } });
     expect(listSessions).not.toHaveBeenCalled();
+  });
+});
+
+describe("Identity session-revocation HTTP API", () => {
+  const otherSessionId = "33333333-3333-4333-8333-333333333333";
+
+  function deleteSession(
+    app: ReturnType<typeof createApp>,
+    sessionId = otherSessionId,
+  ): request.Test {
+    return request(app)
+      .delete(`/api/v1/auth/sessions/${sessionId}`)
+      .set("origin", webOrigin)
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", ["atlas_access=access-id.access-secret", `atlas_csrf=${csrfToken}`]);
+  }
+
+  it("revokes another owned session without clearing the current browser", async () => {
+    const { app, revokeSession } = createTestApp();
+
+    const response = await deleteSession(app);
+
+    expect(response.status).toBe(204);
+    expect(response.headers["set-cookie"]).toBeUndefined();
+    expect(revokeSession).toHaveBeenCalledWith({
+      context: authenticatedAccess.context,
+      targetSessionId: otherSessionId,
+      csrfCookie: csrfToken,
+      csrfHeader: csrfToken,
+    });
+  });
+
+  it("clears all cookies when the current session revokes itself", async () => {
+    const revokeSession = vi.fn<RevokeSession["execute"]>().mockResolvedValue({
+      status: "completed",
+      revokedCurrentSession: true,
+    });
+    const { app } = createTestApp({ revokeSession });
+
+    const response = await deleteSession(app, authenticatedAccess.context.sessionId);
+
+    expect(response.status).toBe(204);
+    expect(setCookies(response)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^atlas_access=; Path=\/; Expires=/),
+        expect.stringMatching(/^atlas_refresh=; Path=\/api\/v1\/auth; Expires=/),
+        expect.stringMatching(/^atlas_csrf=; Path=\/; Expires=/),
+      ]),
+    );
+  });
+
+  it("requires exact origin before access authentication", async () => {
+    const { app, authenticateAccess, revokeSession } = createTestApp();
+
+    const response = await request(app)
+      .delete(`/api/v1/auth/sessions/${otherSessionId}`)
+      .set("cookie", "atlas_access=access-id.access-secret");
+
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ error: { code: "CSRF_FAILED" } });
+    expect(authenticateAccess).not.toHaveBeenCalled();
+    expect(revokeSession).not.toHaveBeenCalled();
+  });
+
+  it("maps invalid CSRF without revoking or clearing cookies", async () => {
+    const revokeSession = vi
+      .fn<RevokeSession["execute"]>()
+      .mockResolvedValue({ status: "csrf_failed" });
+    const { app } = createTestApp({ revokeSession });
+
+    const response = await deleteSession(app);
+
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ error: { code: "CSRF_FAILED" } });
+    expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("rejects malformed session IDs before revocation", async () => {
+    const { app, revokeSession } = createTestApp();
+
+    const response = await deleteSession(app, "not-a-session-id");
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ error: { code: "VALIDATION_FAILED" } });
+    expect(revokeSession).not.toHaveBeenCalled();
   });
 });
 
