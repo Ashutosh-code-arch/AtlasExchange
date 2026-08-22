@@ -231,6 +231,22 @@ describe("composed registration HTTP flow", () => {
     });
     expect(new CryptoSessionCsrfTokenService(csrfHmacKey).verify(session.id, csrfToken)).toBe(true);
 
+    const currentUserResponse = await request(app)
+      .get("/api/v1/auth/me")
+      .set("x-request-id", "composed-current-user-request")
+      .set("Cookie", `atlas_access=${accessCredential}`);
+    expect(currentUserResponse.status).toBe(200);
+    expect(currentUserResponse.body).toEqual({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          email: credentials.email,
+          roles: ["user"],
+        },
+      },
+    });
+
     const refreshResponse = await request(app)
       .post("/api/v1/auth/refresh")
       .set("origin", webOrigin)

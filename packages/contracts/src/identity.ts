@@ -19,6 +19,19 @@ export const refreshRequestSchema = z.strictObject({});
 export const logoutRequestSchema = z.strictObject({});
 export const logoutAllRequestSchema = z.strictObject({});
 
+export const identityRoleSchema = z.enum(["user", "admin"]);
+
+export const currentUserResponseSchema = z.strictObject({
+  success: z.literal(true),
+  data: z.strictObject({
+    user: z.strictObject({
+      id: z.uuid(),
+      email: z.email().max(254),
+      roles: z.array(identityRoleSchema).min(1),
+    }),
+  }),
+});
+
 export const registerAcceptedResponseSchema = z.strictObject({
   success: z.literal(true),
   data: z.strictObject({}),
@@ -40,6 +53,8 @@ export type LoginSuccessResponse = z.infer<typeof loginSuccessResponseSchema>;
 export type RefreshRequest = z.infer<typeof refreshRequestSchema>;
 export type LogoutRequest = z.infer<typeof logoutRequestSchema>;
 export type LogoutAllRequest = z.infer<typeof logoutAllRequestSchema>;
+export type IdentityRole = z.infer<typeof identityRoleSchema>;
+export type CurrentUserResponse = z.infer<typeof currentUserResponseSchema>;
 export type RegisterAcceptedResponse = z.infer<typeof registerAcceptedResponseSchema>;
 export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
 export type ResendVerificationRequest = z.infer<typeof resendVerificationRequestSchema>;

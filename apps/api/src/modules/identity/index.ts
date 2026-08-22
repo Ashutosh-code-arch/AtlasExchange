@@ -2,6 +2,7 @@ import type { Router } from "express";
 import type { Kysely } from "kysely";
 
 import { AuthenticatePassword } from "./application/authenticate-password.js";
+import { AuthenticateAccess } from "./application/authenticate-access.js";
 import { LoginUser } from "./application/login-user.js";
 import { LogoutSession } from "./application/logout-session.js";
 import { LogoutAllSessions } from "./application/logout-all-sessions.js";
@@ -13,6 +14,7 @@ import { VerifyEmail } from "./application/verify-email.js";
 import { createIdentityRouter } from "./http/identity-router.js";
 import type { IdentityDatabaseSchema } from "./infrastructure/persistence/identity-database-schema.js";
 import { PostgresEmailVerificationTransactionRunner } from "./infrastructure/persistence/postgres-email-verification-transaction-runner.js";
+import { PostgresAccessSessionAuthenticator } from "./infrastructure/persistence/postgres-access-session-authenticator.js";
 import { PostgresLoginSessionTransactionRunner } from "./infrastructure/persistence/postgres-login-session-transaction-runner.js";
 import { PostgresLogoutSessionTransactionRunner } from "./infrastructure/persistence/postgres-logout-session-transaction-runner.js";
 import { PostgresLogoutAllSessionsTransactionRunner } from "./infrastructure/persistence/postgres-logout-all-sessions-transaction-runner.js";
@@ -32,6 +34,13 @@ import { LocalCompromisedPasswordChecker } from "./infrastructure/security/local
 
 export type { IdentityDatabaseSchema } from "./infrastructure/persistence/identity-database-schema.js";
 export { createIdentityRouter, type IdentityRouterOptions } from "./http/identity-router.js";
+export {
+  getAuthenticationState,
+  requireAuthentication,
+  type AuthenticationState,
+  type RequireAuthenticationOptions,
+} from "./http/require-authentication.js";
+export type { AuthenticatedContext, IdentityRole } from "./application/authenticated-context.js";
 export {
   SmtpVerificationEmailDelivery,
   type SmtpVerificationEmailDeliveryOptions,
@@ -54,6 +63,9 @@ export async function createIdentityModuleRouter(
   const compromisedPasswordChecker = await LocalCompromisedPasswordChecker.fromFile(
     options.passwordBlocklistPath,
   );
+  const authenticateAccess = new AuthenticateAccess({
+    accessSessionAuthenticator: new PostgresAccessSessionAuthenticator(options.database),
+  });
   const passwordHasher = new Argon2PasswordHasher();
   const authenticatePassword = new AuthenticatePassword({
     passwordAccountReader: new PostgresPasswordAccountReader(options.database),
@@ -100,6 +112,7 @@ export async function createIdentityModuleRouter(
   });
 
   return createIdentityRouter({
+    authenticateAccess,
     loginUser,
     logoutSession,
     logoutAllSessions,

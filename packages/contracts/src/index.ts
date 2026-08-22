@@ -1,4 +1,6 @@
 export {
+  currentUserResponseSchema,
+  identityRoleSchema,
   loginRequestSchema,
   loginSuccessResponseSchema,
   logoutRequestSchema,
@@ -10,6 +12,8 @@ export {
   resendVerificationRequestSchema,
   verifyEmailRequestSchema,
   type RegisterAcceptedResponse,
+  type CurrentUserResponse,
+  type IdentityRole,
   type LoginRequest,
   type LoginSuccessResponse,
   type LogoutRequest,

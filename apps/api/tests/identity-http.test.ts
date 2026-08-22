@@ -3,6 +3,7 @@ import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../src/app.js";
+import type { AuthenticateAccess } from "../src/modules/identity/application/authenticate-access.js";
 import type { LoginUser } from "../src/modules/identity/application/login-user.js";
 import type { LogoutSession } from "../src/modules/identity/application/logout-session.js";
 import type { LogoutAllSessions } from "../src/modules/identity/application/logout-all-sessions.js";
@@ -42,6 +43,16 @@ const authenticatedLogin = {
   },
 };
 const csrfToken = `${"n".repeat(43)}.${"s".repeat(43)}`;
+const authenticatedAccess = {
+  status: "authenticated" as const,
+  context: {
+    userId: "11111111-1111-4111-8111-111111111111",
+    sessionId: "22222222-2222-4222-8222-222222222222",
+    authorization: { roles: ["user"] as const },
+    requestId: "current-user-request",
+  },
+  user: { email: "User@Example.com" },
+};
 const rotatedRefresh = {
   status: "rotated" as const,
   session: {
@@ -61,6 +72,7 @@ const rotatedRefresh = {
 function createTestApp(
   options: {
     readonly execute?: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
+    readonly authenticateAccess?: ReturnType<typeof vi.fn<AuthenticateAccess["execute"]>>;
     readonly loginUser?: ReturnType<typeof vi.fn<LoginUser["execute"]>>;
     readonly loginRateLimiter?: RegistrationRateLimiter;
     readonly logoutSession?: ReturnType<typeof vi.fn<LogoutSession["execute"]>>;
@@ -78,6 +90,7 @@ function createTestApp(
 ): {
   readonly app: ReturnType<typeof createApp>;
   readonly execute: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
+  readonly authenticateAccess: ReturnType<typeof vi.fn<AuthenticateAccess["execute"]>>;
   readonly loginUser: ReturnType<typeof vi.fn<LoginUser["execute"]>>;
   readonly logoutSession: ReturnType<typeof vi.fn<LogoutSession["execute"]>>;
   readonly logoutAllSessions: ReturnType<typeof vi.fn<LogoutAllSessions["execute"]>>;
@@ -100,6 +113,9 @@ function createTestApp(
   const registrationRateLimiter = options.registrationRateLimiter ?? {
     consume: () => ({ allowed: true as const }),
   };
+  const authenticateAccess =
+    options.authenticateAccess ??
+    vi.fn<AuthenticateAccess["execute"]>().mockResolvedValue(authenticatedAccess);
   const loginUser =
     options.loginUser ?? vi.fn<LoginUser["execute"]>().mockResolvedValue(authenticatedLogin);
   const logoutSession =
@@ -120,6 +136,7 @@ function createTestApp(
     options.resendVerification ??
     vi.fn<ResendVerification["execute"]>().mockResolvedValue({ status: "not_issued" });
   const identityRouter = createIdentityRouter({
+    authenticateAccess: { execute: authenticateAccess },
     registerUser: { execute },
     refreshSession: { execute: refreshSession },
     loginUser: { execute: loginUser },
@@ -157,6 +174,7 @@ function createTestApp(
       identityRouter,
     }),
     execute,
+    authenticateAccess,
     loginUser,
     logoutSession,
     logoutAllSessions,
@@ -166,6 +184,66 @@ function createTestApp(
     sessionCsrfIssue,
   };
 }
+
+describe("Identity current-user HTTP API", () => {
+  it("authenticates the access cookie and returns the current identity without credentials", async () => {
+    const { app, authenticateAccess } = createTestApp();
+
+    const response = await request(app)
+      .get("/api/v1/auth/me")
+      .set("cookie", "atlas_access=access-id.access-secret")
+      .set("x-request-id", "current-user-request");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.body).toEqual({
+      success: true,
+      data: {
+        user: {
+          id: "11111111-1111-4111-8111-111111111111",
+          email: "User@Example.com",
+          roles: ["user"],
+        },
+      },
+    });
+    expect(JSON.stringify(response.body)).not.toMatch(/access-secret|sessionId|requestId/);
+    expect(authenticateAccess).toHaveBeenCalledWith({
+      accessCredential: "access-id.access-secret",
+      requestId: "current-user-request",
+    });
+  });
+
+  it("returns the standard authentication error when the access cookie is missing or invalid", async () => {
+    const authenticateAccess = vi
+      .fn<AuthenticateAccess["execute"]>()
+      .mockResolvedValue({ status: "authentication_required" });
+    const { app } = createTestApp({ authenticateAccess });
+
+    const response = await request(app)
+      .get("/api/v1/auth/me")
+      .set("x-request-id", "missing-access-request");
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({ error: { code: "AUTHENTICATION_REQUIRED" } });
+    expect(authenticateAccess).toHaveBeenCalledWith({
+      accessCredential: "",
+      requestId: "missing-access-request",
+    });
+  });
+
+  it("reads the secure access-cookie name when secure cookies are enabled", async () => {
+    const { app, authenticateAccess } = createTestApp({ secureCookies: true });
+
+    const response = await request(app)
+      .get("/api/v1/auth/me")
+      .set("cookie", "__Host-atlas_access=secure-access-credential");
+
+    expect(response.status).toBe(200);
+    expect(authenticateAccess).toHaveBeenCalledWith(
+      expect.objectContaining({ accessCredential: "secure-access-credential" }),
+    );
+  });
+});
 
 function postRegistration(app: ReturnType<typeof createApp>): request.Test {
   return request(app).post("/api/v1/auth/register").set("origin", webOrigin);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  currentUserResponseSchema,
   loginRequestSchema,
   loginSuccessResponseSchema,
   logoutRequestSchema,
@@ -13,6 +14,48 @@ import {
   verifyEmailRequestSchema,
   type RegisterRequest,
 } from "../src/index.js";
+
+describe("current-user contract", () => {
+  it("accepts the explicit current identity response", () => {
+    expect(
+      currentUserResponseSchema.parse({
+        success: true,
+        data: {
+          user: {
+            id: "11111111-1111-4111-8111-111111111111",
+            email: "User@Example.com",
+            roles: ["user"],
+          },
+        },
+      }),
+    ).toEqual({
+      success: true,
+      data: {
+        user: {
+          id: "11111111-1111-4111-8111-111111111111",
+          email: "User@Example.com",
+          roles: ["user"],
+        },
+      },
+    });
+  });
+
+  it("rejects unknown roles and additional identity fields", () => {
+    expect(
+      currentUserResponseSchema.safeParse({
+        success: true,
+        data: {
+          user: {
+            id: "11111111-1111-4111-8111-111111111111",
+            email: "user@example.com",
+            roles: ["superuser"],
+            accessCredential: "must-not-cross-the-contract",
+          },
+        },
+      }).success,
+    ).toBe(false);
+  });
+});
 
 describe("Identity contracts", () => {
   it("accepts and trims a registration request", () => {

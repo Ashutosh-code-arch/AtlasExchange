@@ -1,6 +1,7 @@
 import {
   loginRequestSchema,
   loginSuccessResponseSchema,
+  currentUserResponseSchema,
   logoutRequestSchema,
   logoutAllRequestSchema,
   refreshRequestSchema,
@@ -11,12 +12,14 @@ import {
   verifyEmailRequestSchema,
   type RegisterAcceptedResponse,
   type LoginSuccessResponse,
+  type CurrentUserResponse,
   type ResendVerificationAcceptedResponse,
 } from "@atlas/contracts";
 import { Router, type RequestHandler } from "express";
 
 import { AppError } from "../../../http/errors/app-error.js";
 import type { LoginUser } from "../application/login-user.js";
+import type { AuthenticateAccess } from "../application/authenticate-access.js";
 import type { LogoutSession } from "../application/logout-session.js";
 import type { LogoutAllSessions } from "../application/logout-all-sessions.js";
 import type { RegisterUser } from "../application/register-user.js";
@@ -34,8 +37,10 @@ import {
   setLoginCookies,
   setRotatedAuthenticationCookies,
 } from "./authentication-cookies.js";
+import { getAuthenticationState, requireAuthentication } from "./require-authentication.js";
 
 export interface IdentityRouterOptions {
+  readonly authenticateAccess: Pick<AuthenticateAccess, "execute">;
   readonly loginUser: Pick<LoginUser, "execute">;
   readonly logoutSession: Pick<LogoutSession, "execute">;
   readonly logoutAllSessions: Pick<LogoutAllSessions, "execute">;
@@ -89,6 +94,28 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
     response.setHeader("cache-control", "no-store");
     next();
   });
+
+  router.get(
+    "/me",
+    requireAuthentication({
+      authenticateAccess: options.authenticateAccess,
+      secureCookies: options.secureCookies,
+    }),
+    (request, response) => {
+      const authentication = getAuthenticationState(request);
+      const body: CurrentUserResponse = currentUserResponseSchema.parse({
+        success: true,
+        data: {
+          user: {
+            id: authentication.context.userId,
+            email: authentication.user.email,
+            roles: authentication.context.authorization.roles,
+          },
+        },
+      });
+      response.status(200).json(body);
+    },
+  );
 
   router.post(
     "/login",
