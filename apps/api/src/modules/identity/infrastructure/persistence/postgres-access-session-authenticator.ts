@@ -6,8 +6,8 @@ import type {
   AuthenticatedAccessSession,
 } from "../../application/access-session-authenticator.js";
 import { identityRoles, type IdentityRole } from "../../application/authenticated-context.js";
+import { sessionInactivityLifetimeMilliseconds } from "../../application/session-policy.js";
 import type { IdentityDatabaseSchema } from "./identity-database-schema.js";
-import { sessionInactivityLifetimeMilliseconds } from "./postgres-refresh-credential-session.js";
 
 const identityRoleSet = new Set<string>(identityRoles);
 

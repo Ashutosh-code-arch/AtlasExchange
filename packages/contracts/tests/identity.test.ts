@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   currentUserResponseSchema,
+  sessionsResponseSchema,
   loginRequestSchema,
   loginSuccessResponseSchema,
   logoutRequestSchema,
@@ -52,6 +53,33 @@ describe("current-user contract", () => {
             accessCredential: "must-not-cross-the-contract",
           },
         },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("session-list contract", () => {
+  const session = {
+    id: "22222222-2222-4222-8222-222222222222",
+    createdAt: "2026-08-20T10:00:00.000Z",
+    lastActivityAt: "2026-08-23T10:00:00.000Z",
+    idleExpiresAt: "2026-08-30T10:00:00.000Z",
+    absoluteExpiresAt: "2026-09-19T10:00:00.000Z",
+    current: true,
+  };
+
+  it("accepts explicit session lifecycle metadata", () => {
+    expect(sessionsResponseSchema.parse({ success: true, data: { sessions: [session] } })).toEqual({
+      success: true,
+      data: { sessions: [session] },
+    });
+  });
+
+  it("rejects credential and unknown metadata", () => {
+    expect(
+      sessionsResponseSchema.safeParse({
+        success: true,
+        data: { sessions: [{ ...session, accessToken: "must-not-cross-the-contract" }] },
       }).success,
     ).toBe(false);
   });

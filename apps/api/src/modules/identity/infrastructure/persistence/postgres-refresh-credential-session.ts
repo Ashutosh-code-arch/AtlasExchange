@@ -1,9 +1,8 @@
 import type { Transaction } from "kysely";
 
 import type { IdentityAccountState } from "../../domain/account-state.js";
+import { sessionInactivityLifetimeMilliseconds } from "../../application/session-policy.js";
 import type { IdentityDatabaseSchema } from "./identity-database-schema.js";
-
-export const sessionInactivityLifetimeMilliseconds = 7 * 24 * 60 * 60 * 1_000;
 
 export interface LockedRefreshCredentialSession {
   readonly sessionId: string;

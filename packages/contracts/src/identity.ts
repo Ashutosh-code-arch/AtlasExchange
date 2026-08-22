@@ -32,6 +32,22 @@ export const currentUserResponseSchema = z.strictObject({
   }),
 });
 
+export const sessionSummarySchema = z.strictObject({
+  id: z.uuid(),
+  createdAt: z.iso.datetime(),
+  lastActivityAt: z.iso.datetime(),
+  idleExpiresAt: z.iso.datetime(),
+  absoluteExpiresAt: z.iso.datetime(),
+  current: z.boolean(),
+});
+
+export const sessionsResponseSchema = z.strictObject({
+  success: z.literal(true),
+  data: z.strictObject({
+    sessions: z.array(sessionSummarySchema),
+  }),
+});
+
 export const registerAcceptedResponseSchema = z.strictObject({
   success: z.literal(true),
   data: z.strictObject({}),
@@ -55,6 +71,8 @@ export type LogoutRequest = z.infer<typeof logoutRequestSchema>;
 export type LogoutAllRequest = z.infer<typeof logoutAllRequestSchema>;
 export type IdentityRole = z.infer<typeof identityRoleSchema>;
 export type CurrentUserResponse = z.infer<typeof currentUserResponseSchema>;
+export type SessionSummary = z.infer<typeof sessionSummarySchema>;
+export type SessionsResponse = z.infer<typeof sessionsResponseSchema>;
 export type RegisterAcceptedResponse = z.infer<typeof registerAcceptedResponseSchema>;
 export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
 export type ResendVerificationRequest = z.infer<typeof resendVerificationRequestSchema>;

@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { IdentityAccountState } from "../src/modules/identity/domain/account-state.js";
 import type { IdentityDatabaseSchema } from "../src/modules/identity/infrastructure/persistence/identity-database-schema.js";
 import { PostgresAccessSessionAuthenticator } from "../src/modules/identity/infrastructure/persistence/postgres-access-session-authenticator.js";
+import { PostgresSessionReader } from "../src/modules/identity/infrastructure/persistence/postgres-session-reader.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
 
 const baseDatabaseUrl =
@@ -28,6 +29,7 @@ const database = new Kysely<IdentityDatabaseSchema>({
   }),
 });
 const authenticator = new PostgresAccessSessionAuthenticator(database);
+const sessionReader = new PostgresSessionReader(database);
 
 interface AccessFixture {
   readonly userId: string;
@@ -182,5 +184,39 @@ describe("PostgreSQL access-session authentication", () => {
         }),
       ).resolves.toBeUndefined();
     }
+  });
+
+  it("lists only the requested user's unrevoked sessions", async () => {
+    const fixture = await createAccessFixture(10);
+    const activeSession = await database
+      .insertInto("identity.sessions")
+      .values({
+        user_id: fixture.userId,
+        created_at: new Date("2026-08-20T09:00:00.000Z"),
+        last_activity_at: new Date("2026-08-23T09:00:00.000Z"),
+        absolute_expires_at: new Date("2026-09-19T09:00:00.000Z"),
+        revoked_at: null,
+        revocation_reason: null,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await database
+      .insertInto("identity.sessions")
+      .values({
+        user_id: fixture.userId,
+        created_at: new Date("2026-08-19T09:00:00.000Z"),
+        last_activity_at: new Date("2026-08-22T09:00:00.000Z"),
+        absolute_expires_at: new Date("2026-09-18T09:00:00.000Z"),
+        revoked_at: new Date("2026-08-22T10:00:00.000Z"),
+        revocation_reason: "session-reader-test",
+      })
+      .execute();
+
+    const sessions = await sessionReader.listUnrevokedByUserId(fixture.userId);
+
+    expect(sessions).toHaveLength(2);
+    expect(sessions.map(({ id }) => id)).toEqual(
+      expect.arrayContaining([fixture.sessionId, activeSession.id]),
+    );
   });
 });

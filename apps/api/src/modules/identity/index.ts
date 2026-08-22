@@ -4,6 +4,7 @@ import type { Kysely } from "kysely";
 import { AuthenticatePassword } from "./application/authenticate-password.js";
 import { AuthenticateAccess } from "./application/authenticate-access.js";
 import { LoginUser } from "./application/login-user.js";
+import { ListSessions } from "./application/list-sessions.js";
 import { LogoutSession } from "./application/logout-session.js";
 import { LogoutAllSessions } from "./application/logout-all-sessions.js";
 import { RegisterUser } from "./application/register-user.js";
@@ -16,6 +17,7 @@ import type { IdentityDatabaseSchema } from "./infrastructure/persistence/identi
 import { PostgresEmailVerificationTransactionRunner } from "./infrastructure/persistence/postgres-email-verification-transaction-runner.js";
 import { PostgresAccessSessionAuthenticator } from "./infrastructure/persistence/postgres-access-session-authenticator.js";
 import { PostgresLoginSessionTransactionRunner } from "./infrastructure/persistence/postgres-login-session-transaction-runner.js";
+import { PostgresSessionReader } from "./infrastructure/persistence/postgres-session-reader.js";
 import { PostgresLogoutSessionTransactionRunner } from "./infrastructure/persistence/postgres-logout-session-transaction-runner.js";
 import { PostgresLogoutAllSessionsTransactionRunner } from "./infrastructure/persistence/postgres-logout-all-sessions-transaction-runner.js";
 import { PostgresPasswordAccountReader } from "./infrastructure/persistence/postgres-password-account-reader.js";
@@ -66,6 +68,9 @@ export async function createIdentityModuleRouter(
   const authenticateAccess = new AuthenticateAccess({
     accessSessionAuthenticator: new PostgresAccessSessionAuthenticator(options.database),
   });
+  const listSessions = new ListSessions({
+    sessionReader: new PostgresSessionReader(options.database),
+  });
   const passwordHasher = new Argon2PasswordHasher();
   const authenticatePassword = new AuthenticatePassword({
     passwordAccountReader: new PostgresPasswordAccountReader(options.database),
@@ -113,6 +118,7 @@ export async function createIdentityModuleRouter(
 
   return createIdentityRouter({
     authenticateAccess,
+    listSessions,
     loginUser,
     logoutSession,
     logoutAllSessions,

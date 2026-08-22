@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import type { AuthenticateAccess } from "../src/modules/identity/application/authenticate-access.js";
 import type { LoginUser } from "../src/modules/identity/application/login-user.js";
+import type { ListSessions } from "../src/modules/identity/application/list-sessions.js";
 import type { LogoutSession } from "../src/modules/identity/application/logout-session.js";
 import type { LogoutAllSessions } from "../src/modules/identity/application/logout-all-sessions.js";
 import type { RegisterUser } from "../src/modules/identity/application/register-user.js";
@@ -68,12 +69,23 @@ const rotatedRefresh = {
     expiresAt: new Date("2026-09-21T12:00:00.000Z"),
   },
 };
+const listedSessions = [
+  {
+    id: "22222222-2222-4222-8222-222222222222",
+    createdAt: new Date("2026-08-20T10:00:00.000Z"),
+    lastActivityAt: new Date("2026-08-23T10:00:00.000Z"),
+    idleExpiresAt: new Date("2026-08-30T10:00:00.000Z"),
+    absoluteExpiresAt: new Date("2026-09-19T10:00:00.000Z"),
+    current: true,
+  },
+] as const;
 
 function createTestApp(
   options: {
     readonly execute?: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
     readonly authenticateAccess?: ReturnType<typeof vi.fn<AuthenticateAccess["execute"]>>;
     readonly loginUser?: ReturnType<typeof vi.fn<LoginUser["execute"]>>;
+    readonly listSessions?: ReturnType<typeof vi.fn<ListSessions["execute"]>>;
     readonly loginRateLimiter?: RegistrationRateLimiter;
     readonly logoutSession?: ReturnType<typeof vi.fn<LogoutSession["execute"]>>;
     readonly logoutAllSessions?: ReturnType<typeof vi.fn<LogoutAllSessions["execute"]>>;
@@ -92,6 +104,7 @@ function createTestApp(
   readonly execute: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
   readonly authenticateAccess: ReturnType<typeof vi.fn<AuthenticateAccess["execute"]>>;
   readonly loginUser: ReturnType<typeof vi.fn<LoginUser["execute"]>>;
+  readonly listSessions: ReturnType<typeof vi.fn<ListSessions["execute"]>>;
   readonly logoutSession: ReturnType<typeof vi.fn<LogoutSession["execute"]>>;
   readonly logoutAllSessions: ReturnType<typeof vi.fn<LogoutAllSessions["execute"]>>;
   readonly refreshSession: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
@@ -118,6 +131,8 @@ function createTestApp(
     vi.fn<AuthenticateAccess["execute"]>().mockResolvedValue(authenticatedAccess);
   const loginUser =
     options.loginUser ?? vi.fn<LoginUser["execute"]>().mockResolvedValue(authenticatedLogin);
+  const listSessions =
+    options.listSessions ?? vi.fn<ListSessions["execute"]>().mockResolvedValue(listedSessions);
   const logoutSession =
     options.logoutSession ??
     vi.fn<LogoutSession["execute"]>().mockResolvedValue({ status: "logged_out" });
@@ -137,6 +152,7 @@ function createTestApp(
     vi.fn<ResendVerification["execute"]>().mockResolvedValue({ status: "not_issued" });
   const identityRouter = createIdentityRouter({
     authenticateAccess: { execute: authenticateAccess },
+    listSessions: { execute: listSessions },
     registerUser: { execute },
     refreshSession: { execute: refreshSession },
     loginUser: { execute: loginUser },
@@ -175,6 +191,7 @@ function createTestApp(
     }),
     execute,
     authenticateAccess,
+    listSessions,
     loginUser,
     logoutSession,
     logoutAllSessions,
@@ -242,6 +259,49 @@ describe("Identity current-user HTTP API", () => {
     expect(authenticateAccess).toHaveBeenCalledWith(
       expect.objectContaining({ accessCredential: "secure-access-credential" }),
     );
+  });
+});
+
+describe("Identity session-listing HTTP API", () => {
+  it("returns safe active-session metadata and marks the current session", async () => {
+    const { app, listSessions } = createTestApp();
+
+    const response = await request(app)
+      .get("/api/v1/auth/sessions")
+      .set("cookie", "atlas_access=access-id.access-secret")
+      .set("x-request-id", "session-list-request");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      success: true,
+      data: {
+        sessions: [
+          {
+            id: "22222222-2222-4222-8222-222222222222",
+            createdAt: "2026-08-20T10:00:00.000Z",
+            lastActivityAt: "2026-08-23T10:00:00.000Z",
+            idleExpiresAt: "2026-08-30T10:00:00.000Z",
+            absoluteExpiresAt: "2026-09-19T10:00:00.000Z",
+            current: true,
+          },
+        ],
+      },
+    });
+    expect(JSON.stringify(response.body)).not.toMatch(/token|secret|digest|revocation/i);
+    expect(listSessions).toHaveBeenCalledWith(authenticatedAccess.context);
+  });
+
+  it("does not query sessions when access authentication fails", async () => {
+    const authenticateAccess = vi
+      .fn<AuthenticateAccess["execute"]>()
+      .mockResolvedValue({ status: "authentication_required" });
+    const { app, listSessions } = createTestApp({ authenticateAccess });
+
+    const response = await request(app).get("/api/v1/auth/sessions");
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({ error: { code: "AUTHENTICATION_REQUIRED" } });
+    expect(listSessions).not.toHaveBeenCalled();
   });
 });
 

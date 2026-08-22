@@ -2,6 +2,7 @@ import {
   loginRequestSchema,
   loginSuccessResponseSchema,
   currentUserResponseSchema,
+  sessionsResponseSchema,
   logoutRequestSchema,
   logoutAllRequestSchema,
   refreshRequestSchema,
@@ -13,6 +14,7 @@ import {
   type RegisterAcceptedResponse,
   type LoginSuccessResponse,
   type CurrentUserResponse,
+  type SessionsResponse,
   type ResendVerificationAcceptedResponse,
 } from "@atlas/contracts";
 import { Router, type RequestHandler } from "express";
@@ -20,6 +22,7 @@ import { Router, type RequestHandler } from "express";
 import { AppError } from "../../../http/errors/app-error.js";
 import type { LoginUser } from "../application/login-user.js";
 import type { AuthenticateAccess } from "../application/authenticate-access.js";
+import type { ListSessions } from "../application/list-sessions.js";
 import type { LogoutSession } from "../application/logout-session.js";
 import type { LogoutAllSessions } from "../application/logout-all-sessions.js";
 import type { RegisterUser } from "../application/register-user.js";
@@ -41,6 +44,7 @@ import { getAuthenticationState, requireAuthentication } from "./require-authent
 
 export interface IdentityRouterOptions {
   readonly authenticateAccess: Pick<AuthenticateAccess, "execute">;
+  readonly listSessions: Pick<ListSessions, "execute">;
   readonly loginUser: Pick<LoginUser, "execute">;
   readonly logoutSession: Pick<LogoutSession, "execute">;
   readonly logoutAllSessions: Pick<LogoutAllSessions, "execute">;
@@ -114,6 +118,35 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
         },
       });
       response.status(200).json(body);
+    },
+  );
+
+  router.get(
+    "/sessions",
+    requireAuthentication({
+      authenticateAccess: options.authenticateAccess,
+      secureCookies: options.secureCookies,
+    }),
+    async (request, response, next) => {
+      try {
+        const authentication = getAuthenticationState(request);
+        const sessions = await options.listSessions.execute(authentication.context);
+        const body: SessionsResponse = sessionsResponseSchema.parse({
+          success: true,
+          data: {
+            sessions: sessions.map((session) => ({
+              ...session,
+              createdAt: session.createdAt.toISOString(),
+              lastActivityAt: session.lastActivityAt.toISOString(),
+              idleExpiresAt: session.idleExpiresAt.toISOString(),
+              absoluteExpiresAt: session.absoluteExpiresAt.toISOString(),
+            })),
+          },
+        });
+        response.status(200).json(body);
+      } catch (error) {
+        next(error);
+      }
     },
   );
 

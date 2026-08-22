@@ -5,6 +5,7 @@ import pino from "pino";
 import { Pool } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { sessionsResponseSchema } from "@atlas/contracts";
 
 import { createApp } from "../src/app.js";
 import {
@@ -244,6 +245,24 @@ describe("composed registration HTTP flow", () => {
           email: credentials.email,
           roles: ["user"],
         },
+      },
+    });
+
+    const sessionsResponse = await request(app)
+      .get("/api/v1/auth/sessions")
+      .set("x-request-id", "composed-session-list-request")
+      .set("Cookie", `atlas_access=${accessCredential}`);
+    expect(sessionsResponse.status).toBe(200);
+    expect(sessionsResponseSchema.safeParse(sessionsResponse.body).success).toBe(true);
+    expect(sessionsResponse.body).toMatchObject({
+      success: true,
+      data: {
+        sessions: [
+          {
+            id: session.id,
+            current: true,
+          },
+        ],
       },
     });
 
