@@ -7,6 +7,14 @@ const developmentPasswordBlocklistPath = fileURLToPath(
 );
 
 const integerString = z.string().regex(/^\d+$/, "must be a positive integer");
+const localCsrfHmacKey = Buffer.from(
+  "atlas-local-only-csrf-signing-key-do-not-use-in-production",
+  "utf8",
+).toString("base64url");
+const base64UrlKey = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]+$/)
+  .refine((value) => Buffer.from(value, "base64url").length >= 32);
 
 const apiEnvironmentSchema = z.object({
   API_PORT: integerString
@@ -32,6 +40,7 @@ const apiEnvironmentSchema = z.object({
   SMTP_USERNAME: z.string().min(1).optional(),
   SMTP_PASSWORD: z.string().min(1).optional(),
   SMTP_FROM: z.string().min(1).optional(),
+  CSRF_HMAC_KEY: base64UrlKey.optional(),
   SHUTDOWN_TIMEOUT_MS: integerString
     .default("10000")
     .transform(Number)
@@ -63,6 +72,10 @@ export interface ApiConfig {
       from: string;
       username?: string;
       password?: string;
+    }>;
+    sessionSecurity: Readonly<{
+      secureCookies: boolean;
+      csrfHmacKey: string;
     }>;
   }>;
   readonly nodeEnvironment: "development" | "test" | "production";
@@ -105,6 +118,12 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   ) {
     throw new ConfigurationError(["SMTP_HOST", "SMTP_FROM"]);
   }
+  if (
+    (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
+    values.CSRF_HMAC_KEY === undefined
+  ) {
+    throw new ConfigurationError(["CSRF_HMAC_KEY"]);
+  }
 
   return Object.freeze({
     http: Object.freeze({
@@ -132,6 +151,10 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
         ...(values.SMTP_USERNAME === undefined || values.SMTP_PASSWORD === undefined
           ? {}
           : { username: values.SMTP_USERNAME, password: values.SMTP_PASSWORD }),
+      }),
+      sessionSecurity: Object.freeze({
+        secureCookies: values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production",
+        csrfHmacKey: values.CSRF_HMAC_KEY ?? localCsrfHmacKey,
       }),
     }),
     nodeEnvironment: values.NODE_ENV,

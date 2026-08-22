@@ -21,6 +21,7 @@ const baseDatabaseUrl =
   process.env.DATABASE_URL ?? "postgresql://atlas:atlas_local_only@127.0.0.1:5432/atlas";
 const databaseName = `atlas_email_verification_${process.pid}_${randomBytes(6).toString("hex")}`;
 const webOrigin = "http://localhost:5173";
+const csrfHmacKey = Buffer.alloc(32, 7).toString("base64url");
 
 function databaseUrlFor(name: string): string {
   const url = new URL(baseDatabaseUrl);
@@ -92,6 +93,7 @@ describe("PostgreSQL email verification", () => {
       verificationEmailDelivery: {
         deliver: () => Promise.resolve({ status: "delivered" }),
       },
+      sessionSecurity: { secureCookies: false, csrfHmacKey },
       webOrigin,
     });
     app = createApp({

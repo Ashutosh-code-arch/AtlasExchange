@@ -1,6 +1,8 @@
 import type { Router } from "express";
 import type { Kysely } from "kysely";
 
+import { AuthenticatePassword } from "./application/authenticate-password.js";
+import { LoginUser } from "./application/login-user.js";
 import { RegisterUser } from "./application/register-user.js";
 import { ResendVerification } from "./application/resend-verification.js";
 import type { VerificationEmailDelivery } from "./application/verification-email-delivery.js";
@@ -8,9 +10,16 @@ import { VerifyEmail } from "./application/verify-email.js";
 import { createIdentityRouter } from "./http/identity-router.js";
 import type { IdentityDatabaseSchema } from "./infrastructure/persistence/identity-database-schema.js";
 import { PostgresEmailVerificationTransactionRunner } from "./infrastructure/persistence/postgres-email-verification-transaction-runner.js";
+import { PostgresLoginSessionTransactionRunner } from "./infrastructure/persistence/postgres-login-session-transaction-runner.js";
+import { PostgresPasswordAccountReader } from "./infrastructure/persistence/postgres-password-account-reader.js";
 import { PostgresRegistrationTransactionRunner } from "./infrastructure/persistence/postgres-registration-transaction-runner.js";
 import { PostgresResendVerificationTransactionRunner } from "./infrastructure/persistence/postgres-resend-verification-transaction-runner.js";
-import { Argon2PasswordHasher } from "./infrastructure/security/argon2-password-hasher.js";
+import {
+  Argon2PasswordHasher,
+  atlasDummyPasswordHash,
+} from "./infrastructure/security/argon2-password-hasher.js";
+import { CryptoOpaqueCredentialGenerator } from "./infrastructure/security/crypto-opaque-credential-generator.js";
+import { CryptoSessionCsrfTokenService } from "./infrastructure/security/crypto-session-csrf-token-service.js";
 import { CryptoVerificationSecretGenerator } from "./infrastructure/security/crypto-verification-secret-generator.js";
 import { InMemoryRegistrationRateLimiter } from "./infrastructure/security/in-memory-registration-rate-limiter.js";
 import { LocalCompromisedPasswordChecker } from "./infrastructure/security/local-compromised-password-checker.js";
@@ -27,6 +36,10 @@ export interface CreateIdentityModuleRouterOptions {
   readonly passwordBlocklistPath: string;
   readonly verificationEmailDelivery: VerificationEmailDelivery;
   readonly webOrigin: string;
+  readonly sessionSecurity: Readonly<{
+    readonly secureCookies: boolean;
+    readonly csrfHmacKey: string;
+  }>;
 }
 
 export async function createIdentityModuleRouter(
@@ -35,9 +48,21 @@ export async function createIdentityModuleRouter(
   const compromisedPasswordChecker = await LocalCompromisedPasswordChecker.fromFile(
     options.passwordBlocklistPath,
   );
+  const passwordHasher = new Argon2PasswordHasher();
+  const authenticatePassword = new AuthenticatePassword({
+    passwordAccountReader: new PostgresPasswordAccountReader(options.database),
+    passwordHasher,
+    dummyPasswordHash: atlasDummyPasswordHash,
+  });
+  const loginUser = new LoginUser({
+    authenticatePassword,
+    credentialGenerator: new CryptoOpaqueCredentialGenerator(),
+    passwordHasher,
+    transactionRunner: new PostgresLoginSessionTransactionRunner(options.database),
+  });
   const registerUser = new RegisterUser({
     compromisedPasswordChecker,
-    passwordHasher: new Argon2PasswordHasher(),
+    passwordHasher,
     registrationTransactionRunner: new PostgresRegistrationTransactionRunner(options.database),
     verificationEmailDelivery: options.verificationEmailDelivery,
     verificationSecretGenerator: new CryptoVerificationSecretGenerator(),
@@ -52,11 +77,15 @@ export async function createIdentityModuleRouter(
   });
 
   return createIdentityRouter({
+    loginUser,
     registerUser,
     resendVerification,
     verifyEmail,
     registrationRateLimiter: new InMemoryRegistrationRateLimiter(),
+    loginRateLimiter: new InMemoryRegistrationRateLimiter(),
     resendVerificationRateLimiter: new InMemoryRegistrationRateLimiter(),
+    sessionCsrfTokenService: new CryptoSessionCsrfTokenService(options.sessionSecurity.csrfHmacKey),
+    secureCookies: options.sessionSecurity.secureCookies,
     webOrigin: options.webOrigin,
   });
 }

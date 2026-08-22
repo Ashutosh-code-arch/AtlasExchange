@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   loginRequestSchema,
+  loginSuccessResponseSchema,
   registerAcceptedResponseSchema,
   registerRequestSchema,
   resendVerificationAcceptedResponseSchema,
@@ -35,6 +36,19 @@ describe("Identity contracts", () => {
         email: "user@example.com",
         password: "safe login password",
         role: "admin",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("defines a generic login response without exposing credentials or account data", () => {
+    expect(loginSuccessResponseSchema.parse({ success: true, data: {} })).toStrictEqual({
+      success: true,
+      data: {},
+    });
+    expect(
+      loginSuccessResponseSchema.safeParse({
+        success: true,
+        data: { accessToken: "must-not-leak" },
       }).success,
     ).toBe(false);
   });

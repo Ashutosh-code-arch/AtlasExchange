@@ -24,6 +24,10 @@ describe("API configuration", () => {
       requireTls: false,
       from: "Atlas Exchange <no-reply@atlas.local>",
     });
+    expect(config.identity.sessionSecurity.secureCookies).toBe(false);
+    expect(
+      Buffer.from(config.identity.sessionSecurity.csrfHmacKey, "base64url").length,
+    ).toBeGreaterThanOrEqual(32);
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.database)).toBe(true);
   });
@@ -64,11 +68,13 @@ describe("API configuration", () => {
       PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
       SMTP_HOST: "smtp.example.com",
       SMTP_FROM: "Atlas Exchange <no-reply@example.com>",
+      CSRF_HMAC_KEY: "a".repeat(43),
     });
     expect(config.identity.passwordBlocklistPath).toBe(
       "/run/secrets/atlas-password-blocklist.sha256",
     );
     expect(config.identity.emailDelivery.requireTls).toBe(true);
+    expect(config.identity.sessionSecurity.secureCookies).toBe(true);
   });
 
   it("requires explicit SMTP routing in staging and production", () => {
@@ -79,6 +85,23 @@ describe("API configuration", () => {
         PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
       }),
     ).toThrowError(new ConfigurationError(["SMTP_HOST", "SMTP_FROM"]));
+  });
+
+  it("requires an explicit strong CSRF signing key in staging and production", () => {
+    const managedEnvironment = {
+      ...validEnvironment,
+      ATLAS_ENV: "staging",
+      PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
+      SMTP_HOST: "smtp.example.com",
+      SMTP_FROM: "Atlas Exchange <no-reply@example.com>",
+    };
+
+    expect(() => parseApiConfig(managedEnvironment)).toThrowError(
+      new ConfigurationError(["CSRF_HMAC_KEY"]),
+    );
+    expect(() =>
+      parseApiConfig({ ...managedEnvironment, CSRF_HMAC_KEY: "too-short" }),
+    ).toThrowError(new ConfigurationError(["CSRF_HMAC_KEY"]));
   });
 
   it("requires SMTP credentials as a pair and keeps them out of errors", () => {

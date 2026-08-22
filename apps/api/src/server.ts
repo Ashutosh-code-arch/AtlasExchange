@@ -95,6 +95,7 @@ async function start(): Promise<RunningServer> {
       passwordBlocklistPath: config.identity.passwordBlocklistPath,
       verificationEmailDelivery,
       webOrigin: config.http.webOrigin,
+      sessionSecurity: config.identity.sessionSecurity,
     });
     const app = createApp({
       lifecycle,

@@ -10,6 +10,11 @@ export const loginRequestSchema = z.strictObject({
   password: z.string().min(1),
 });
 
+export const loginSuccessResponseSchema = z.strictObject({
+  success: z.literal(true),
+  data: z.strictObject({}),
+});
+
 export const registerAcceptedResponseSchema = z.strictObject({
   success: z.literal(true),
   data: z.strictObject({}),
@@ -27,6 +32,7 @@ export const resendVerificationAcceptedResponseSchema = registerAcceptedResponse
 
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
+export type LoginSuccessResponse = z.infer<typeof loginSuccessResponseSchema>;
 export type RegisterAcceptedResponse = z.infer<typeof registerAcceptedResponseSchema>;
 export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
 export type ResendVerificationRequest = z.infer<typeof resendVerificationRequestSchema>;

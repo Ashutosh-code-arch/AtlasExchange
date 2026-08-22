@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import { Kysely, PostgresDialect } from "kysely";
 import pino from "pino";
@@ -11,6 +11,7 @@ import {
   createIdentityModuleRouter,
   type IdentityDatabaseSchema,
 } from "../src/modules/identity/index.js";
+import { CryptoSessionCsrfTokenService } from "../src/modules/identity/infrastructure/security/crypto-session-csrf-token-service.js";
 import { LifecycleState } from "../src/platform/lifecycle/lifecycle-state.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
 
@@ -18,6 +19,15 @@ const baseDatabaseUrl =
   process.env.DATABASE_URL ?? "postgresql://atlas:atlas_local_only@127.0.0.1:5432/atlas";
 const databaseName = `atlas_registration_http_${process.pid}_${randomBytes(6).toString("hex")}`;
 const webOrigin = "http://localhost:5173";
+const csrfHmacKey = Buffer.alloc(32, 7).toString("base64url");
+
+function cookieValue(cookies: readonly string[], name: string): string {
+  const cookie = cookies.find((candidate) => candidate.startsWith(`${name}=`));
+  if (cookie === undefined) {
+    throw new Error(`Missing ${name} cookie`);
+  }
+  return decodeURIComponent(cookie.slice(name.length + 1, cookie.indexOf(";")));
+}
 
 function databaseUrlFor(name: string): string {
   const url = new URL(baseDatabaseUrl);
@@ -47,6 +57,7 @@ describe("composed registration HTTP flow", () => {
       verificationEmailDelivery: {
         deliver: () => Promise.resolve({ status: "delivered" }),
       },
+      sessionSecurity: { secureCookies: false, csrfHmacKey },
       webOrigin,
     });
     app = createApp({
@@ -129,5 +140,95 @@ describe("composed registration HTTP flow", () => {
         role_code: "user",
       },
     ]);
+  });
+
+  it("authenticates an active account and persists only credential digests", async () => {
+    const credentials = {
+      email: "login-composed@example.com",
+      password: "unique composed login passphrase",
+    };
+    const registration = await request(app)
+      .post("/api/v1/auth/register")
+      .set("origin", webOrigin)
+      .send(credentials);
+    expect(registration.status).toBe(202);
+
+    const user = await database
+      .selectFrom("identity.users")
+      .select("id")
+      .where("normalized_email", "=", credentials.email)
+      .executeTakeFirstOrThrow();
+    await database
+      .updateTable("identity.users")
+      .set({ state: "active", updated_at: new Date() })
+      .where("id", "=", user.id)
+      .executeTakeFirstOrThrow();
+
+    const response = await request(app)
+      .post("/api/v1/auth/login")
+      .set("origin", webOrigin)
+      .set("x-request-id", "composed-login-request")
+      .send(credentials);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ success: true, data: {} });
+    const cookies = response.headers["set-cookie"];
+    expect(Array.isArray(cookies)).toBe(true);
+    if (!Array.isArray(cookies)) {
+      throw new Error("Expected login cookies");
+    }
+    const accessCredential = cookieValue(cookies, "atlas_access");
+    const refreshCredential = cookieValue(cookies, "atlas_refresh");
+    const csrfToken = cookieValue(cookies, "atlas_csrf");
+    const [accessTokenId, accessSecret] = accessCredential.split(".");
+    const [refreshTokenId, refreshSecret] = refreshCredential.split(".");
+    if (
+      accessTokenId === undefined ||
+      accessSecret === undefined ||
+      refreshTokenId === undefined ||
+      refreshSecret === undefined
+    ) {
+      throw new Error("Expected split login credentials");
+    }
+
+    const session = await database
+      .selectFrom("identity.sessions")
+      .select(["id", "user_id", "revoked_at"])
+      .where("user_id", "=", user.id)
+      .executeTakeFirstOrThrow();
+    const accessToken = await database
+      .selectFrom("identity.access_tokens")
+      .select(["session_id", "secret_digest"])
+      .where("id", "=", accessTokenId)
+      .executeTakeFirstOrThrow();
+    const refreshToken = await database
+      .selectFrom("identity.refresh_tokens")
+      .select(["session_id", "secret_digest", "consumed_at", "revoked_at"])
+      .where("id", "=", refreshTokenId)
+      .executeTakeFirstOrThrow();
+    const securityEvent = await database
+      .selectFrom("identity.security_events")
+      .select(["event_type", "target_user_id", "session_id", "request_id"])
+      .where("session_id", "=", session.id)
+      .executeTakeFirstOrThrow();
+
+    expect(session).toMatchObject({ user_id: user.id, revoked_at: null });
+    expect(accessToken).toEqual({
+      session_id: session.id,
+      secret_digest: createHash("sha256").update(accessSecret, "utf8").digest(),
+    });
+    expect(refreshToken).toEqual({
+      session_id: session.id,
+      secret_digest: createHash("sha256").update(refreshSecret, "utf8").digest(),
+      consumed_at: null,
+      revoked_at: null,
+    });
+    expect(securityEvent).toEqual({
+      event_type: "identity.login.succeeded",
+      target_user_id: user.id,
+      session_id: session.id,
+      request_id: "composed-login-request",
+    });
+    expect(new CryptoSessionCsrfTokenService(csrfHmacKey).verify(session.id, csrfToken)).toBe(true);
   });
 });
