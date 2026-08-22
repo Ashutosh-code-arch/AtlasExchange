@@ -5,11 +5,13 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { IssueLoginSessionInput } from "../src/modules/identity/application/login-session-transaction.js";
+import type { RevokeCurrentSessionInput } from "../src/modules/identity/application/logout-session-transaction.js";
 import type { RotateRefreshSessionInput } from "../src/modules/identity/application/refresh-session-transaction.js";
 import type { IdentityAccountState } from "../src/modules/identity/domain/account-state.js";
 import type { NormalizedEmail } from "../src/modules/identity/domain/email-address.js";
 import type { IdentityDatabaseSchema } from "../src/modules/identity/infrastructure/persistence/identity-database-schema.js";
 import { PostgresLoginSessionTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-login-session-transaction-runner.js";
+import { PostgresLogoutSessionTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-logout-session-transaction-runner.js";
 import { PostgresPasswordAccountReader } from "../src/modules/identity/infrastructure/persistence/postgres-password-account-reader.js";
 import { PostgresRegistrationTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-registration-transaction-runner.js";
 import { PostgresRefreshSessionTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-refresh-session-transaction-runner.js";
@@ -34,6 +36,7 @@ const database = new Kysely<IdentityDatabaseSchema>({
 });
 const registrationRunner = new PostgresRegistrationTransactionRunner(database);
 const loginSessionRunner = new PostgresLoginSessionTransactionRunner(database);
+const logoutSessionRunner = new PostgresLogoutSessionTransactionRunner(database);
 const refreshSessionRunner = new PostgresRefreshSessionTransactionRunner(database);
 const accountReader = new PostgresPasswordAccountReader(database);
 const issuedAt = new Date("2026-08-22T12:00:00.000Z");
@@ -134,6 +137,20 @@ function refreshInput(
   };
 }
 
+function logoutInput(
+  fixture: Awaited<ReturnType<typeof createRefreshFixture>>,
+  revokedAt: Date,
+  authorizeSession: (sessionId: string) => boolean = () => true,
+): RevokeCurrentSessionInput {
+  return {
+    tokenId: fixture.refreshTokenId,
+    secretDigest: fixture.refreshSecretDigest,
+    revokedAt,
+    requestId: `logout-${fixture.userId}`,
+    authorizeSession,
+  };
+}
+
 describe("PostgreSQL login-session persistence", () => {
   beforeAll(async () => {
     await adminPool.query(`CREATE DATABASE "${databaseName}"`);
@@ -142,7 +159,7 @@ describe("PostgreSQL login-session persistence", () => {
 
   afterAll(async () => {
     await database.destroy();
-    await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}" WITH (FORCE)`);
+    await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}"`);
     await adminPool.end();
   });
 
@@ -432,5 +449,121 @@ describe("PostgreSQL login-session persistence", () => {
       target_user_id: fixture.userId,
       session_id: fixture.sessionId,
     });
+  });
+
+  it("atomically revokes the current session, every credential, and records logout", async () => {
+    const fixture = await createRefreshFixture("logout-success@example.com", 10, 110);
+    const revokedAt = new Date("2026-08-22T12:05:00.000Z");
+    const input = logoutInput(fixture, revokedAt);
+
+    await expect(
+      logoutSessionRunner.execute((transaction) => transaction.revokeCurrentSession(input)),
+    ).resolves.toEqual({ status: "revoked" });
+
+    const session = await database
+      .selectFrom("identity.sessions")
+      .select(["revoked_at", "revocation_reason"])
+      .where("id", "=", fixture.sessionId)
+      .executeTakeFirstOrThrow();
+    const accessTokens = await database
+      .selectFrom("identity.access_tokens")
+      .select("revoked_at")
+      .where("session_id", "=", fixture.sessionId)
+      .execute();
+    const refreshTokens = await database
+      .selectFrom("identity.refresh_tokens")
+      .select("revoked_at")
+      .where("session_id", "=", fixture.sessionId)
+      .execute();
+    const event = await database
+      .selectFrom("identity.security_events")
+      .select(["event_type", "actor_user_id", "target_user_id", "session_id", "request_id"])
+      .where("event_type", "=", "identity.logout")
+      .where("session_id", "=", fixture.sessionId)
+      .executeTakeFirstOrThrow();
+
+    expect(session).toEqual({ revoked_at: revokedAt, revocation_reason: "logout" });
+    expect(accessTokens.every((token) => token.revoked_at?.getTime() === revokedAt.getTime())).toBe(
+      true,
+    );
+    expect(
+      refreshTokens.every((token) => token.revoked_at?.getTime() === revokedAt.getTime()),
+    ).toBe(true);
+    expect(event).toEqual({
+      event_type: "identity.logout",
+      actor_user_id: fixture.userId,
+      target_user_id: fixture.userId,
+      session_id: fixture.sessionId,
+      request_id: input.requestId,
+    });
+  });
+
+  it("does not mutate logout state for a wrong secret or invalid CSRF", async () => {
+    const fixture = await createRefreshFixture("logout-rejection@example.com", 11, 120);
+    const revokedAt = new Date("2026-08-22T12:05:00.000Z");
+    const authorizeWrongSecret = vi.fn(() => true);
+
+    await expect(
+      logoutSessionRunner.execute((transaction) =>
+        transaction.revokeCurrentSession({
+          ...logoutInput(fixture, revokedAt, authorizeWrongSecret),
+          secretDigest: new Uint8Array(32).fill(255),
+        }),
+      ),
+    ).resolves.toEqual({ status: "invalid_credential" });
+    expect(authorizeWrongSecret).not.toHaveBeenCalled();
+
+    const authorizeCsrf = vi.fn(() => false);
+    await expect(
+      logoutSessionRunner.execute((transaction) =>
+        transaction.revokeCurrentSession(logoutInput(fixture, revokedAt, authorizeCsrf)),
+      ),
+    ).resolves.toEqual({ status: "csrf_failed" });
+    expect(authorizeCsrf).toHaveBeenCalledWith(fixture.sessionId);
+
+    const session = await database
+      .selectFrom("identity.sessions")
+      .select(["revoked_at", "revocation_reason"])
+      .where("id", "=", fixture.sessionId)
+      .executeTakeFirstOrThrow();
+    expect(session).toEqual({ revoked_at: null, revocation_reason: null });
+  });
+
+  it("cannot leave a session active when refresh races with logout", async () => {
+    const fixture = await createRefreshFixture("logout-race@example.com", 12, 130);
+    const endedAt = new Date("2026-08-22T12:05:00.000Z");
+
+    const [refreshResult, logoutResult] = await Promise.all([
+      refreshSessionRunner.execute((transaction) =>
+        transaction.rotate(refreshInput(fixture, 132, endedAt)),
+      ),
+      logoutSessionRunner.execute((transaction) =>
+        transaction.revokeCurrentSession(logoutInput(fixture, endedAt)),
+      ),
+    ]);
+
+    expect(["invalid_credential", "rotated"]).toContain(refreshResult.status);
+    expect(logoutResult).toEqual({ status: "revoked" });
+    const session = await database
+      .selectFrom("identity.sessions")
+      .select(["revoked_at", "revocation_reason"])
+      .where("id", "=", fixture.sessionId)
+      .executeTakeFirstOrThrow();
+    const activeAccessTokens = await database
+      .selectFrom("identity.access_tokens")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("session_id", "=", fixture.sessionId)
+      .where("revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    const activeRefreshTokens = await database
+      .selectFrom("identity.refresh_tokens")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("session_id", "=", fixture.sessionId)
+      .where("revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+
+    expect(session).toEqual({ revoked_at: endedAt, revocation_reason: "logout" });
+    expect(activeAccessTokens.count).toBe("0");
+    expect(activeRefreshTokens.count).toBe("0");
   });
 });

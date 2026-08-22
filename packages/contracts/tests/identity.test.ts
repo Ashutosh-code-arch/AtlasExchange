@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   loginRequestSchema,
   loginSuccessResponseSchema,
+  logoutRequestSchema,
   refreshRequestSchema,
   registerAcceptedResponseSchema,
   registerRequestSchema,
@@ -57,6 +58,11 @@ describe("Identity contracts", () => {
   it("requires refresh requests to contain an empty JSON object", () => {
     expect(refreshRequestSchema.parse({})).toEqual({});
     expect(refreshRequestSchema.safeParse({ refreshToken: "must-not-accept" }).success).toBe(false);
+  });
+
+  it("requires logout requests to contain an empty JSON object", () => {
+    expect(logoutRequestSchema.parse({})).toEqual({});
+    expect(logoutRequestSchema.safeParse({ sessionId: "must-not-accept" }).success).toBe(false);
   });
 
   it("rejects malformed registration email addresses", () => {

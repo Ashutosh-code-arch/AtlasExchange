@@ -1,6 +1,7 @@
 export {
   loginRequestSchema,
   loginSuccessResponseSchema,
+  logoutRequestSchema,
   refreshRequestSchema,
   registerAcceptedResponseSchema,
   registerRequestSchema,
@@ -10,6 +11,7 @@ export {
   type RegisterAcceptedResponse,
   type LoginRequest,
   type LoginSuccessResponse,
+  type LogoutRequest,
   type RefreshRequest,
   type RegisterRequest,
   type ResendVerificationAcceptedResponse,

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../src/app.js";
 import type { LoginUser } from "../src/modules/identity/application/login-user.js";
+import type { LogoutSession } from "../src/modules/identity/application/logout-session.js";
 import type { RegisterUser } from "../src/modules/identity/application/register-user.js";
 import type { RefreshSession } from "../src/modules/identity/application/refresh-session.js";
 import type { RegistrationRateLimiter } from "../src/modules/identity/application/registration-rate-limiter.js";
@@ -61,6 +62,7 @@ function createTestApp(
     readonly execute?: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
     readonly loginUser?: ReturnType<typeof vi.fn<LoginUser["execute"]>>;
     readonly loginRateLimiter?: RegistrationRateLimiter;
+    readonly logoutSession?: ReturnType<typeof vi.fn<LogoutSession["execute"]>>;
     readonly verifyEmail?: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
     readonly registrationRateLimiter?: RegistrationRateLimiter;
     readonly refreshSession?: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
@@ -74,6 +76,7 @@ function createTestApp(
   readonly app: ReturnType<typeof createApp>;
   readonly execute: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
   readonly loginUser: ReturnType<typeof vi.fn<LoginUser["execute"]>>;
+  readonly logoutSession: ReturnType<typeof vi.fn<LogoutSession["execute"]>>;
   readonly refreshSession: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
   readonly verifyEmail: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
   readonly resendVerification: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
@@ -95,6 +98,9 @@ function createTestApp(
   };
   const loginUser =
     options.loginUser ?? vi.fn<LoginUser["execute"]>().mockResolvedValue(authenticatedLogin);
+  const logoutSession =
+    options.logoutSession ??
+    vi.fn<LogoutSession["execute"]>().mockResolvedValue({ status: "logged_out" });
   const sessionCsrfIssue =
     options.sessionCsrfIssue ??
     vi.fn<SessionCsrfTokenService["issue"]>().mockReturnValue(csrfToken);
@@ -110,6 +116,7 @@ function createTestApp(
     registerUser: { execute },
     refreshSession: { execute: refreshSession },
     loginUser: { execute: loginUser },
+    logoutSession: { execute: logoutSession },
     resendVerification: { execute: resendVerification },
     verifyEmail: { execute: verifyEmail },
     registrationRateLimiter,
@@ -140,6 +147,7 @@ function createTestApp(
     }),
     execute,
     loginUser,
+    logoutSession,
     refreshSession,
     verifyEmail,
     resendVerification,
@@ -380,6 +388,88 @@ describe("Identity refresh HTTP API", () => {
     const overPosted = await refreshRequest(permissive.app).send({ refreshToken: "body-secret" });
     expect(overPosted.status).toBe(400);
     expect(permissive.refreshSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("Identity logout HTTP API", () => {
+  function logoutRequest(app: ReturnType<typeof createApp>): request.Test {
+    return request(app)
+      .post("/api/v1/auth/logout")
+      .set("origin", webOrigin)
+      .set("Cookie", [`atlas_refresh=refresh-id.refresh-secret`, `atlas_csrf=${csrfToken}`])
+      .set("x-csrf-token", csrfToken);
+  }
+
+  it("revokes the current session and clears all three session cookies", async () => {
+    const { app, logoutSession } = createTestApp();
+    const response = await logoutRequest(app).set("x-request-id", "logout-request").send({});
+
+    expect(response.status).toBe(204);
+    expect(response.body).toEqual({});
+    expect(logoutSession).toHaveBeenCalledWith({
+      refreshCredential: "refresh-id.refresh-secret",
+      csrfCookie: csrfToken,
+      csrfHeader: csrfToken,
+      requestId: "logout-request",
+    });
+    const cookies = setCookies(response);
+    expect(cookies).toHaveLength(3);
+    expect(cookies).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /^atlas_access=; Path=\/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict$/,
+        ),
+        expect.stringMatching(
+          /^atlas_refresh=; Path=\/api\/v1\/auth; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict$/,
+        ),
+        expect.stringMatching(
+          /^atlas_csrf=; Path=\/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict$/,
+        ),
+      ]),
+    );
+  });
+
+  it("does not clear cookies when CSRF validation fails", async () => {
+    const logoutSession = vi
+      .fn<LogoutSession["execute"]>()
+      .mockResolvedValue({ status: "csrf_failed" });
+    const { app } = createTestApp({ logoutSession });
+    const response = await logoutRequest(app).send({});
+
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ error: { code: "CSRF_FAILED" } });
+    expect(setCookies(response)).toEqual([]);
+  });
+
+  it("clears session cookies while reporting invalid authentication", async () => {
+    const logoutSession = vi
+      .fn<LogoutSession["execute"]>()
+      .mockResolvedValue({ status: "authentication_required" });
+    const { app } = createTestApp({ logoutSession });
+    const response = await logoutRequest(app).send({});
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({ error: { code: "AUTHENTICATION_REQUIRED" } });
+    expect(setCookies(response)).toHaveLength(3);
+  });
+
+  it("enforces exact origin, JSON, and an empty request body", async () => {
+    const { app, logoutSession } = createTestApp();
+    const wrongOrigin = await request(app)
+      .post("/api/v1/auth/logout")
+      .set("origin", "https://evil.example")
+      .send({});
+    const text = await request(app)
+      .post("/api/v1/auth/logout")
+      .set("origin", webOrigin)
+      .set("content-type", "text/plain")
+      .send("{}");
+    const overPosted = await logoutRequest(app).send({ sessionId: "must-not-accept" });
+
+    expect(wrongOrigin.status).toBe(403);
+    expect(text.status).toBe(400);
+    expect(overPosted.status).toBe(400);
+    expect(logoutSession).not.toHaveBeenCalled();
   });
 });
 

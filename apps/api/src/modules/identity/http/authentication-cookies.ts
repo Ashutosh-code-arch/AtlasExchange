@@ -133,6 +133,17 @@ export function clearAuthenticationCookies(response: Response, secure: boolean):
   });
 }
 
+export function clearSessionCookies(response: Response, secure: boolean): void {
+  clearAuthenticationCookies(response, secure);
+  const names = authenticationCookieNames(secure);
+  response.clearCookie(names.csrf, {
+    secure,
+    httpOnly: false,
+    sameSite: "strict",
+    path: "/",
+  });
+}
+
 export function readRequestCookie(request: Request, name: string): string | undefined {
   const cookieHeader = request.get("cookie");
   if (cookieHeader === undefined) {

@@ -303,4 +303,70 @@ describe("composed registration HTTP flow", () => {
       request_id: "composed-refresh-reuse",
     });
   });
+
+  it("logs out a composed browser session and clears every session cookie", async () => {
+    const credentials = {
+      email: "logout-composed@example.com",
+      password: "unique composed logout passphrase",
+    };
+    const registration = await request(app)
+      .post("/api/v1/auth/register")
+      .set("origin", webOrigin)
+      .send(credentials);
+    expect(registration.status).toBe(202);
+    const user = await database
+      .selectFrom("identity.users")
+      .select("id")
+      .where("normalized_email", "=", credentials.email)
+      .executeTakeFirstOrThrow();
+    await database
+      .updateTable("identity.users")
+      .set({ state: "active", updated_at: new Date() })
+      .where("id", "=", user.id)
+      .executeTakeFirstOrThrow();
+
+    const login = await request(app)
+      .post("/api/v1/auth/login")
+      .set("origin", webOrigin)
+      .send(credentials);
+    const loginCookies = login.headers["set-cookie"];
+    if (!Array.isArray(loginCookies)) {
+      throw new Error("Expected composed logout login cookies");
+    }
+    const refreshCredential = cookieValue(loginCookies, "atlas_refresh");
+    const csrfToken = cookieValue(loginCookies, "atlas_csrf");
+    const session = await database
+      .selectFrom("identity.sessions")
+      .select("id")
+      .where("user_id", "=", user.id)
+      .executeTakeFirstOrThrow();
+
+    const logout = await request(app)
+      .post("/api/v1/auth/logout")
+      .set("origin", webOrigin)
+      .set("x-request-id", "composed-logout-request")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", [`atlas_refresh=${refreshCredential}`, `atlas_csrf=${csrfToken}`])
+      .send({});
+
+    expect(logout.status).toBe(204);
+    expect(logout.headers["set-cookie"]).toHaveLength(3);
+    const revokedSession = await database
+      .selectFrom("identity.sessions")
+      .select(["revoked_at", "revocation_reason"])
+      .where("id", "=", session.id)
+      .executeTakeFirstOrThrow();
+    const event = await database
+      .selectFrom("identity.security_events")
+      .select(["event_type", "request_id"])
+      .where("session_id", "=", session.id)
+      .where("event_type", "=", "identity.logout")
+      .executeTakeFirstOrThrow();
+    expect(revokedSession.revoked_at).toBeInstanceOf(Date);
+    expect(revokedSession.revocation_reason).toBe("logout");
+    expect(event).toEqual({
+      event_type: "identity.logout",
+      request_id: "composed-logout-request",
+    });
+  });
 });

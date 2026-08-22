@@ -7,32 +7,20 @@ import type {
   RotateRefreshSessionResult,
 } from "../../application/refresh-session-transaction.js";
 import type { IdentityDatabaseSchema } from "./identity-database-schema.js";
-
-export const sessionInactivityLifetimeMilliseconds = 7 * 24 * 60 * 60 * 1_000;
+import {
+  isRefreshCredentialSessionEligible,
+  lockRefreshCredentialSession,
+} from "./postgres-refresh-credential-session.js";
 
 class PostgresRefreshSessionTransaction implements RefreshSessionTransaction {
   public constructor(private readonly database: Transaction<IdentityDatabaseSchema>) {}
 
   public async rotate(input: RotateRefreshSessionInput): Promise<RotateRefreshSessionResult> {
-    const credential = await this.database
-      .selectFrom("identity.refresh_tokens")
-      .innerJoin("identity.sessions", "identity.sessions.id", "identity.refresh_tokens.session_id")
-      .innerJoin("identity.users", "identity.users.id", "identity.sessions.user_id")
-      .select([
-        "identity.refresh_tokens.session_id as sessionId",
-        "identity.refresh_tokens.expires_at as refreshExpiresAt",
-        "identity.refresh_tokens.consumed_at as refreshConsumedAt",
-        "identity.refresh_tokens.revoked_at as refreshRevokedAt",
-        "identity.sessions.user_id as userId",
-        "identity.sessions.last_activity_at as lastActivityAt",
-        "identity.sessions.absolute_expires_at as absoluteExpiresAt",
-        "identity.sessions.revoked_at as sessionRevokedAt",
-        "identity.users.state as accountState",
-      ])
-      .where("identity.refresh_tokens.id", "=", input.tokenId)
-      .where("identity.refresh_tokens.secret_digest", "=", Buffer.from(input.secretDigest))
-      .forUpdate()
-      .executeTakeFirst();
+    const credential = await lockRefreshCredentialSession(
+      this.database,
+      input.tokenId,
+      input.secretDigest,
+    );
 
     if (credential === undefined) {
       return { status: "invalid_credential" };
@@ -40,15 +28,7 @@ class PostgresRefreshSessionTransaction implements RefreshSessionTransaction {
     if (!input.authorizeSession(credential.sessionId)) {
       return { status: "csrf_failed" };
     }
-    if (
-      credential.refreshRevokedAt !== null ||
-      credential.refreshExpiresAt.getTime() <= input.issuedAt.getTime() ||
-      credential.sessionRevokedAt !== null ||
-      credential.absoluteExpiresAt.getTime() <= input.issuedAt.getTime() ||
-      credential.lastActivityAt.getTime() + sessionInactivityLifetimeMilliseconds <=
-        input.issuedAt.getTime() ||
-      credential.accountState !== "active"
-    ) {
+    if (!isRefreshCredentialSessionEligible(credential, input.issuedAt)) {
       return { status: "invalid_credential" };
     }
 

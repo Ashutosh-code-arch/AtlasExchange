@@ -3,6 +3,7 @@ import type { Kysely } from "kysely";
 
 import { AuthenticatePassword } from "./application/authenticate-password.js";
 import { LoginUser } from "./application/login-user.js";
+import { LogoutSession } from "./application/logout-session.js";
 import { RegisterUser } from "./application/register-user.js";
 import { RefreshSession } from "./application/refresh-session.js";
 import { ResendVerification } from "./application/resend-verification.js";
@@ -12,6 +13,7 @@ import { createIdentityRouter } from "./http/identity-router.js";
 import type { IdentityDatabaseSchema } from "./infrastructure/persistence/identity-database-schema.js";
 import { PostgresEmailVerificationTransactionRunner } from "./infrastructure/persistence/postgres-email-verification-transaction-runner.js";
 import { PostgresLoginSessionTransactionRunner } from "./infrastructure/persistence/postgres-login-session-transaction-runner.js";
+import { PostgresLogoutSessionTransactionRunner } from "./infrastructure/persistence/postgres-logout-session-transaction-runner.js";
 import { PostgresPasswordAccountReader } from "./infrastructure/persistence/postgres-password-account-reader.js";
 import { PostgresRegistrationTransactionRunner } from "./infrastructure/persistence/postgres-registration-transaction-runner.js";
 import { PostgresRefreshSessionTransactionRunner } from "./infrastructure/persistence/postgres-refresh-session-transaction-runner.js";
@@ -71,6 +73,10 @@ export async function createIdentityModuleRouter(
     sessionCsrfTokenService,
     transactionRunner: new PostgresRefreshSessionTransactionRunner(options.database),
   });
+  const logoutSession = new LogoutSession({
+    sessionCsrfTokenService,
+    transactionRunner: new PostgresLogoutSessionTransactionRunner(options.database),
+  });
   const registerUser = new RegisterUser({
     compromisedPasswordChecker,
     passwordHasher,
@@ -89,6 +95,7 @@ export async function createIdentityModuleRouter(
 
   return createIdentityRouter({
     loginUser,
+    logoutSession,
     registerUser,
     refreshSession,
     resendVerification,
