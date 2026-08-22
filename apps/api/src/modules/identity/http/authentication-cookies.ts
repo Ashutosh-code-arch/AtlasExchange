@@ -1,8 +1,19 @@
-import type { CookieOptions, Response } from "express";
+import type { CookieOptions, Request, Response } from "express";
 
 import type { LoginUserResult } from "../application/login-user.js";
 
 type AuthenticatedLogin = Extract<LoginUserResult, { readonly status: "authenticated" }>;
+
+interface RotatedAuthentication {
+  readonly accessCredential: {
+    readonly value: string;
+    readonly expiresAt: Date;
+  };
+  readonly refreshCredential: {
+    readonly value: string;
+    readonly expiresAt: Date;
+  };
+}
 
 export interface AuthenticationCookieNames {
   readonly access: string;
@@ -76,4 +87,73 @@ export function setLoginCookies(
       expires: login.session.absoluteExpiresAt,
     }),
   );
+}
+
+export function setRotatedAuthenticationCookies(
+  response: Response,
+  rotation: RotatedAuthentication,
+  secure: boolean,
+): void {
+  const names = authenticationCookieNames(secure);
+  response.cookie(
+    names.access,
+    rotation.accessCredential.value,
+    cookieOptions({
+      secure,
+      httpOnly: true,
+      path: "/",
+      expires: rotation.accessCredential.expiresAt,
+    }),
+  );
+  response.cookie(
+    names.refresh,
+    rotation.refreshCredential.value,
+    cookieOptions({
+      secure,
+      httpOnly: true,
+      path: "/api/v1/auth",
+      expires: rotation.refreshCredential.expiresAt,
+    }),
+  );
+}
+
+export function clearAuthenticationCookies(response: Response, secure: boolean): void {
+  const names = authenticationCookieNames(secure);
+  response.clearCookie(names.access, {
+    secure,
+    httpOnly: true,
+    sameSite: "strict",
+    path: "/",
+  });
+  response.clearCookie(names.refresh, {
+    secure,
+    httpOnly: true,
+    sameSite: "strict",
+    path: "/api/v1/auth",
+  });
+}
+
+export function readRequestCookie(request: Request, name: string): string | undefined {
+  const cookieHeader = request.get("cookie");
+  if (cookieHeader === undefined) {
+    return undefined;
+  }
+
+  const matches = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part.startsWith(`${name}=`));
+  if (matches.length !== 1) {
+    return undefined;
+  }
+  const match = matches[0];
+  if (match === undefined) {
+    return undefined;
+  }
+
+  try {
+    return decodeURIComponent(match.slice(name.length + 1));
+  } catch {
+    return undefined;
+  }
 }

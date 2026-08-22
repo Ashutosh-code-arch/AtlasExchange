@@ -1,6 +1,7 @@
 import {
   loginRequestSchema,
   loginSuccessResponseSchema,
+  refreshRequestSchema,
   registerAcceptedResponseSchema,
   registerRequestSchema,
   resendVerificationAcceptedResponseSchema,
@@ -15,20 +16,29 @@ import { Router, type RequestHandler } from "express";
 import { AppError } from "../../../http/errors/app-error.js";
 import type { LoginUser } from "../application/login-user.js";
 import type { RegisterUser } from "../application/register-user.js";
+import type { RefreshSession } from "../application/refresh-session.js";
 import type { RegistrationRateLimiter } from "../application/registration-rate-limiter.js";
 import type { ResendVerification } from "../application/resend-verification.js";
 import type { SessionCsrfTokenService } from "../application/session-csrf-token-service.js";
 import type { VerifyEmail } from "../application/verify-email.js";
 import { IdentityInputValidationError } from "../domain/identity-input-validation-error.js";
-import { setLoginCookies } from "./authentication-cookies.js";
+import {
+  authenticationCookieNames,
+  clearAuthenticationCookies,
+  readRequestCookie,
+  setLoginCookies,
+  setRotatedAuthenticationCookies,
+} from "./authentication-cookies.js";
 
 export interface IdentityRouterOptions {
   readonly loginUser: Pick<LoginUser, "execute">;
   readonly registerUser: Pick<RegisterUser, "execute">;
+  readonly refreshSession: Pick<RefreshSession, "execute">;
   readonly resendVerification: Pick<ResendVerification, "execute">;
   readonly verifyEmail: Pick<VerifyEmail, "execute">;
   readonly registrationRateLimiter: RegistrationRateLimiter;
   readonly loginRateLimiter: RegistrationRateLimiter;
+  readonly refreshRateLimiter: RegistrationRateLimiter;
   readonly resendVerificationRateLimiter: RegistrationRateLimiter;
   readonly sessionCsrfTokenService: SessionCsrfTokenService;
   readonly secureCookies: boolean;
@@ -116,6 +126,43 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
           next(new AppError(400, "VALIDATION_FAILED", "Login request is invalid."));
           return;
         }
+        next(error);
+      }
+    },
+  );
+
+  router.post(
+    "/refresh",
+    requirePreSessionJson,
+    enforceRateLimit(options.refreshRateLimiter, "Refresh rate limit exceeded."),
+    async (request, response, next) => {
+      if (!refreshRequestSchema.safeParse(request.body).success) {
+        next(new AppError(400, "VALIDATION_FAILED", "Refresh request is invalid."));
+        return;
+      }
+
+      try {
+        const names = authenticationCookieNames(options.secureCookies);
+        const requestIdHeader = response.getHeader("x-request-id");
+        const result = await options.refreshSession.execute({
+          refreshCredential: readRequestCookie(request, names.refresh) ?? "",
+          csrfCookie: readRequestCookie(request, names.csrf),
+          csrfHeader: request.get("x-csrf-token"),
+          requestId: typeof requestIdHeader === "string" ? requestIdHeader : "unavailable",
+        });
+        if (result.status === "csrf_failed") {
+          next(new AppError(403, "CSRF_FAILED", "CSRF validation failed."));
+          return;
+        }
+        if (result.status === "authentication_required") {
+          clearAuthenticationCookies(response, options.secureCookies);
+          next(new AppError(401, "AUTHENTICATION_REQUIRED", "Authentication is required."));
+          return;
+        }
+
+        setRotatedAuthenticationCookies(response, result, options.secureCookies);
+        response.status(204).end();
+      } catch (error) {
         next(error);
       }
     },

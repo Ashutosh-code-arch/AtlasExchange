@@ -230,5 +230,77 @@ describe("composed registration HTTP flow", () => {
       request_id: "composed-login-request",
     });
     expect(new CryptoSessionCsrfTokenService(csrfHmacKey).verify(session.id, csrfToken)).toBe(true);
+
+    const refreshResponse = await request(app)
+      .post("/api/v1/auth/refresh")
+      .set("origin", webOrigin)
+      .set("x-request-id", "composed-refresh-request")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", [`atlas_refresh=${refreshCredential}`, `atlas_csrf=${csrfToken}`])
+      .send({});
+
+    expect(refreshResponse.status).toBe(204);
+    const rotatedCookies = refreshResponse.headers["set-cookie"];
+    expect(Array.isArray(rotatedCookies)).toBe(true);
+    if (!Array.isArray(rotatedCookies)) {
+      throw new Error("Expected rotated authentication cookies");
+    }
+    expect(rotatedCookies).toHaveLength(2);
+    const rotatedAccessCredential = cookieValue(rotatedCookies, "atlas_access");
+    const rotatedRefreshCredential = cookieValue(rotatedCookies, "atlas_refresh");
+    expect(rotatedAccessCredential).not.toBe(accessCredential);
+    expect(rotatedRefreshCredential).not.toBe(refreshCredential);
+    const [rotatedRefreshTokenId, rotatedRefreshSecret] = rotatedRefreshCredential.split(".");
+    if (rotatedRefreshTokenId === undefined || rotatedRefreshSecret === undefined) {
+      throw new Error("Expected split rotated refresh credential");
+    }
+    const originalRefresh = await database
+      .selectFrom("identity.refresh_tokens")
+      .select(["consumed_at", "replaced_by_token_id"])
+      .where("id", "=", refreshTokenId)
+      .executeTakeFirstOrThrow();
+    const rotatedRefresh = await database
+      .selectFrom("identity.refresh_tokens")
+      .select(["session_id", "secret_digest", "consumed_at", "revoked_at"])
+      .where("id", "=", rotatedRefreshTokenId)
+      .executeTakeFirstOrThrow();
+    expect(originalRefresh.consumed_at).toBeInstanceOf(Date);
+    expect(originalRefresh.replaced_by_token_id).toBe(rotatedRefreshTokenId);
+    expect(rotatedRefresh).toEqual({
+      session_id: session.id,
+      secret_digest: createHash("sha256").update(rotatedRefreshSecret, "utf8").digest(),
+      consumed_at: null,
+      revoked_at: null,
+    });
+
+    const reuseResponse = await request(app)
+      .post("/api/v1/auth/refresh")
+      .set("origin", webOrigin)
+      .set("x-request-id", "composed-refresh-reuse")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", [`atlas_refresh=${refreshCredential}`, `atlas_csrf=${csrfToken}`])
+      .send({});
+
+    expect(reuseResponse.status).toBe(401);
+    expect(reuseResponse.body).toMatchObject({
+      error: { code: "AUTHENTICATION_REQUIRED" },
+    });
+    const revokedSession = await database
+      .selectFrom("identity.sessions")
+      .select(["revoked_at", "revocation_reason"])
+      .where("id", "=", session.id)
+      .executeTakeFirstOrThrow();
+    const reuseEvent = await database
+      .selectFrom("identity.security_events")
+      .select(["event_type", "request_id"])
+      .where("session_id", "=", session.id)
+      .where("event_type", "=", "identity.refresh.reuse_detected")
+      .executeTakeFirstOrThrow();
+    expect(revokedSession.revoked_at).toBeInstanceOf(Date);
+    expect(revokedSession.revocation_reason).toBe("refresh_token_reuse");
+    expect(reuseEvent).toEqual({
+      event_type: "identity.refresh.reuse_detected",
+      request_id: "composed-refresh-reuse",
+    });
   });
 });

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   loginRequestSchema,
   loginSuccessResponseSchema,
+  refreshRequestSchema,
   registerAcceptedResponseSchema,
   registerRequestSchema,
   resendVerificationAcceptedResponseSchema,
@@ -51,6 +52,11 @@ describe("Identity contracts", () => {
         data: { accessToken: "must-not-leak" },
       }).success,
     ).toBe(false);
+  });
+
+  it("requires refresh requests to contain an empty JSON object", () => {
+    expect(refreshRequestSchema.parse({})).toEqual({});
+    expect(refreshRequestSchema.safeParse({ refreshToken: "must-not-accept" }).success).toBe(false);
   });
 
   it("rejects malformed registration email addresses", () => {

@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import type { LoginUser } from "../src/modules/identity/application/login-user.js";
 import type { RegisterUser } from "../src/modules/identity/application/register-user.js";
+import type { RefreshSession } from "../src/modules/identity/application/refresh-session.js";
 import type { RegistrationRateLimiter } from "../src/modules/identity/application/registration-rate-limiter.js";
 import type { ResendVerification } from "../src/modules/identity/application/resend-verification.js";
 import type { SessionCsrfTokenService } from "../src/modules/identity/application/session-csrf-token-service.js";
@@ -39,6 +40,21 @@ const authenticatedLogin = {
   },
 };
 const csrfToken = `${"n".repeat(43)}.${"s".repeat(43)}`;
+const rotatedRefresh = {
+  status: "rotated" as const,
+  session: {
+    id: "session-id",
+    absoluteExpiresAt: new Date("2026-09-21T12:00:00.000Z"),
+  },
+  accessCredential: {
+    value: "replacement-access-id.replacement-access-secret",
+    expiresAt: new Date("2026-08-22T12:20:00.000Z"),
+  },
+  refreshCredential: {
+    value: "replacement-refresh-id.replacement-refresh-secret",
+    expiresAt: new Date("2026-09-21T12:00:00.000Z"),
+  },
+};
 
 function createTestApp(
   options: {
@@ -47,6 +63,8 @@ function createTestApp(
     readonly loginRateLimiter?: RegistrationRateLimiter;
     readonly verifyEmail?: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
     readonly registrationRateLimiter?: RegistrationRateLimiter;
+    readonly refreshSession?: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
+    readonly refreshRateLimiter?: RegistrationRateLimiter;
     readonly resendVerification?: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
     readonly resendVerificationRateLimiter?: RegistrationRateLimiter;
     readonly sessionCsrfIssue?: ReturnType<typeof vi.fn<SessionCsrfTokenService["issue"]>>;
@@ -56,6 +74,7 @@ function createTestApp(
   readonly app: ReturnType<typeof createApp>;
   readonly execute: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
   readonly loginUser: ReturnType<typeof vi.fn<LoginUser["execute"]>>;
+  readonly refreshSession: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
   readonly verifyEmail: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
   readonly resendVerification: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
   readonly sessionCsrfIssue: ReturnType<typeof vi.fn<SessionCsrfTokenService["issue"]>>;
@@ -79,6 +98,8 @@ function createTestApp(
   const sessionCsrfIssue =
     options.sessionCsrfIssue ??
     vi.fn<SessionCsrfTokenService["issue"]>().mockReturnValue(csrfToken);
+  const refreshSession =
+    options.refreshSession ?? vi.fn<RefreshSession["execute"]>().mockResolvedValue(rotatedRefresh);
   const verifyEmail =
     options.verifyEmail ??
     vi.fn<VerifyEmail["execute"]>().mockResolvedValue({ status: "verified" });
@@ -87,11 +108,15 @@ function createTestApp(
     vi.fn<ResendVerification["execute"]>().mockResolvedValue({ status: "not_issued" });
   const identityRouter = createIdentityRouter({
     registerUser: { execute },
+    refreshSession: { execute: refreshSession },
     loginUser: { execute: loginUser },
     resendVerification: { execute: resendVerification },
     verifyEmail: { execute: verifyEmail },
     registrationRateLimiter,
     loginRateLimiter: options.loginRateLimiter ?? {
+      consume: () => ({ allowed: true as const }),
+    },
+    refreshRateLimiter: options.refreshRateLimiter ?? {
       consume: () => ({ allowed: true as const }),
     },
     resendVerificationRateLimiter: options.resendVerificationRateLimiter ?? {
@@ -115,6 +140,7 @@ function createTestApp(
     }),
     execute,
     loginUser,
+    refreshSession,
     verifyEmail,
     resendVerification,
     sessionCsrfIssue,
@@ -230,6 +256,130 @@ describe("Identity login HTTP API", () => {
     const overPosted = await postLogin(permissive.app).send({ ...validLogin, role: "admin" });
     expect(overPosted.status).toBe(400);
     expect(permissive.loginUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("Identity refresh HTTP API", () => {
+  function refreshRequest(app: ReturnType<typeof createApp>): request.Test {
+    return request(app)
+      .post("/api/v1/auth/refresh")
+      .set("origin", webOrigin)
+      .set("Cookie", [`atlas_refresh=refresh-id.refresh-secret`, `atlas_csrf=${csrfToken}`])
+      .set("x-csrf-token", csrfToken);
+  }
+
+  it("returns 204 and rotates only the HttpOnly authentication cookies", async () => {
+    const { app, refreshSession } = createTestApp();
+    const response = await refreshRequest(app).set("x-request-id", "refresh-request").send({});
+
+    expect(response.status).toBe(204);
+    expect(response.body).toEqual({});
+    expect(refreshSession).toHaveBeenCalledWith({
+      refreshCredential: "refresh-id.refresh-secret",
+      csrfCookie: csrfToken,
+      csrfHeader: csrfToken,
+      requestId: "refresh-request",
+    });
+    const cookies = setCookies(response);
+    expect(cookies).toHaveLength(2);
+    expect(cookies).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /^atlas_access=replacement-access-id\.replacement-access-secret; Path=\/; Expires=Sat, 22 Aug 2026 12:20:00 GMT; HttpOnly; SameSite=Strict$/,
+        ),
+        expect.stringMatching(
+          /^atlas_refresh=replacement-refresh-id\.replacement-refresh-secret; Path=\/api\/v1\/auth; Expires=Mon, 21 Sep 2026 12:00:00 GMT; HttpOnly; SameSite=Strict$/,
+        ),
+      ]),
+    );
+    expect(cookies.some((cookie) => cookie.startsWith("atlas_csrf="))).toBe(false);
+  });
+
+  it("reads and rotates the secure prefixed cookies in staging and production mode", async () => {
+    const { app, refreshSession } = createTestApp({ secureCookies: true });
+    const response = await request(app)
+      .post("/api/v1/auth/refresh")
+      .set("origin", webOrigin)
+      .set("Cookie", [
+        "__Secure-atlas_refresh=refresh-id.refresh-secret",
+        `__Host-atlas_csrf=${csrfToken}`,
+      ])
+      .set("x-csrf-token", csrfToken)
+      .send({});
+
+    expect(response.status).toBe(204);
+    expect(refreshSession).toHaveBeenCalledWith(
+      expect.objectContaining({ refreshCredential: "refresh-id.refresh-secret" }),
+    );
+    const cookies = setCookies(response);
+    expect(cookies).toHaveLength(2);
+    expect(cookies).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^__Host-atlas_access=.*; HttpOnly; Secure; SameSite=Strict$/),
+        expect.stringMatching(/^__Secure-atlas_refresh=.*; HttpOnly; Secure; SameSite=Strict$/),
+      ]),
+    );
+  });
+
+  it("clears both authentication cookies on refresh authentication failure", async () => {
+    const refreshSession = vi
+      .fn<RefreshSession["execute"]>()
+      .mockResolvedValue({ status: "authentication_required" });
+    const { app } = createTestApp({ refreshSession });
+    const response = await refreshRequest(app).send({});
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({ error: { code: "AUTHENTICATION_REQUIRED" } });
+    expect(setCookies(response)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /^atlas_access=; Path=\/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict$/,
+        ),
+        expect.stringMatching(
+          /^atlas_refresh=; Path=\/api\/v1\/auth; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict$/,
+        ),
+      ]),
+    );
+  });
+
+  it("returns CSRF_FAILED without changing cookies when validation fails", async () => {
+    const refreshSession = vi
+      .fn<RefreshSession["execute"]>()
+      .mockResolvedValue({ status: "csrf_failed" });
+    const { app } = createTestApp({ refreshSession });
+    const response = await refreshRequest(app).send({});
+
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ error: { code: "CSRF_FAILED" } });
+    expect(setCookies(response)).toEqual([]);
+  });
+
+  it("enforces origin, JSON, an empty body, and an independent rate limit", async () => {
+    const refreshRateLimiter: RegistrationRateLimiter = {
+      consume: () => ({ allowed: false, retryAfterSeconds: 17 }),
+    };
+    const { app, refreshSession } = createTestApp({ refreshRateLimiter });
+    const wrongOrigin = await request(app)
+      .post("/api/v1/auth/refresh")
+      .set("origin", "https://evil.example")
+      .send({});
+    const text = await request(app)
+      .post("/api/v1/auth/refresh")
+      .set("origin", webOrigin)
+      .set("content-type", "text/plain")
+      .send("{}");
+    const rateLimited = await refreshRequest(app).send({});
+
+    expect(wrongOrigin.status).toBe(403);
+    expect(text.status).toBe(400);
+    expect(rateLimited.status).toBe(429);
+    expect(rateLimited.headers["retry-after"]).toBe("17");
+    expect(refreshSession).not.toHaveBeenCalled();
+
+    const permissive = createTestApp();
+    const overPosted = await refreshRequest(permissive.app).send({ refreshToken: "body-secret" });
+    expect(overPosted.status).toBe(400);
+    expect(permissive.refreshSession).not.toHaveBeenCalled();
   });
 });
 

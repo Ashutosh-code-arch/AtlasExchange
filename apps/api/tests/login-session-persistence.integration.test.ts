@@ -2,15 +2,17 @@ import { randomBytes } from "node:crypto";
 
 import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { IssueLoginSessionInput } from "../src/modules/identity/application/login-session-transaction.js";
+import type { RotateRefreshSessionInput } from "../src/modules/identity/application/refresh-session-transaction.js";
 import type { IdentityAccountState } from "../src/modules/identity/domain/account-state.js";
 import type { NormalizedEmail } from "../src/modules/identity/domain/email-address.js";
 import type { IdentityDatabaseSchema } from "../src/modules/identity/infrastructure/persistence/identity-database-schema.js";
 import { PostgresLoginSessionTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-login-session-transaction-runner.js";
 import { PostgresPasswordAccountReader } from "../src/modules/identity/infrastructure/persistence/postgres-password-account-reader.js";
 import { PostgresRegistrationTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-registration-transaction-runner.js";
+import { PostgresRefreshSessionTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-refresh-session-transaction-runner.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
 
 const baseDatabaseUrl =
@@ -32,6 +34,7 @@ const database = new Kysely<IdentityDatabaseSchema>({
 });
 const registrationRunner = new PostgresRegistrationTransactionRunner(database);
 const loginSessionRunner = new PostgresLoginSessionTransactionRunner(database);
+const refreshSessionRunner = new PostgresRefreshSessionTransactionRunner(database);
 const accountReader = new PostgresPasswordAccountReader(database);
 const issuedAt = new Date("2026-08-22T12:00:00.000Z");
 
@@ -82,6 +85,52 @@ function sessionInput(
     accessExpiresAt: new Date("2026-08-22T12:10:00.000Z"),
     absoluteExpiresAt: new Date("2026-09-21T12:00:00.000Z"),
     requestId: `login-session-${digestByte}`,
+  };
+}
+
+async function createRefreshFixture(
+  email: string,
+  userDigestByte: number,
+  tokenDigestByte: number,
+): Promise<{
+  readonly userId: string;
+  readonly sessionId: string;
+  readonly refreshTokenId: string;
+  readonly refreshSecretDigest: Uint8Array;
+  readonly absoluteExpiresAt: Date;
+}> {
+  const account = await createUser(email, "active", userDigestByte);
+  const input = sessionInput(account.userId, account.credentialUpdatedAt, tokenDigestByte);
+  const result = await loginSessionRunner.execute((transaction) =>
+    transaction.issueLoginSession(input),
+  );
+  if (result.status !== "issued") {
+    throw new Error("Expected refresh fixture session issuance");
+  }
+  return {
+    userId: account.userId,
+    sessionId: result.sessionId,
+    refreshTokenId: result.refreshTokenId,
+    refreshSecretDigest: input.refreshSecretDigest,
+    absoluteExpiresAt: input.absoluteExpiresAt,
+  };
+}
+
+function refreshInput(
+  fixture: Awaited<ReturnType<typeof createRefreshFixture>>,
+  replacementDigestByte: number,
+  refreshedAt: Date,
+  authorizeSession: (sessionId: string) => boolean = () => true,
+): RotateRefreshSessionInput {
+  return {
+    tokenId: fixture.refreshTokenId,
+    secretDigest: fixture.refreshSecretDigest,
+    replacementAccessSecretDigest: new Uint8Array(32).fill(replacementDigestByte),
+    replacementRefreshSecretDigest: new Uint8Array(32).fill(replacementDigestByte + 1),
+    issuedAt: refreshedAt,
+    requestedAccessExpiresAt: new Date(refreshedAt.getTime() + 10 * 60 * 1_000),
+    requestId: `refresh-${replacementDigestByte}`,
+    authorizeSession,
   };
 }
 
@@ -242,5 +291,146 @@ describe("PostgreSQL login-session persistence", () => {
     });
     expect(sessions.count).toBe("0");
     expect(events.count).toBe("0");
+  });
+
+  it("atomically consumes and links the old refresh token to its replacement", async () => {
+    const fixture = await createRefreshFixture("refresh-success@example.com", 7, 80);
+    const refreshedAt = new Date("2026-08-22T12:05:00.000Z");
+    const input = refreshInput(fixture, 82, refreshedAt);
+
+    const result = await refreshSessionRunner.execute((transaction) => transaction.rotate(input));
+
+    expect(result.status).toBe("rotated");
+    if (result.status !== "rotated") {
+      throw new Error("Expected refresh rotation");
+    }
+    const original = await database
+      .selectFrom("identity.refresh_tokens")
+      .select(["consumed_at", "replaced_by_token_id", "revoked_at"])
+      .where("id", "=", fixture.refreshTokenId)
+      .executeTakeFirstOrThrow();
+    const replacement = await database
+      .selectFrom("identity.refresh_tokens")
+      .select(["session_id", "secret_digest", "expires_at", "consumed_at", "revoked_at"])
+      .where("id", "=", result.refreshTokenId)
+      .executeTakeFirstOrThrow();
+    const access = await database
+      .selectFrom("identity.access_tokens")
+      .select(["session_id", "secret_digest", "issued_at", "expires_at"])
+      .where("id", "=", result.accessTokenId)
+      .executeTakeFirstOrThrow();
+    const session = await database
+      .selectFrom("identity.sessions")
+      .select(["last_activity_at", "absolute_expires_at", "revoked_at"])
+      .where("id", "=", fixture.sessionId)
+      .executeTakeFirstOrThrow();
+
+    expect(original).toEqual({
+      consumed_at: refreshedAt,
+      replaced_by_token_id: result.refreshTokenId,
+      revoked_at: null,
+    });
+    expect(replacement).toEqual({
+      session_id: fixture.sessionId,
+      secret_digest: Buffer.from(input.replacementRefreshSecretDigest),
+      expires_at: fixture.absoluteExpiresAt,
+      consumed_at: null,
+      revoked_at: null,
+    });
+    expect(access).toEqual({
+      session_id: fixture.sessionId,
+      secret_digest: Buffer.from(input.replacementAccessSecretDigest),
+      issued_at: refreshedAt,
+      expires_at: input.requestedAccessExpiresAt,
+    });
+    expect(session).toEqual({
+      last_activity_at: refreshedAt,
+      absolute_expires_at: fixture.absoluteExpiresAt,
+      revoked_at: null,
+    });
+  });
+
+  it("does not mutate for a wrong secret or a rejected session-bound CSRF token", async () => {
+    const fixture = await createRefreshFixture("refresh-rejection@example.com", 8, 90);
+    const authorizeWrongSecret = vi.fn(() => true);
+    const wrongSecretInput = {
+      ...refreshInput(fixture, 92, new Date("2026-08-22T12:05:00.000Z"), authorizeWrongSecret),
+      secretDigest: new Uint8Array(32).fill(255),
+    };
+
+    await expect(
+      refreshSessionRunner.execute((transaction) => transaction.rotate(wrongSecretInput)),
+    ).resolves.toEqual({ status: "invalid_credential" });
+    expect(authorizeWrongSecret).not.toHaveBeenCalled();
+
+    const authorizeCsrf = vi.fn(() => false);
+    await expect(
+      refreshSessionRunner.execute((transaction) =>
+        transaction.rotate(
+          refreshInput(fixture, 94, new Date("2026-08-22T12:06:00.000Z"), authorizeCsrf),
+        ),
+      ),
+    ).resolves.toEqual({ status: "csrf_failed" });
+    expect(authorizeCsrf).toHaveBeenCalledWith(fixture.sessionId);
+
+    const token = await database
+      .selectFrom("identity.refresh_tokens")
+      .select(["consumed_at", "replaced_by_token_id", "revoked_at"])
+      .where("id", "=", fixture.refreshTokenId)
+      .executeTakeFirstOrThrow();
+    expect(token).toEqual({ consumed_at: null, replaced_by_token_id: null, revoked_at: null });
+  });
+
+  it("allows one concurrent refresh and treats the loser as reuse", async () => {
+    const fixture = await createRefreshFixture("refresh-race@example.com", 9, 100);
+    const refreshedAt = new Date("2026-08-22T12:05:00.000Z");
+
+    const results = await Promise.all([
+      refreshSessionRunner.execute((transaction) =>
+        transaction.rotate(refreshInput(fixture, 102, refreshedAt)),
+      ),
+      refreshSessionRunner.execute((transaction) =>
+        transaction.rotate(refreshInput(fixture, 104, refreshedAt)),
+      ),
+    ]);
+
+    expect(results.map((result) => result.status).sort()).toEqual(["reuse_detected", "rotated"]);
+    const session = await database
+      .selectFrom("identity.sessions")
+      .select(["revoked_at", "revocation_reason"])
+      .where("id", "=", fixture.sessionId)
+      .executeTakeFirstOrThrow();
+    const accessTokens = await database
+      .selectFrom("identity.access_tokens")
+      .select("revoked_at")
+      .where("session_id", "=", fixture.sessionId)
+      .execute();
+    const refreshTokens = await database
+      .selectFrom("identity.refresh_tokens")
+      .select("revoked_at")
+      .where("session_id", "=", fixture.sessionId)
+      .execute();
+    const event = await database
+      .selectFrom("identity.security_events")
+      .select(["event_type", "target_user_id", "session_id"])
+      .where("event_type", "=", "identity.refresh.reuse_detected")
+      .where("session_id", "=", fixture.sessionId)
+      .executeTakeFirstOrThrow();
+
+    expect(session).toEqual({
+      revoked_at: refreshedAt,
+      revocation_reason: "refresh_token_reuse",
+    });
+    expect(
+      accessTokens.every((token) => token.revoked_at?.getTime() === refreshedAt.getTime()),
+    ).toBe(true);
+    expect(
+      refreshTokens.every((token) => token.revoked_at?.getTime() === refreshedAt.getTime()),
+    ).toBe(true);
+    expect(event).toEqual({
+      event_type: "identity.refresh.reuse_detected",
+      target_user_id: fixture.userId,
+      session_id: fixture.sessionId,
+    });
   });
 });

@@ -4,6 +4,7 @@ import type { Kysely } from "kysely";
 import { AuthenticatePassword } from "./application/authenticate-password.js";
 import { LoginUser } from "./application/login-user.js";
 import { RegisterUser } from "./application/register-user.js";
+import { RefreshSession } from "./application/refresh-session.js";
 import { ResendVerification } from "./application/resend-verification.js";
 import type { VerificationEmailDelivery } from "./application/verification-email-delivery.js";
 import { VerifyEmail } from "./application/verify-email.js";
@@ -13,6 +14,7 @@ import { PostgresEmailVerificationTransactionRunner } from "./infrastructure/per
 import { PostgresLoginSessionTransactionRunner } from "./infrastructure/persistence/postgres-login-session-transaction-runner.js";
 import { PostgresPasswordAccountReader } from "./infrastructure/persistence/postgres-password-account-reader.js";
 import { PostgresRegistrationTransactionRunner } from "./infrastructure/persistence/postgres-registration-transaction-runner.js";
+import { PostgresRefreshSessionTransactionRunner } from "./infrastructure/persistence/postgres-refresh-session-transaction-runner.js";
 import { PostgresResendVerificationTransactionRunner } from "./infrastructure/persistence/postgres-resend-verification-transaction-runner.js";
 import {
   Argon2PasswordHasher,
@@ -60,6 +62,15 @@ export async function createIdentityModuleRouter(
     passwordHasher,
     transactionRunner: new PostgresLoginSessionTransactionRunner(options.database),
   });
+  const credentialGenerator = new CryptoOpaqueCredentialGenerator();
+  const sessionCsrfTokenService = new CryptoSessionCsrfTokenService(
+    options.sessionSecurity.csrfHmacKey,
+  );
+  const refreshSession = new RefreshSession({
+    credentialGenerator,
+    sessionCsrfTokenService,
+    transactionRunner: new PostgresRefreshSessionTransactionRunner(options.database),
+  });
   const registerUser = new RegisterUser({
     compromisedPasswordChecker,
     passwordHasher,
@@ -79,12 +90,14 @@ export async function createIdentityModuleRouter(
   return createIdentityRouter({
     loginUser,
     registerUser,
+    refreshSession,
     resendVerification,
     verifyEmail,
     registrationRateLimiter: new InMemoryRegistrationRateLimiter(),
     loginRateLimiter: new InMemoryRegistrationRateLimiter(),
+    refreshRateLimiter: new InMemoryRegistrationRateLimiter(),
     resendVerificationRateLimiter: new InMemoryRegistrationRateLimiter(),
-    sessionCsrfTokenService: new CryptoSessionCsrfTokenService(options.sessionSecurity.csrfHmacKey),
+    sessionCsrfTokenService,
     secureCookies: options.sessionSecurity.secureCookies,
     webOrigin: options.webOrigin,
   });
