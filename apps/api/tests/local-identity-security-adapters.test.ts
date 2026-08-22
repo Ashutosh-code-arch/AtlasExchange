@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 
 import { normalizePassword } from "../src/modules/identity/domain/password.js";
 import {
+  CryptoOpaqueCredentialGenerator,
+  opaqueCredentialEntropyBytes,
+} from "../src/modules/identity/infrastructure/security/crypto-opaque-credential-generator.js";
+import {
   CryptoVerificationSecretGenerator,
   verificationSecretEntropyBytes,
 } from "../src/modules/identity/infrastructure/security/crypto-verification-secret-generator.js";
@@ -52,5 +56,16 @@ describe("local Identity security adapters", () => {
       createHash("sha256").update(generated.secret, "utf8").digest(),
     );
     expect(generated.digest).toHaveLength(32);
+  });
+
+  it("generates independent 256-bit opaque session credentials", () => {
+    const generator = new CryptoOpaqueCredentialGenerator();
+    const first = generator.generate();
+    const second = generator.generate();
+
+    expect(Buffer.from(first.secret, "base64url")).toHaveLength(opaqueCredentialEntropyBytes);
+    expect(first.digest).toEqual(createHash("sha256").update(first.secret, "utf8").digest());
+    expect(first.secret).not.toBe(second.secret);
+    expect(first.digest).not.toEqual(second.digest);
   });
 });

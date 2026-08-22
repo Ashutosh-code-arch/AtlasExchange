@@ -8,6 +8,7 @@ import { IdentityInputValidationError } from "../src/modules/identity/domain/ide
 
 const dummyPasswordHash = "$argon2id$dummy";
 const storedPasswordHash = "$argon2id$stored";
+const credentialUpdatedAt = new Date("2026-08-22T10:00:00.000Z");
 
 function createHarness(
   options: {
@@ -33,6 +34,7 @@ function createHarness(
       displayEmail: "User@Example.com",
       state: options.accountState ?? "active",
       passwordHash: storedPasswordHash,
+      credentialUpdatedAt,
     });
   }
   const verifyPassword = vi
@@ -71,6 +73,7 @@ describe("AuthenticatePassword", () => {
       status: "authenticated",
       userId: "user-id",
       displayEmail: "User@Example.com",
+      credentialUpdatedAt,
       passwordHashNeedsRehash: true,
     });
     expect(harness.findByNormalizedEmail).toHaveBeenCalledWith("user@example.com");

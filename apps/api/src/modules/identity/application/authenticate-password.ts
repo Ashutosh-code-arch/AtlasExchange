@@ -13,6 +13,7 @@ export type AuthenticatePasswordResult =
       readonly status: "authenticated";
       readonly userId: string;
       readonly displayEmail: string;
+      readonly credentialUpdatedAt: Date;
       readonly passwordHashNeedsRehash: boolean;
     }
   | { readonly status: "invalid_credentials" }
@@ -51,6 +52,7 @@ export class AuthenticatePassword {
       status: "authenticated",
       userId: account.userId,
       displayEmail: account.displayEmail,
+      credentialUpdatedAt: account.credentialUpdatedAt,
       passwordHashNeedsRehash: this.dependencies.passwordHasher.needsRehash(account.passwordHash),
     };
   }

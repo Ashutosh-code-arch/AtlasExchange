@@ -25,6 +25,7 @@ export class PostgresPasswordAccountReader implements PasswordAccountReader {
         "identity.users.display_email as displayEmail",
         "identity.users.state",
         "identity.password_credentials.password_hash as passwordHash",
+        "identity.password_credentials.updated_at as credentialUpdatedAt",
       ])
       .where("identity.users.normalized_email", "=", normalizedEmail)
       .executeTakeFirst();

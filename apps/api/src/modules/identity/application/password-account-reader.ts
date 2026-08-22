@@ -6,6 +6,7 @@ export interface PasswordAccount {
   readonly displayEmail: string;
   readonly state: IdentityAccountState;
   readonly passwordHash: string;
+  readonly credentialUpdatedAt: Date;
 }
 
 export interface PasswordAccountReader {
