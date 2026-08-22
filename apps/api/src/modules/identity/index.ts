@@ -10,6 +10,8 @@ import { LogoutAllSessions } from "./application/logout-all-sessions.js";
 import { RegisterUser } from "./application/register-user.js";
 import { RefreshSession } from "./application/refresh-session.js";
 import { ResendVerification } from "./application/resend-verification.js";
+import { RequestPasswordReset } from "./application/request-password-reset.js";
+import type { PasswordResetEmailDelivery } from "./application/password-reset-email-delivery.js";
 import { RevokeSession } from "./application/revoke-session.js";
 import type { VerificationEmailDelivery } from "./application/verification-email-delivery.js";
 import { VerifyEmail } from "./application/verify-email.js";
@@ -25,6 +27,7 @@ import { PostgresPasswordAccountReader } from "./infrastructure/persistence/post
 import { PostgresRegistrationTransactionRunner } from "./infrastructure/persistence/postgres-registration-transaction-runner.js";
 import { PostgresRefreshSessionTransactionRunner } from "./infrastructure/persistence/postgres-refresh-session-transaction-runner.js";
 import { PostgresResendVerificationTransactionRunner } from "./infrastructure/persistence/postgres-resend-verification-transaction-runner.js";
+import { PostgresRequestPasswordResetTransactionRunner } from "./infrastructure/persistence/postgres-request-password-reset-transaction-runner.js";
 import { PostgresRevokeSessionTransactionRunner } from "./infrastructure/persistence/postgres-revoke-session-transaction-runner.js";
 import {
   Argon2PasswordHasher,
@@ -38,6 +41,10 @@ import { LocalCompromisedPasswordChecker } from "./infrastructure/security/local
 
 export type { IdentityDatabaseSchema } from "./infrastructure/persistence/identity-database-schema.js";
 export { createIdentityRouter, type IdentityRouterOptions } from "./http/identity-router.js";
+export {
+  SmtpPasswordResetEmailDelivery,
+  type SmtpPasswordResetEmailDeliveryOptions,
+} from "./infrastructure/delivery/smtp-password-reset-email-delivery.js";
 export {
   getAuthenticationState,
   requireAuthentication,
@@ -54,6 +61,7 @@ export interface CreateIdentityModuleRouterOptions {
   readonly database: Kysely<IdentityDatabaseSchema>;
   readonly passwordBlocklistPath: string;
   readonly verificationEmailDelivery: VerificationEmailDelivery;
+  readonly passwordResetEmailDelivery: PasswordResetEmailDelivery;
   readonly webOrigin: string;
   readonly sessionSecurity: Readonly<{
     readonly secureCookies: boolean;
@@ -93,6 +101,11 @@ export async function createIdentityModuleRouter(
     sessionCsrfTokenService,
     transactionRunner: new PostgresRevokeSessionTransactionRunner(options.database),
   });
+  const requestPasswordReset = new RequestPasswordReset({
+    credentialGenerator,
+    passwordResetEmailDelivery: options.passwordResetEmailDelivery,
+    transactionRunner: new PostgresRequestPasswordResetTransactionRunner(options.database),
+  });
   const refreshSession = new RefreshSession({
     credentialGenerator,
     sessionCsrfTokenService,
@@ -125,6 +138,7 @@ export async function createIdentityModuleRouter(
   return createIdentityRouter({
     authenticateAccess,
     listSessions,
+    requestPasswordReset,
     revokeSession,
     loginUser,
     logoutSession,
@@ -138,6 +152,7 @@ export async function createIdentityModuleRouter(
     refreshRateLimiter: new InMemoryRegistrationRateLimiter(),
     logoutAllRateLimiter: new InMemoryRegistrationRateLimiter(),
     resendVerificationRateLimiter: new InMemoryRegistrationRateLimiter(),
+    passwordRecoveryRateLimiter: new InMemoryRegistrationRateLimiter(),
     sessionCsrfTokenService,
     secureCookies: options.sessionSecurity.secureCookies,
     webOrigin: options.webOrigin,

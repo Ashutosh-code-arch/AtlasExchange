@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   currentUserResponseSchema,
+  forgotPasswordAcceptedResponseSchema,
+  forgotPasswordRequestSchema,
   sessionsResponseSchema,
   revokeSessionParamsSchema,
   loginRequestSchema,
@@ -56,6 +58,24 @@ describe("current-user contract", () => {
         },
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("forgot-password contract", () => {
+  it("accepts only an email and keeps the response generic", () => {
+    expect(forgotPasswordRequestSchema.parse({ email: "  user@example.com  " })).toEqual({
+      email: "user@example.com",
+    });
+    expect(
+      forgotPasswordRequestSchema.safeParse({
+        email: "user@example.com",
+        redirectUrl: "https://attacker.example",
+      }).success,
+    ).toBe(false);
+    expect(forgotPasswordAcceptedResponseSchema.parse({ success: true, data: {} })).toEqual({
+      success: true,
+      data: {},
+    });
   });
 });
 

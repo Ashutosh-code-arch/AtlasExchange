@@ -1,5 +1,7 @@
 export {
   currentUserResponseSchema,
+  forgotPasswordAcceptedResponseSchema,
+  forgotPasswordRequestSchema,
   identityRoleSchema,
   loginRequestSchema,
   loginSuccessResponseSchema,
@@ -16,6 +18,8 @@ export {
   verifyEmailRequestSchema,
   type RegisterAcceptedResponse,
   type CurrentUserResponse,
+  type ForgotPasswordAcceptedResponse,
+  type ForgotPasswordRequest,
   type IdentityRole,
   type SessionSummary,
   type SessionsResponse,

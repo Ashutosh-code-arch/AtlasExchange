@@ -11,6 +11,7 @@ import type { LogoutAllSessions } from "../src/modules/identity/application/logo
 import type { RegisterUser } from "../src/modules/identity/application/register-user.js";
 import type { RefreshSession } from "../src/modules/identity/application/refresh-session.js";
 import type { RegistrationRateLimiter } from "../src/modules/identity/application/registration-rate-limiter.js";
+import type { RequestPasswordReset } from "../src/modules/identity/application/request-password-reset.js";
 import type { ResendVerification } from "../src/modules/identity/application/resend-verification.js";
 import type { RevokeSession } from "../src/modules/identity/application/revoke-session.js";
 import type { SessionCsrfTokenService } from "../src/modules/identity/application/session-csrf-token-service.js";
@@ -93,6 +94,8 @@ function createTestApp(
     readonly logoutAllRateLimiter?: RegistrationRateLimiter;
     readonly verifyEmail?: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
     readonly registrationRateLimiter?: RegistrationRateLimiter;
+    readonly requestPasswordReset?: ReturnType<typeof vi.fn<RequestPasswordReset["execute"]>>;
+    readonly passwordRecoveryRateLimiter?: RegistrationRateLimiter;
     readonly refreshSession?: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
     readonly refreshRateLimiter?: RegistrationRateLimiter;
     readonly resendVerification?: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
@@ -110,6 +113,7 @@ function createTestApp(
   readonly logoutSession: ReturnType<typeof vi.fn<LogoutSession["execute"]>>;
   readonly logoutAllSessions: ReturnType<typeof vi.fn<LogoutAllSessions["execute"]>>;
   readonly refreshSession: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
+  readonly requestPasswordReset: ReturnType<typeof vi.fn<RequestPasswordReset["execute"]>>;
   readonly verifyEmail: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
   readonly resendVerification: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
   readonly revokeSession: ReturnType<typeof vi.fn<RevokeSession["execute"]>>;
@@ -150,6 +154,9 @@ function createTestApp(
   const verifyEmail =
     options.verifyEmail ??
     vi.fn<VerifyEmail["execute"]>().mockResolvedValue({ status: "verified" });
+  const requestPasswordReset =
+    options.requestPasswordReset ??
+    vi.fn<RequestPasswordReset["execute"]>().mockResolvedValue({ status: "not_issued" });
   const resendVerification =
     options.resendVerification ??
     vi.fn<ResendVerification["execute"]>().mockResolvedValue({ status: "not_issued" });
@@ -163,6 +170,7 @@ function createTestApp(
     authenticateAccess: { execute: authenticateAccess },
     listSessions: { execute: listSessions },
     revokeSession: { execute: revokeSession },
+    requestPasswordReset: { execute: requestPasswordReset },
     registerUser: { execute },
     refreshSession: { execute: refreshSession },
     loginUser: { execute: loginUser },
@@ -181,6 +189,9 @@ function createTestApp(
       consume: () => ({ allowed: true as const }),
     },
     resendVerificationRateLimiter: options.resendVerificationRateLimiter ?? {
+      consume: () => ({ allowed: true as const }),
+    },
+    passwordRecoveryRateLimiter: options.passwordRecoveryRateLimiter ?? {
       consume: () => ({ allowed: true as const }),
     },
     sessionCsrfTokenService: {
@@ -206,6 +217,7 @@ function createTestApp(
     logoutSession,
     logoutAllSessions,
     refreshSession,
+    requestPasswordReset,
     verifyEmail,
     resendVerification,
     revokeSession,
@@ -270,6 +282,63 @@ describe("Identity current-user HTTP API", () => {
     expect(authenticateAccess).toHaveBeenCalledWith(
       expect.objectContaining({ accessCredential: "secure-access-credential" }),
     );
+  });
+});
+
+describe("Identity forgot-password HTTP API", () => {
+  function postForgotPassword(app: ReturnType<typeof createApp>): request.Test {
+    return request(app).post("/api/v1/auth/forgot-password").set("origin", webOrigin);
+  }
+
+  it.each(["issued", "not_issued"] as const)(
+    "returns the same accepted response for the internal %s result",
+    async (status) => {
+      const requestPasswordReset = vi
+        .fn<RequestPasswordReset["execute"]>()
+        .mockResolvedValue(
+          status === "issued" ? { status, userId: "internal-user-id" } : { status },
+        );
+      const { app } = createTestApp({ requestPasswordReset });
+
+      const response = await postForgotPassword(app)
+        .set("x-request-id", "forgot-password-request")
+        .send({ email: "  User@Example.com  " });
+
+      expect(response.status).toBe(202);
+      expect(response.body).toEqual({ success: true, data: {} });
+      expect(JSON.stringify(response.body)).not.toMatch(/user|email|token|issued/i);
+      expect(requestPasswordReset).toHaveBeenCalledWith({
+        email: "User@Example.com",
+        requestId: "forgot-password-request",
+      });
+    },
+  );
+
+  it("requires exact origin and JSON and validates the email", async () => {
+    const { app, requestPasswordReset } = createTestApp();
+
+    expect(
+      (await request(app).post("/api/v1/auth/forgot-password").send({ email: "x@y.com" })).status,
+    ).toBe(403);
+    expect((await postForgotPassword(app).type("form").send({ email: "x@y.com" })).status).toBe(
+      400,
+    );
+    expect((await postForgotPassword(app).send({ email: "invalid" })).status).toBe(400);
+    expect(requestPasswordReset).not.toHaveBeenCalled();
+  });
+
+  it("returns Retry-After when password recovery is rate limited", async () => {
+    const { app, requestPasswordReset } = createTestApp({
+      passwordRecoveryRateLimiter: {
+        consume: () => ({ allowed: false as const, retryAfterSeconds: 31 }),
+      },
+    });
+
+    const response = await postForgotPassword(app).send({ email: "user@example.com" });
+
+    expect(response.status).toBe(429);
+    expect(response.headers["retry-after"]).toBe("31");
+    expect(requestPasswordReset).not.toHaveBeenCalled();
   });
 });
 

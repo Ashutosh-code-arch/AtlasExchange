@@ -7,6 +7,7 @@ import { parseApiConfig } from "./config/config.js";
 import {
   createIdentityModuleRouter,
   SmtpVerificationEmailDelivery,
+  SmtpPasswordResetEmailDelivery,
   type IdentityDatabaseSchema,
 } from "./modules/identity/index.js";
 import {
@@ -90,10 +91,16 @@ async function start(): Promise<RunningServer> {
       webOrigin: config.http.webOrigin,
       logger,
     });
+    const passwordResetEmailDelivery = new SmtpPasswordResetEmailDelivery({
+      ...config.identity.emailDelivery,
+      webOrigin: config.http.webOrigin,
+      logger,
+    });
     const identityRouter = await createIdentityModuleRouter({
       database: database.database,
       passwordBlocklistPath: config.identity.passwordBlocklistPath,
       verificationEmailDelivery,
+      passwordResetEmailDelivery,
       webOrigin: config.http.webOrigin,
       sessionSecurity: config.identity.sessionSecurity,
     });

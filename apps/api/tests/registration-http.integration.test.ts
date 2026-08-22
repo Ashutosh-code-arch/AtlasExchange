@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sessionsResponseSchema } from "@atlas/contracts";
+import type { DeliverPasswordResetEmailInput } from "../src/modules/identity/application/password-reset-email-delivery.js";
 
 import { createApp } from "../src/app.js";
 import {
@@ -45,6 +46,7 @@ const database = new Kysely<IdentityDatabaseSchema>({
   }),
 });
 let app: ReturnType<typeof createApp>;
+const deliveredPasswordResets: DeliverPasswordResetEmailInput[] = [];
 
 describe("composed registration HTTP flow", () => {
   beforeAll(async () => {
@@ -58,6 +60,12 @@ describe("composed registration HTTP flow", () => {
       ).pathname,
       verificationEmailDelivery: {
         deliver: () => Promise.resolve({ status: "delivered" }),
+      },
+      passwordResetEmailDelivery: {
+        deliver: (input) => {
+          deliveredPasswordResets.push(input);
+          return Promise.resolve({ status: "delivered" });
+        },
       },
       sessionSecurity: { secureCookies: false, csrfHmacKey },
       webOrigin,
@@ -496,6 +504,73 @@ describe("composed registration HTTP flow", () => {
     expect(currentUser.status).toBe(401);
     expect(currentUser.body).toMatchObject({
       error: { code: "AUTHENTICATION_REQUIRED" },
+    });
+  });
+
+  it("issues password recovery without disclosing account existence or persisting the secret", async () => {
+    deliveredPasswordResets.length = 0;
+    const user = await database
+      .insertInto("identity.users")
+      .values({
+        display_email: "Recovery@Example.com",
+        normalized_email: "recovery@example.com",
+        state: "active",
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await database
+      .insertInto("identity.password_credentials")
+      .values({ user_id: user.id, password_hash: "$argon2id$recovery-fixture" })
+      .execute();
+    await database
+      .insertInto("identity.user_roles")
+      .values({ user_id: user.id, role_code: "user" })
+      .execute();
+
+    const known = await request(app)
+      .post("/api/v1/auth/forgot-password")
+      .set("origin", webOrigin)
+      .set("x-request-id", "composed-password-recovery-known")
+      .send({ email: "  RECOVERY@example.com  " });
+    const unknown = await request(app)
+      .post("/api/v1/auth/forgot-password")
+      .set("origin", webOrigin)
+      .set("x-request-id", "composed-password-recovery-unknown")
+      .send({ email: "unknown-recovery@example.com" });
+
+    expect(known.status).toBe(202);
+    expect(unknown.status).toBe(202);
+    expect(known.body).toEqual({ success: true, data: {} });
+    expect(unknown.body).toEqual(known.body);
+    expect(deliveredPasswordResets).toHaveLength(1);
+    const delivery = deliveredPasswordResets[0];
+    if (delivery === undefined) {
+      throw new Error("Expected composed password-reset delivery");
+    }
+    expect(delivery.recipientEmail).toBe("Recovery@Example.com");
+    const [tokenId, secret] = delivery.credential.split(".");
+    if (tokenId === undefined || secret === undefined) {
+      throw new Error("Expected split password-reset credential");
+    }
+    const token = await database
+      .selectFrom("identity.password_reset_tokens")
+      .select(["secret_digest", "issued_at", "expires_at", "consumed_at", "revoked_at"])
+      .where("id", "=", tokenId)
+      .executeTakeFirstOrThrow();
+    const event = await database
+      .selectFrom("identity.security_events")
+      .select(["event_type", "target_user_id", "request_id"])
+      .where("event_type", "=", "identity.password_reset.requested")
+      .where("target_user_id", "=", user.id)
+      .executeTakeFirstOrThrow();
+    expect(token.secret_digest).toEqual(createHash("sha256").update(secret, "utf8").digest());
+    expect(token.expires_at.getTime() - token.issued_at.getTime()).toBe(30 * 60 * 1_000);
+    expect(token.consumed_at).toBeNull();
+    expect(token.revoked_at).toBeNull();
+    expect(event).toEqual({
+      event_type: "identity.password_reset.requested",
+      target_user_id: user.id,
+      request_id: "composed-password-recovery-known",
     });
   });
 });

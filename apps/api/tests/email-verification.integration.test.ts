@@ -93,6 +93,9 @@ describe("PostgreSQL email verification", () => {
       verificationEmailDelivery: {
         deliver: () => Promise.resolve({ status: "delivered" }),
       },
+      passwordResetEmailDelivery: {
+        deliver: () => Promise.resolve({ status: "delivered" }),
+      },
       sessionSecurity: { secureCookies: false, csrfHmacKey },
       webOrigin,
     });

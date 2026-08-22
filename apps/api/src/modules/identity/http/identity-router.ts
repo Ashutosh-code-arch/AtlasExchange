@@ -2,6 +2,8 @@ import {
   loginRequestSchema,
   loginSuccessResponseSchema,
   currentUserResponseSchema,
+  forgotPasswordAcceptedResponseSchema,
+  forgotPasswordRequestSchema,
   sessionsResponseSchema,
   revokeSessionParamsSchema,
   logoutRequestSchema,
@@ -15,6 +17,7 @@ import {
   type RegisterAcceptedResponse,
   type LoginSuccessResponse,
   type CurrentUserResponse,
+  type ForgotPasswordAcceptedResponse,
   type SessionsResponse,
   type ResendVerificationAcceptedResponse,
 } from "@atlas/contracts";
@@ -24,6 +27,7 @@ import { AppError } from "../../../http/errors/app-error.js";
 import type { LoginUser } from "../application/login-user.js";
 import type { AuthenticateAccess } from "../application/authenticate-access.js";
 import type { ListSessions } from "../application/list-sessions.js";
+import type { RequestPasswordReset } from "../application/request-password-reset.js";
 import type { RevokeSession } from "../application/revoke-session.js";
 import type { LogoutSession } from "../application/logout-session.js";
 import type { LogoutAllSessions } from "../application/logout-all-sessions.js";
@@ -47,6 +51,7 @@ import { getAuthenticationState, requireAuthentication } from "./require-authent
 export interface IdentityRouterOptions {
   readonly authenticateAccess: Pick<AuthenticateAccess, "execute">;
   readonly listSessions: Pick<ListSessions, "execute">;
+  readonly requestPasswordReset: Pick<RequestPasswordReset, "execute">;
   readonly revokeSession: Pick<RevokeSession, "execute">;
   readonly loginUser: Pick<LoginUser, "execute">;
   readonly logoutSession: Pick<LogoutSession, "execute">;
@@ -60,6 +65,7 @@ export interface IdentityRouterOptions {
   readonly refreshRateLimiter: RegistrationRateLimiter;
   readonly logoutAllRateLimiter: RegistrationRateLimiter;
   readonly resendVerificationRateLimiter: RegistrationRateLimiter;
+  readonly passwordRecoveryRateLimiter: RegistrationRateLimiter;
   readonly sessionCsrfTokenService: SessionCsrfTokenService;
   readonly secureCookies: boolean;
   readonly webOrigin: string;
@@ -195,6 +201,38 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
         });
         response.status(200).json(body);
       } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  router.post(
+    "/forgot-password",
+    requirePreSessionJson,
+    enforceRateLimit(options.passwordRecoveryRateLimiter, "Password recovery rate limit exceeded."),
+    async (request, response, next) => {
+      const parsedRequest = forgotPasswordRequestSchema.safeParse(request.body);
+      if (!parsedRequest.success) {
+        next(new AppError(400, "VALIDATION_FAILED", "Password recovery request is invalid."));
+        return;
+      }
+
+      try {
+        const requestIdHeader = response.getHeader("x-request-id");
+        await options.requestPasswordReset.execute({
+          email: parsedRequest.data.email,
+          requestId: typeof requestIdHeader === "string" ? requestIdHeader : "unavailable",
+        });
+        const body: ForgotPasswordAcceptedResponse = forgotPasswordAcceptedResponseSchema.parse({
+          success: true,
+          data: {},
+        });
+        response.status(202).json(body);
+      } catch (error) {
+        if (error instanceof IdentityInputValidationError) {
+          next(new AppError(400, "VALIDATION_FAILED", "Password recovery request is invalid."));
+          return;
+        }
         next(error);
       }
     },
