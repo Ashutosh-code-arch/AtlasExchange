@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import type { LoginUser } from "../src/modules/identity/application/login-user.js";
 import type { LogoutSession } from "../src/modules/identity/application/logout-session.js";
+import type { LogoutAllSessions } from "../src/modules/identity/application/logout-all-sessions.js";
 import type { RegisterUser } from "../src/modules/identity/application/register-user.js";
 import type { RefreshSession } from "../src/modules/identity/application/refresh-session.js";
 import type { RegistrationRateLimiter } from "../src/modules/identity/application/registration-rate-limiter.js";
@@ -63,6 +64,8 @@ function createTestApp(
     readonly loginUser?: ReturnType<typeof vi.fn<LoginUser["execute"]>>;
     readonly loginRateLimiter?: RegistrationRateLimiter;
     readonly logoutSession?: ReturnType<typeof vi.fn<LogoutSession["execute"]>>;
+    readonly logoutAllSessions?: ReturnType<typeof vi.fn<LogoutAllSessions["execute"]>>;
+    readonly logoutAllRateLimiter?: RegistrationRateLimiter;
     readonly verifyEmail?: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
     readonly registrationRateLimiter?: RegistrationRateLimiter;
     readonly refreshSession?: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
@@ -77,6 +80,7 @@ function createTestApp(
   readonly execute: ReturnType<typeof vi.fn<RegisterUser["execute"]>>;
   readonly loginUser: ReturnType<typeof vi.fn<LoginUser["execute"]>>;
   readonly logoutSession: ReturnType<typeof vi.fn<LogoutSession["execute"]>>;
+  readonly logoutAllSessions: ReturnType<typeof vi.fn<LogoutAllSessions["execute"]>>;
   readonly refreshSession: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
   readonly verifyEmail: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
   readonly resendVerification: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
@@ -101,6 +105,9 @@ function createTestApp(
   const logoutSession =
     options.logoutSession ??
     vi.fn<LogoutSession["execute"]>().mockResolvedValue({ status: "logged_out" });
+  const logoutAllSessions =
+    options.logoutAllSessions ??
+    vi.fn<LogoutAllSessions["execute"]>().mockResolvedValue({ status: "logged_out" });
   const sessionCsrfIssue =
     options.sessionCsrfIssue ??
     vi.fn<SessionCsrfTokenService["issue"]>().mockReturnValue(csrfToken);
@@ -117,6 +124,7 @@ function createTestApp(
     refreshSession: { execute: refreshSession },
     loginUser: { execute: loginUser },
     logoutSession: { execute: logoutSession },
+    logoutAllSessions: { execute: logoutAllSessions },
     resendVerification: { execute: resendVerification },
     verifyEmail: { execute: verifyEmail },
     registrationRateLimiter,
@@ -124,6 +132,9 @@ function createTestApp(
       consume: () => ({ allowed: true as const }),
     },
     refreshRateLimiter: options.refreshRateLimiter ?? {
+      consume: () => ({ allowed: true as const }),
+    },
+    logoutAllRateLimiter: options.logoutAllRateLimiter ?? {
       consume: () => ({ allowed: true as const }),
     },
     resendVerificationRateLimiter: options.resendVerificationRateLimiter ?? {
@@ -148,6 +159,7 @@ function createTestApp(
     execute,
     loginUser,
     logoutSession,
+    logoutAllSessions,
     refreshSession,
     verifyEmail,
     resendVerification,
@@ -470,6 +482,71 @@ describe("Identity logout HTTP API", () => {
     expect(text.status).toBe(400);
     expect(overPosted.status).toBe(400);
     expect(logoutSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("Identity logout-all HTTP API", () => {
+  function logoutAllRequest(app: ReturnType<typeof createApp>): request.Test {
+    return request(app)
+      .post("/api/v1/auth/logout-all")
+      .set("origin", webOrigin)
+      .set("Cookie", [`atlas_refresh=refresh-id.refresh-secret`, `atlas_csrf=${csrfToken}`])
+      .set("x-csrf-token", csrfToken);
+  }
+
+  it("returns 204 and clears the current browser session cookies", async () => {
+    const { app, logoutAllSessions } = createTestApp();
+    const response = await logoutAllRequest(app).set("x-request-id", "logout-all-request").send({});
+
+    expect(response.status).toBe(204);
+    expect(logoutAllSessions).toHaveBeenCalledWith({
+      refreshCredential: "refresh-id.refresh-secret",
+      csrfCookie: csrfToken,
+      csrfHeader: csrfToken,
+      requestId: "logout-all-request",
+    });
+    expect(setCookies(response)).toHaveLength(3);
+  });
+
+  it.each([
+    ["csrf_failed", 403, "CSRF_FAILED", 0],
+    ["authentication_required", 401, "AUTHENTICATION_REQUIRED", 3],
+  ] as const)("maps %s safely", async (status, expectedStatus, code, cookieCount) => {
+    const logoutAllSessions = vi.fn<LogoutAllSessions["execute"]>().mockResolvedValue({ status });
+    const { app } = createTestApp({ logoutAllSessions });
+    const response = await logoutAllRequest(app).send({});
+
+    expect(response.status).toBe(expectedStatus);
+    expect(response.body).toMatchObject({ error: { code } });
+    expect(setCookies(response)).toHaveLength(cookieCount);
+  });
+
+  it("enforces origin, JSON, an empty body, and an independent rate limit", async () => {
+    const logoutAllRateLimiter: RegistrationRateLimiter = {
+      consume: () => ({ allowed: false, retryAfterSeconds: 29 }),
+    };
+    const { app, logoutAllSessions } = createTestApp({ logoutAllRateLimiter });
+    const wrongOrigin = await request(app)
+      .post("/api/v1/auth/logout-all")
+      .set("origin", "https://evil.example")
+      .send({});
+    const text = await request(app)
+      .post("/api/v1/auth/logout-all")
+      .set("origin", webOrigin)
+      .set("content-type", "text/plain")
+      .send("{}");
+    const rateLimited = await logoutAllRequest(app).send({});
+
+    expect(wrongOrigin.status).toBe(403);
+    expect(text.status).toBe(400);
+    expect(rateLimited.status).toBe(429);
+    expect(rateLimited.headers["retry-after"]).toBe("29");
+    expect(logoutAllSessions).not.toHaveBeenCalled();
+
+    const permissive = createTestApp();
+    const overPosted = await logoutAllRequest(permissive.app).send({ userId: "must-not-accept" });
+    expect(overPosted.status).toBe(400);
+    expect(permissive.logoutAllSessions).not.toHaveBeenCalled();
   });
 });
 

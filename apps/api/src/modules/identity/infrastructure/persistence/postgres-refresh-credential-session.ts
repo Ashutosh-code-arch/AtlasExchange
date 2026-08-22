@@ -17,29 +17,47 @@ export interface LockedRefreshCredentialSession {
   readonly accountState: IdentityAccountState;
 }
 
-export function lockRefreshCredentialSession(
+export async function lockRefreshCredentialSession(
   database: Transaction<IdentityDatabaseSchema>,
   tokenId: string,
   secretDigest: Uint8Array,
 ): Promise<LockedRefreshCredentialSession | undefined> {
+  const identity = await database
+    .selectFrom("identity.refresh_tokens as refreshTokens")
+    .innerJoin("identity.sessions as sessions", "sessions.id", "refreshTokens.session_id")
+    .select("sessions.user_id as userId")
+    .where("refreshTokens.id", "=", tokenId)
+    .where("refreshTokens.secret_digest", "=", Buffer.from(secretDigest))
+    .executeTakeFirst();
+  if (identity === undefined) {
+    return undefined;
+  }
+
+  await database
+    .selectFrom("identity.users as users")
+    .select("id")
+    .where("id", "=", identity.userId)
+    .forUpdate("users")
+    .executeTakeFirstOrThrow();
+
   return database
-    .selectFrom("identity.refresh_tokens")
-    .innerJoin("identity.sessions", "identity.sessions.id", "identity.refresh_tokens.session_id")
-    .innerJoin("identity.users", "identity.users.id", "identity.sessions.user_id")
+    .selectFrom("identity.refresh_tokens as refreshTokens")
+    .innerJoin("identity.sessions as sessions", "sessions.id", "refreshTokens.session_id")
+    .innerJoin("identity.users as users", "users.id", "sessions.user_id")
     .select([
-      "identity.refresh_tokens.session_id as sessionId",
-      "identity.refresh_tokens.expires_at as refreshExpiresAt",
-      "identity.refresh_tokens.consumed_at as refreshConsumedAt",
-      "identity.refresh_tokens.revoked_at as refreshRevokedAt",
-      "identity.sessions.user_id as userId",
-      "identity.sessions.last_activity_at as lastActivityAt",
-      "identity.sessions.absolute_expires_at as absoluteExpiresAt",
-      "identity.sessions.revoked_at as sessionRevokedAt",
-      "identity.users.state as accountState",
+      "refreshTokens.session_id as sessionId",
+      "refreshTokens.expires_at as refreshExpiresAt",
+      "refreshTokens.consumed_at as refreshConsumedAt",
+      "refreshTokens.revoked_at as refreshRevokedAt",
+      "sessions.user_id as userId",
+      "sessions.last_activity_at as lastActivityAt",
+      "sessions.absolute_expires_at as absoluteExpiresAt",
+      "sessions.revoked_at as sessionRevokedAt",
+      "users.state as accountState",
     ])
-    .where("identity.refresh_tokens.id", "=", tokenId)
-    .where("identity.refresh_tokens.secret_digest", "=", Buffer.from(secretDigest))
-    .forUpdate()
+    .where("refreshTokens.id", "=", tokenId)
+    .where("refreshTokens.secret_digest", "=", Buffer.from(secretDigest))
+    .forUpdate(["sessions", "refreshTokens"])
     .executeTakeFirst();
 }
 

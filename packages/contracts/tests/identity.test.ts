@@ -4,6 +4,7 @@ import {
   loginRequestSchema,
   loginSuccessResponseSchema,
   logoutRequestSchema,
+  logoutAllRequestSchema,
   refreshRequestSchema,
   registerAcceptedResponseSchema,
   registerRequestSchema,
@@ -63,6 +64,11 @@ describe("Identity contracts", () => {
   it("requires logout requests to contain an empty JSON object", () => {
     expect(logoutRequestSchema.parse({})).toEqual({});
     expect(logoutRequestSchema.safeParse({ sessionId: "must-not-accept" }).success).toBe(false);
+  });
+
+  it("requires logout-all requests to contain an empty JSON object", () => {
+    expect(logoutAllRequestSchema.parse({})).toEqual({});
+    expect(logoutAllRequestSchema.safeParse({ userId: "must-not-accept" }).success).toBe(false);
   });
 
   it("rejects malformed registration email addresses", () => {

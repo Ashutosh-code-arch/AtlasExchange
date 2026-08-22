@@ -6,12 +6,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { IssueLoginSessionInput } from "../src/modules/identity/application/login-session-transaction.js";
 import type { RevokeCurrentSessionInput } from "../src/modules/identity/application/logout-session-transaction.js";
+import type { RevokeAllSessionsInput } from "../src/modules/identity/application/logout-all-sessions-transaction.js";
 import type { RotateRefreshSessionInput } from "../src/modules/identity/application/refresh-session-transaction.js";
 import type { IdentityAccountState } from "../src/modules/identity/domain/account-state.js";
 import type { NormalizedEmail } from "../src/modules/identity/domain/email-address.js";
 import type { IdentityDatabaseSchema } from "../src/modules/identity/infrastructure/persistence/identity-database-schema.js";
 import { PostgresLoginSessionTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-login-session-transaction-runner.js";
 import { PostgresLogoutSessionTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-logout-session-transaction-runner.js";
+import { PostgresLogoutAllSessionsTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-logout-all-sessions-transaction-runner.js";
 import { PostgresPasswordAccountReader } from "../src/modules/identity/infrastructure/persistence/postgres-password-account-reader.js";
 import { PostgresRegistrationTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-registration-transaction-runner.js";
 import { PostgresRefreshSessionTransactionRunner } from "../src/modules/identity/infrastructure/persistence/postgres-refresh-session-transaction-runner.js";
@@ -37,6 +39,7 @@ const database = new Kysely<IdentityDatabaseSchema>({
 const registrationRunner = new PostgresRegistrationTransactionRunner(database);
 const loginSessionRunner = new PostgresLoginSessionTransactionRunner(database);
 const logoutSessionRunner = new PostgresLogoutSessionTransactionRunner(database);
+const logoutAllSessionsRunner = new PostgresLogoutAllSessionsTransactionRunner(database);
 const refreshSessionRunner = new PostgresRefreshSessionTransactionRunner(database);
 const accountReader = new PostgresPasswordAccountReader(database);
 const issuedAt = new Date("2026-08-22T12:00:00.000Z");
@@ -91,18 +94,18 @@ function sessionInput(
   };
 }
 
-async function createRefreshFixture(
-  email: string,
-  userDigestByte: number,
-  tokenDigestByte: number,
-): Promise<{
+interface RefreshFixture {
   readonly userId: string;
   readonly sessionId: string;
   readonly refreshTokenId: string;
   readonly refreshSecretDigest: Uint8Array;
   readonly absoluteExpiresAt: Date;
-}> {
-  const account = await createUser(email, "active", userDigestByte);
+}
+
+async function issueRefreshFixture(
+  account: { readonly userId: string; readonly credentialUpdatedAt: Date },
+  tokenDigestByte: number,
+): Promise<RefreshFixture> {
   const input = sessionInput(account.userId, account.credentialUpdatedAt, tokenDigestByte);
   const result = await loginSessionRunner.execute((transaction) =>
     transaction.issueLoginSession(input),
@@ -117,6 +120,14 @@ async function createRefreshFixture(
     refreshSecretDigest: input.refreshSecretDigest,
     absoluteExpiresAt: input.absoluteExpiresAt,
   };
+}
+
+async function createRefreshFixture(
+  email: string,
+  userDigestByte: number,
+  tokenDigestByte: number,
+): Promise<RefreshFixture> {
+  return issueRefreshFixture(await createUser(email, "active", userDigestByte), tokenDigestByte);
 }
 
 function refreshInput(
@@ -147,6 +158,20 @@ function logoutInput(
     secretDigest: fixture.refreshSecretDigest,
     revokedAt,
     requestId: `logout-${fixture.userId}`,
+    authorizeSession,
+  };
+}
+
+function logoutAllInput(
+  fixture: RefreshFixture,
+  revokedAt: Date,
+  authorizeSession: (sessionId: string) => boolean = () => true,
+): RevokeAllSessionsInput {
+  return {
+    tokenId: fixture.refreshTokenId,
+    secretDigest: fixture.refreshSecretDigest,
+    revokedAt,
+    requestId: `logout-all-${fixture.userId}`,
     authorizeSession,
   };
 }
@@ -564,6 +589,97 @@ describe("PostgreSQL login-session persistence", () => {
 
     expect(session).toEqual({ revoked_at: endedAt, revocation_reason: "logout" });
     expect(activeAccessTokens.count).toBe("0");
+    expect(activeRefreshTokens.count).toBe("0");
+  });
+
+  it("revokes every active user session and records the affected count", async () => {
+    const account = await createUser("logout-all@example.com", "active", 13);
+    const first = await issueRefreshFixture(account, 140);
+    const second = await issueRefreshFixture(account, 142);
+    const revokedAt = new Date("2026-08-22T12:05:00.000Z");
+    const input = logoutAllInput(first, revokedAt);
+
+    await expect(
+      logoutAllSessionsRunner.execute((transaction) => transaction.revokeAllSessions(input)),
+    ).resolves.toEqual({ status: "revoked" });
+
+    const sessions = await database
+      .selectFrom("identity.sessions")
+      .select(["id", "revoked_at", "revocation_reason"])
+      .where("user_id", "=", account.userId)
+      .execute();
+    const activeAccessTokens = await database
+      .selectFrom("identity.access_tokens")
+      .innerJoin("identity.sessions", "identity.sessions.id", "identity.access_tokens.session_id")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("identity.sessions.user_id", "=", account.userId)
+      .where("identity.access_tokens.revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    const activeRefreshTokens = await database
+      .selectFrom("identity.refresh_tokens")
+      .innerJoin("identity.sessions", "identity.sessions.id", "identity.refresh_tokens.session_id")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("identity.sessions.user_id", "=", account.userId)
+      .where("identity.refresh_tokens.revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    const event = await database
+      .selectFrom("identity.security_events")
+      .select(["event_type", "session_id", "request_id", "metadata"])
+      .where("event_type", "=", "identity.logout_all")
+      .where("target_user_id", "=", account.userId)
+      .executeTakeFirstOrThrow();
+
+    expect(sessions.map((session) => session.id).sort()).toEqual(
+      [first.sessionId, second.sessionId].sort(),
+    );
+    expect(
+      sessions.every(
+        (session) =>
+          session.revoked_at?.getTime() === revokedAt.getTime() &&
+          session.revocation_reason === "logout_all",
+      ),
+    ).toBe(true);
+    expect(activeAccessTokens.count).toBe("0");
+    expect(activeRefreshTokens.count).toBe("0");
+    expect(event).toEqual({
+      event_type: "identity.logout_all",
+      session_id: first.sessionId,
+      request_id: input.requestId,
+      metadata: { revokedSessionCount: 2 },
+    });
+  });
+
+  it("serializes logout-all with a refresh on another device without deadlock", async () => {
+    const account = await createUser("logout-all-race@example.com", "active", 14);
+    const first = await issueRefreshFixture(account, 150);
+    const second = await issueRefreshFixture(account, 152);
+    const endedAt = new Date("2026-08-22T12:05:00.000Z");
+
+    const [refreshResult, logoutAllResult] = await Promise.all([
+      refreshSessionRunner.execute((transaction) =>
+        transaction.rotate(refreshInput(second, 154, endedAt)),
+      ),
+      logoutAllSessionsRunner.execute((transaction) =>
+        transaction.revokeAllSessions(logoutAllInput(first, endedAt)),
+      ),
+    ]);
+
+    expect(["invalid_credential", "rotated"]).toContain(refreshResult.status);
+    expect(logoutAllResult).toEqual({ status: "revoked" });
+    const activeSessions = await database
+      .selectFrom("identity.sessions")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("user_id", "=", account.userId)
+      .where("revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    const activeRefreshTokens = await database
+      .selectFrom("identity.refresh_tokens")
+      .innerJoin("identity.sessions", "identity.sessions.id", "identity.refresh_tokens.session_id")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("identity.sessions.user_id", "=", account.userId)
+      .where("identity.refresh_tokens.revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    expect(activeSessions.count).toBe("0");
     expect(activeRefreshTokens.count).toBe("0");
   });
 });

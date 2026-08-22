@@ -4,6 +4,7 @@ import type { Kysely } from "kysely";
 import { AuthenticatePassword } from "./application/authenticate-password.js";
 import { LoginUser } from "./application/login-user.js";
 import { LogoutSession } from "./application/logout-session.js";
+import { LogoutAllSessions } from "./application/logout-all-sessions.js";
 import { RegisterUser } from "./application/register-user.js";
 import { RefreshSession } from "./application/refresh-session.js";
 import { ResendVerification } from "./application/resend-verification.js";
@@ -14,6 +15,7 @@ import type { IdentityDatabaseSchema } from "./infrastructure/persistence/identi
 import { PostgresEmailVerificationTransactionRunner } from "./infrastructure/persistence/postgres-email-verification-transaction-runner.js";
 import { PostgresLoginSessionTransactionRunner } from "./infrastructure/persistence/postgres-login-session-transaction-runner.js";
 import { PostgresLogoutSessionTransactionRunner } from "./infrastructure/persistence/postgres-logout-session-transaction-runner.js";
+import { PostgresLogoutAllSessionsTransactionRunner } from "./infrastructure/persistence/postgres-logout-all-sessions-transaction-runner.js";
 import { PostgresPasswordAccountReader } from "./infrastructure/persistence/postgres-password-account-reader.js";
 import { PostgresRegistrationTransactionRunner } from "./infrastructure/persistence/postgres-registration-transaction-runner.js";
 import { PostgresRefreshSessionTransactionRunner } from "./infrastructure/persistence/postgres-refresh-session-transaction-runner.js";
@@ -77,6 +79,10 @@ export async function createIdentityModuleRouter(
     sessionCsrfTokenService,
     transactionRunner: new PostgresLogoutSessionTransactionRunner(options.database),
   });
+  const logoutAllSessions = new LogoutAllSessions({
+    sessionCsrfTokenService,
+    transactionRunner: new PostgresLogoutAllSessionsTransactionRunner(options.database),
+  });
   const registerUser = new RegisterUser({
     compromisedPasswordChecker,
     passwordHasher,
@@ -96,6 +102,7 @@ export async function createIdentityModuleRouter(
   return createIdentityRouter({
     loginUser,
     logoutSession,
+    logoutAllSessions,
     registerUser,
     refreshSession,
     resendVerification,
@@ -103,6 +110,7 @@ export async function createIdentityModuleRouter(
     registrationRateLimiter: new InMemoryRegistrationRateLimiter(),
     loginRateLimiter: new InMemoryRegistrationRateLimiter(),
     refreshRateLimiter: new InMemoryRegistrationRateLimiter(),
+    logoutAllRateLimiter: new InMemoryRegistrationRateLimiter(),
     resendVerificationRateLimiter: new InMemoryRegistrationRateLimiter(),
     sessionCsrfTokenService,
     secureCookies: options.sessionSecurity.secureCookies,
