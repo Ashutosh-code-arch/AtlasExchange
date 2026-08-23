@@ -2,7 +2,7 @@
 
 **Classification:** Canonical
 **Status:** Active
-**Last reviewed:** 2026-08-16
+**Last reviewed:** 2026-08-24
 **Canonical architecture:** ADR-004
 <!-- **Owner scope:** Operational testing policy -->
 
@@ -294,7 +294,7 @@ Cross-application tests belong under:
 tests/e2e/
 ```
 
-When the workspace is created, it is:
+The active workspace is:
 
 ```text
 @atlas/e2e
@@ -307,6 +307,14 @@ The E2E workspace owns:
 * configuration;
 * dependencies;
 * scripts.
+
+The initial E2E lane uses Playwright with Chromium. Its first journey covers browser registration,
+captured SMTP verification, email-verification consumption, sign-in, and PostgreSQL persistence.
+The command provisions isolated disposable PostgreSQL and Mailpit services and must never reuse the
+ordinary development database.
+
+CI runs this command as a dedicated lane after installing the pinned Playwright Chromium runtime.
+It remains separate from the normal non-E2E `pnpm verify` lane.
 
 ---
 

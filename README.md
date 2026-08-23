@@ -28,6 +28,7 @@ later phases.
 ```bash
 corepack enable
 pnpm install
+pnpm --filter @atlas/e2e exec playwright install chromium
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 pnpm db:up
@@ -48,7 +49,12 @@ pnpm db:up          # start the local PostgreSQL container
 pnpm mail:up        # start the local SMTP capture inbox
 pnpm db:migrate     # apply committed migrations
 pnpm verify         # typecheck, lint, format-check, and test
+pnpm test:e2e       # run the isolated browser identity journey
 pnpm build          # create production artifacts
 ```
+
+The E2E command provisions its own ephemeral PostgreSQL and Mailpit services through Docker
+Compose, starts the API and web application on available ports, and removes the test services when
+the run finishes. It does not reuse or modify the normal local-development database.
 
 See [Phase delivery](docs/engineering/phase-delivery.md) for scope and completion criteria.

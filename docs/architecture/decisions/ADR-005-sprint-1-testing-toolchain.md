@@ -3,7 +3,7 @@
 **Classification:** Canonical  
 **Status:** Accepted  
 **Date:** 2026-08-16  
-**Last reviewed:** 2026-08-16  
+**Last reviewed:** 2026-08-24
 **Canonical owner/source:** ADR-005
 
 ## Context
@@ -27,7 +27,7 @@ The toolchain should:
 5. allow HTTP testing without fixed-port coupling;
 6. keep dependencies and configuration workspace-owned;
 7. preserve the distinction between test execution and TypeScript verification;
-8. defer E2E infrastructure until a meaningful cross-application journey exists;
+8. introduce E2E infrastructure only when a meaningful cross-application journey exists;
 9. defer coverage infrastructure until it provides useful engineering information;
 10. remain simple enough for a solo developer to operate and maintain.
 
@@ -43,13 +43,12 @@ Atlas will use **Vitest as the common test runner** for the web, API, and contra
 - user-event
 - applicable DOM matchers
 - Supertest
+- Playwright for focused cross-application browser journeys
 
 ### Deferred
 
-- E2E runner
 - Coverage provider and installation
-- Exact dependency versions
-- PostgreSQL provisioning and isolation
+- Additional browser projects beyond Chromium
 
 ### Toolchain
 
@@ -58,8 +57,10 @@ Atlas will use **Vitest as the common test runner** for the web, API, and contra
 | `@atlas/web` | Vitest | jsdom | React Testing Library, user-event, DOM matchers |
 | `@atlas/api` | Vitest | Node | Supertest |
 | `@atlas/contracts` | Vitest | Node | — |
-| `@atlas/e2e` | Deferred | Real browser | Not selected |
-`@atlas/e2e` is a reserved future workspace location. It is not part of the installed Sprint 1 toolchain.
+| `@atlas/e2e` | Playwright | Chromium | Isolated PostgreSQL and Mailpit |
+
+`@atlas/e2e` became active on 2026-08-24 after Atlas gained a meaningful identity journey spanning
+registration, SMTP delivery, email verification, session creation, and PostgreSQL persistence.
 
 ## 1. Vitest as the Common Test Runner
 
@@ -224,9 +225,8 @@ pnpm test:e2e
 pnpm verify
     → mandatory static checks + non-E2E tests
 ```
-Playwright is the leading candidate for future E2E tooling because it provides real-browser execution appropriate for cross-application testing.
-It is not installed during Sprint 1 merely to create an empty E2E workspace.
-It should be introduced when Atlas has a meaningful cross-application journey requiring a real browser, for example:
+Atlas uses Playwright for focused real-browser execution of meaningful cross-application journeys.
+The first protected journey is:
 ```text
 Browser
   ↓
@@ -235,8 +235,12 @@ Web
 API
   ↓
 PostgreSQL
+  +
+SMTP capture
 ```
-The E2E suite should remain focused on high-value system behavior.
+The E2E suite remains separate from `pnpm test` and `pnpm verify`. It owns isolated disposable
+PostgreSQL and Mailpit services and must not reuse the normal development database. Chromium is the
+initial browser project; additional engines require demonstrated compatibility risk.
 
 ## 9. Workspace-Owned Configuration
 
@@ -252,6 +256,10 @@ apps/api/
 packages/contracts/
     package.json
     vitest.config.ts
+tests/e2e/
+    package.json
+    playwright.config.ts
+    compose.yaml
 ```
 The root repository invokes workspace commands through pnpm.
 Atlas does not initially create shared testing packages such as:
@@ -261,7 +269,8 @@ packages/test-utils
 ```
 unless stable duplication demonstrates that a reusable boundary is justified.
 Shared infrastructure should emerge from demonstrated need rather than speculative abstraction.
-`@atlas/e2e` is a reserved future workspace location. It is not part of the installed Sprint 1 toolchain and does not require Playwright or another E2E runner during Sprint 1.
+`@atlas/e2e` owns Playwright, browser configuration, test-service orchestration, and system-level
+specifications. It does not import application internals.
 
 ## 10. Dependency Ownership
 
@@ -278,6 +287,9 @@ For example:
     → supertest
 @atlas/contracts
     → vitest
+@atlas/e2e
+    → Playwright
+    → its own TypeScript and Node.js declarations
 ```
 Dependencies must not be relied upon merely because they happen to be visible through another workspace.
 This follows the existing Atlas dependency principle:
@@ -329,7 +341,7 @@ For example:
 The current repository is too small to justify multiple testing systems.
 Specialization should be introduced only when a demonstrated technical requirement outweighs the operational cost of additional conventions.
 
-## Alternative 4: Install Playwright during Sprint 1
+## Alternative 4: Install Playwright before a meaningful journey exists
 
 ### Benefits
 
@@ -339,9 +351,11 @@ Specialization should be introduced only when a demonstrated technical requireme
 
 ### Rejected because
 
-Atlas does not yet have a meaningful cross-application journey requiring browser automation.
-Installing Playwright before such a journey exists would introduce browser binaries, configuration, CI infrastructure, and maintenance requirements without immediate testing value.
-Playwright remains the leading candidate for future E2E tooling.
+At the time of the original Sprint 1 decision, Atlas did not yet have a meaningful cross-application
+journey requiring browser automation. Installing Playwright then would have introduced browser
+binaries and maintenance without immediate testing value. This rejection no longer prevents
+adoption now that the identity journey exists; the 2026-08-24 activation satisfies the original
+reconsideration condition.
 
 ## Alternative 5: Install coverage tooling immediately
 
@@ -383,9 +397,10 @@ jsdom handles fast component-level browser behavior, while real browser behavior
 
 Vitest remains responsible for test execution while TypeScript remains responsible for static type verification.
 
-### Deferred infrastructure
+### Focused browser evidence
 
-Atlas does not introduce Playwright, browser binaries, coverage infrastructure, or shared testing packages until demonstrated need exists.
+Atlas now validates a critical identity journey in a real browser while keeping E2E execution out of
+the fast non-E2E verification lane.
 
 ## Negative Consequences
 
@@ -400,6 +415,11 @@ Some browser behavior cannot be validated reliably in jsdom and will require rea
 ### Coverage visibility is initially limited
 
 Automated coverage reporting is unavailable until coverage tooling is deliberately introduced.
+
+### E2E infrastructure has an operating cost
+
+The browser binary and disposable Docker services increase setup time and disk usage. The suite must
+remain focused so this cost continues to buy meaningful system-level evidence.
 
 ### Future specialization may require another tool
 
@@ -497,4 +517,3 @@ Workspace and package-management decisions are governed by:
 [ADR-003 — Workspace and Package Management Strategy](ADR-003-workspace-and-package-management-strategy.md)
 Documentation authority and lifecycle are governed by:
 [Documentation Governance](../../governance/documentation-governance.md)
-

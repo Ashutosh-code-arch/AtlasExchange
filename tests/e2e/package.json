@@ -1,0 +1,16 @@
+{
+  "name": "@atlas/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/run-e2e.mjs",
+    "test:runner": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "^24.13.3",
+    "typescript": "^6.0.2"
+  }
+}
