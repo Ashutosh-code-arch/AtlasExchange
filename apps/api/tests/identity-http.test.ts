@@ -12,6 +12,7 @@ import type { RegisterUser } from "../src/modules/identity/application/register-
 import type { RefreshSession } from "../src/modules/identity/application/refresh-session.js";
 import type { RegistrationRateLimiter } from "../src/modules/identity/application/registration-rate-limiter.js";
 import type { RequestPasswordReset } from "../src/modules/identity/application/request-password-reset.js";
+import type { ResetPassword } from "../src/modules/identity/application/reset-password.js";
 import type { ResendVerification } from "../src/modules/identity/application/resend-verification.js";
 import type { RevokeSession } from "../src/modules/identity/application/revoke-session.js";
 import type { SessionCsrfTokenService } from "../src/modules/identity/application/session-csrf-token-service.js";
@@ -96,6 +97,8 @@ function createTestApp(
     readonly registrationRateLimiter?: RegistrationRateLimiter;
     readonly requestPasswordReset?: ReturnType<typeof vi.fn<RequestPasswordReset["execute"]>>;
     readonly passwordRecoveryRateLimiter?: RegistrationRateLimiter;
+    readonly resetPassword?: ReturnType<typeof vi.fn<ResetPassword["execute"]>>;
+    readonly passwordResetRateLimiter?: RegistrationRateLimiter;
     readonly refreshSession?: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
     readonly refreshRateLimiter?: RegistrationRateLimiter;
     readonly resendVerification?: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
@@ -114,6 +117,7 @@ function createTestApp(
   readonly logoutAllSessions: ReturnType<typeof vi.fn<LogoutAllSessions["execute"]>>;
   readonly refreshSession: ReturnType<typeof vi.fn<RefreshSession["execute"]>>;
   readonly requestPasswordReset: ReturnType<typeof vi.fn<RequestPasswordReset["execute"]>>;
+  readonly resetPassword: ReturnType<typeof vi.fn<ResetPassword["execute"]>>;
   readonly verifyEmail: ReturnType<typeof vi.fn<VerifyEmail["execute"]>>;
   readonly resendVerification: ReturnType<typeof vi.fn<ResendVerification["execute"]>>;
   readonly revokeSession: ReturnType<typeof vi.fn<RevokeSession["execute"]>>;
@@ -157,6 +161,12 @@ function createTestApp(
   const requestPasswordReset =
     options.requestPasswordReset ??
     vi.fn<RequestPasswordReset["execute"]>().mockResolvedValue({ status: "not_issued" });
+  const resetPassword =
+    options.resetPassword ??
+    vi.fn<ResetPassword["execute"]>().mockResolvedValue({
+      status: "completed",
+      userId: "internal-user-id",
+    });
   const resendVerification =
     options.resendVerification ??
     vi.fn<ResendVerification["execute"]>().mockResolvedValue({ status: "not_issued" });
@@ -171,6 +181,7 @@ function createTestApp(
     listSessions: { execute: listSessions },
     revokeSession: { execute: revokeSession },
     requestPasswordReset: { execute: requestPasswordReset },
+    resetPassword: { execute: resetPassword },
     registerUser: { execute },
     refreshSession: { execute: refreshSession },
     loginUser: { execute: loginUser },
@@ -192,6 +203,9 @@ function createTestApp(
       consume: () => ({ allowed: true as const }),
     },
     passwordRecoveryRateLimiter: options.passwordRecoveryRateLimiter ?? {
+      consume: () => ({ allowed: true as const }),
+    },
+    passwordResetRateLimiter: options.passwordResetRateLimiter ?? {
       consume: () => ({ allowed: true as const }),
     },
     sessionCsrfTokenService: {
@@ -218,6 +232,7 @@ function createTestApp(
     logoutAllSessions,
     refreshSession,
     requestPasswordReset,
+    resetPassword,
     verifyEmail,
     resendVerification,
     revokeSession,
@@ -339,6 +354,103 @@ describe("Identity forgot-password HTTP API", () => {
     expect(response.status).toBe(429);
     expect(response.headers["retry-after"]).toBe("31");
     expect(requestPasswordReset).not.toHaveBeenCalled();
+  });
+});
+
+describe("Identity reset-password HTTP API", () => {
+  function postResetPassword(app: ReturnType<typeof createApp>): request.Test {
+    return request(app).post("/api/v1/auth/reset-password").set("origin", webOrigin);
+  }
+
+  it("completes the reset without authenticating and clears stale browser cookies", async () => {
+    const { app, resetPassword } = createTestApp();
+
+    const response = await postResetPassword(app)
+      .set("x-request-id", "reset-password-request")
+      .send({ token: "token-id.secret", password: "a new safe password phrase" });
+
+    expect(response.status).toBe(204);
+    expect(response.body).toEqual({});
+    expect(resetPassword).toHaveBeenCalledWith({
+      token: "token-id.secret",
+      password: "a new safe password phrase",
+      requestId: "reset-password-request",
+    });
+    const cookies = response.headers["set-cookie"] as unknown as string[];
+    expect(cookies).toHaveLength(3);
+    expect(cookies.every((cookie) => cookie.includes("Expires=Thu, 01 Jan 1970"))).toBe(true);
+    expect(cookies.join(";")).not.toMatch(/access-secret|refresh-secret|csrf-token/);
+  });
+
+  it("maps an invalid or rejected capability to the same validation error", async () => {
+    const invalidReset = vi.fn<ResetPassword["execute"]>().mockResolvedValue({ status: "invalid" });
+    const { app: invalidApp } = createTestApp({ resetPassword: invalidReset });
+    const invalidResponse = await postResetPassword(invalidApp).send({
+      token: "token-id.secret",
+      password: "a new safe password phrase",
+    });
+
+    expect(invalidResponse.status).toBe(400);
+    expect(invalidResponse.body).toMatchObject({ error: { code: "VALIDATION_FAILED" } });
+    expect(invalidResponse.headers["set-cookie"]).toBeUndefined();
+
+    const rejectedReset = vi
+      .fn<ResetPassword["execute"]>()
+      .mockRejectedValue(new IdentityInputValidationError("password", "PASSWORD_TOO_SHORT"));
+    const { app: rejectedApp } = createTestApp({ resetPassword: rejectedReset });
+    const rejectedResponse = await postResetPassword(rejectedApp).send({
+      token: "token-id.secret",
+      password: "short",
+    });
+
+    expect(rejectedResponse.status).toBe(400);
+    expect(rejectedResponse.body).toMatchObject({ error: { code: "VALIDATION_FAILED" } });
+  });
+
+  it("requires exact origin and JSON and validates the strict body", async () => {
+    const { app, resetPassword } = createTestApp();
+
+    expect(
+      (
+        await request(app)
+          .post("/api/v1/auth/reset-password")
+          .send({ token: "token-id.secret", password: "a new safe password phrase" })
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await postResetPassword(app)
+          .type("form")
+          .send({ token: "token-id.secret", password: "a new safe password phrase" })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await postResetPassword(app).send({
+          token: "token-id.secret",
+          password: "a new safe password phrase",
+          currentPassword: "must-not-be-accepted",
+        })
+      ).status,
+    ).toBe(400);
+    expect(resetPassword).not.toHaveBeenCalled();
+  });
+
+  it("returns Retry-After when password reset is rate limited", async () => {
+    const { app, resetPassword } = createTestApp({
+      passwordResetRateLimiter: {
+        consume: () => ({ allowed: false as const, retryAfterSeconds: 29 }),
+      },
+    });
+
+    const response = await postResetPassword(app).send({
+      token: "token-id.secret",
+      password: "a new safe password phrase",
+    });
+
+    expect(response.status).toBe(429);
+    expect(response.headers["retry-after"]).toBe("29");
+    expect(resetPassword).not.toHaveBeenCalled();
   });
 });
 

@@ -15,6 +15,7 @@ import {
   registerRequestSchema,
   resendVerificationAcceptedResponseSchema,
   resendVerificationRequestSchema,
+  resetPasswordRequestSchema,
   verifyEmailRequestSchema,
   type RegisterRequest,
 } from "../src/index.js";
@@ -76,6 +77,24 @@ describe("forgot-password contract", () => {
       success: true,
       data: {},
     });
+  });
+});
+
+describe("reset-password contract", () => {
+  it("accepts only the opaque capability and replacement password", () => {
+    expect(
+      resetPasswordRequestSchema.parse({
+        token: "token-id.secret",
+        password: "a new safe password phrase",
+      }),
+    ).toEqual({ token: "token-id.secret", password: "a new safe password phrase" });
+    expect(
+      resetPasswordRequestSchema.safeParse({
+        token: "token-id.secret",
+        password: "a new safe password phrase",
+        currentPassword: "must-not-be-accepted",
+      }).success,
+    ).toBe(false);
   });
 });
 

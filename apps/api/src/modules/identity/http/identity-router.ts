@@ -13,6 +13,7 @@ import {
   registerRequestSchema,
   resendVerificationAcceptedResponseSchema,
   resendVerificationRequestSchema,
+  resetPasswordRequestSchema,
   verifyEmailRequestSchema,
   type RegisterAcceptedResponse,
   type LoginSuccessResponse,
@@ -28,6 +29,7 @@ import type { LoginUser } from "../application/login-user.js";
 import type { AuthenticateAccess } from "../application/authenticate-access.js";
 import type { ListSessions } from "../application/list-sessions.js";
 import type { RequestPasswordReset } from "../application/request-password-reset.js";
+import type { ResetPassword } from "../application/reset-password.js";
 import type { RevokeSession } from "../application/revoke-session.js";
 import type { LogoutSession } from "../application/logout-session.js";
 import type { LogoutAllSessions } from "../application/logout-all-sessions.js";
@@ -52,6 +54,7 @@ export interface IdentityRouterOptions {
   readonly authenticateAccess: Pick<AuthenticateAccess, "execute">;
   readonly listSessions: Pick<ListSessions, "execute">;
   readonly requestPasswordReset: Pick<RequestPasswordReset, "execute">;
+  readonly resetPassword: Pick<ResetPassword, "execute">;
   readonly revokeSession: Pick<RevokeSession, "execute">;
   readonly loginUser: Pick<LoginUser, "execute">;
   readonly logoutSession: Pick<LogoutSession, "execute">;
@@ -66,6 +69,7 @@ export interface IdentityRouterOptions {
   readonly logoutAllRateLimiter: RegistrationRateLimiter;
   readonly resendVerificationRateLimiter: RegistrationRateLimiter;
   readonly passwordRecoveryRateLimiter: RegistrationRateLimiter;
+  readonly passwordResetRateLimiter: RegistrationRateLimiter;
   readonly sessionCsrfTokenService: SessionCsrfTokenService;
   readonly secureCookies: boolean;
   readonly webOrigin: string;
@@ -201,6 +205,40 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
         });
         response.status(200).json(body);
       } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  router.post(
+    "/reset-password",
+    requirePreSessionJson,
+    enforceRateLimit(options.passwordResetRateLimiter, "Password reset rate limit exceeded."),
+    async (request, response, next) => {
+      const parsedRequest = resetPasswordRequestSchema.safeParse(request.body);
+      if (!parsedRequest.success) {
+        next(new AppError(400, "VALIDATION_FAILED", "Password reset request is invalid."));
+        return;
+      }
+
+      try {
+        const requestIdHeader = response.getHeader("x-request-id");
+        const result = await options.resetPassword.execute({
+          ...parsedRequest.data,
+          requestId: typeof requestIdHeader === "string" ? requestIdHeader : "unavailable",
+        });
+        if (result.status === "invalid") {
+          next(new AppError(400, "VALIDATION_FAILED", "Password reset request is invalid."));
+          return;
+        }
+
+        clearSessionCookies(response, options.secureCookies);
+        response.status(204).end();
+      } catch (error) {
+        if (error instanceof IdentityInputValidationError) {
+          next(new AppError(400, "VALIDATION_FAILED", "Password reset request is invalid."));
+          return;
+        }
         next(error);
       }
     },

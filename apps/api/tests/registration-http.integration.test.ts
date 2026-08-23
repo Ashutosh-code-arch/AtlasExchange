@@ -572,5 +572,58 @@ describe("composed registration HTTP flow", () => {
       target_user_id: user.id,
       request_id: "composed-password-recovery-known",
     });
+
+    const newPassword = "unique recovered account passphrase";
+    const reset = await request(app)
+      .post("/api/v1/auth/reset-password")
+      .set("origin", webOrigin)
+      .set("x-request-id", "composed-password-reset")
+      .send({ token: delivery.credential, password: newPassword });
+
+    expect(reset.status).toBe(204);
+    expect(reset.body).toEqual({});
+    expect(reset.headers["set-cookie"]).toHaveLength(3);
+    const completedToken = await database
+      .selectFrom("identity.password_reset_tokens")
+      .select(["consumed_at", "revoked_at"])
+      .where("id", "=", tokenId)
+      .executeTakeFirstOrThrow();
+    const credential = await database
+      .selectFrom("identity.password_credentials")
+      .select("password_hash")
+      .where("user_id", "=", user.id)
+      .executeTakeFirstOrThrow();
+    const activeSessions = await database
+      .selectFrom("identity.sessions")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("user_id", "=", user.id)
+      .where("revoked_at", "is", null)
+      .executeTakeFirstOrThrow();
+    const completionEvent = await database
+      .selectFrom("identity.security_events")
+      .select(["event_type", "target_user_id", "request_id", "metadata"])
+      .where("event_type", "=", "identity.password_reset.completed")
+      .where("target_user_id", "=", user.id)
+      .executeTakeFirstOrThrow();
+    expect(completedToken.consumed_at).toBeInstanceOf(Date);
+    expect(completedToken.revoked_at).toBeNull();
+    expect(await new Argon2PasswordHasher().verify(newPassword, credential.password_hash)).toBe(
+      true,
+    );
+    expect(activeSessions.count).toBe("0");
+    expect(completionEvent).toEqual({
+      event_type: "identity.password_reset.completed",
+      target_user_id: user.id,
+      request_id: "composed-password-reset",
+      metadata: { revokedSessionCount: 0 },
+    });
+
+    const replay = await request(app)
+      .post("/api/v1/auth/reset-password")
+      .set("origin", webOrigin)
+      .send({ token: delivery.credential, password: "another recovered account passphrase" });
+    expect(replay.status).toBe(400);
+    expect(replay.body).toMatchObject({ error: { code: "VALIDATION_FAILED" } });
+    expect(replay.headers["set-cookie"]).toBeUndefined();
   });
 });

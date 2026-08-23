@@ -7,6 +7,7 @@ export type IdentityInputValidationIssue =
   | "PASSWORD_TOO_SHORT"
   | "PASSWORD_TOO_LONG"
   | "PASSWORD_COMPROMISED"
+  | "PASSWORD_RESET_TOKEN_INVALID"
   | "VERIFICATION_TOKEN_INVALID";
 
 export class IdentityInputValidationError extends Error {

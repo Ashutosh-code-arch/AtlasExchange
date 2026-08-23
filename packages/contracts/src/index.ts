@@ -12,6 +12,7 @@ export {
   registerRequestSchema,
   resendVerificationAcceptedResponseSchema,
   resendVerificationRequestSchema,
+  resetPasswordRequestSchema,
   revokeSessionParamsSchema,
   sessionSummarySchema,
   sessionsResponseSchema,
@@ -32,6 +33,7 @@ export {
   type RegisterRequest,
   type ResendVerificationAcceptedResponse,
   type ResendVerificationRequest,
+  type ResetPasswordRequest,
   type VerifyEmailRequest,
 } from "./identity.js";
 

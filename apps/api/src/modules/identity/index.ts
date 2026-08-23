@@ -11,6 +11,7 @@ import { RegisterUser } from "./application/register-user.js";
 import { RefreshSession } from "./application/refresh-session.js";
 import { ResendVerification } from "./application/resend-verification.js";
 import { RequestPasswordReset } from "./application/request-password-reset.js";
+import { ResetPassword } from "./application/reset-password.js";
 import type { PasswordResetEmailDelivery } from "./application/password-reset-email-delivery.js";
 import { RevokeSession } from "./application/revoke-session.js";
 import type { VerificationEmailDelivery } from "./application/verification-email-delivery.js";
@@ -28,6 +29,7 @@ import { PostgresRegistrationTransactionRunner } from "./infrastructure/persiste
 import { PostgresRefreshSessionTransactionRunner } from "./infrastructure/persistence/postgres-refresh-session-transaction-runner.js";
 import { PostgresResendVerificationTransactionRunner } from "./infrastructure/persistence/postgres-resend-verification-transaction-runner.js";
 import { PostgresRequestPasswordResetTransactionRunner } from "./infrastructure/persistence/postgres-request-password-reset-transaction-runner.js";
+import { PostgresResetPasswordTransactionRunner } from "./infrastructure/persistence/postgres-reset-password-transaction-runner.js";
 import { PostgresRevokeSessionTransactionRunner } from "./infrastructure/persistence/postgres-revoke-session-transaction-runner.js";
 import {
   Argon2PasswordHasher,
@@ -106,6 +108,11 @@ export async function createIdentityModuleRouter(
     passwordResetEmailDelivery: options.passwordResetEmailDelivery,
     transactionRunner: new PostgresRequestPasswordResetTransactionRunner(options.database),
   });
+  const resetPassword = new ResetPassword({
+    compromisedPasswordChecker,
+    passwordHasher,
+    transactionRunner: new PostgresResetPasswordTransactionRunner(options.database),
+  });
   const refreshSession = new RefreshSession({
     credentialGenerator,
     sessionCsrfTokenService,
@@ -139,6 +146,7 @@ export async function createIdentityModuleRouter(
     authenticateAccess,
     listSessions,
     requestPasswordReset,
+    resetPassword,
     revokeSession,
     loginUser,
     logoutSession,
@@ -153,6 +161,7 @@ export async function createIdentityModuleRouter(
     logoutAllRateLimiter: new InMemoryRegistrationRateLimiter(),
     resendVerificationRateLimiter: new InMemoryRegistrationRateLimiter(),
     passwordRecoveryRateLimiter: new InMemoryRegistrationRateLimiter(),
+    passwordResetRateLimiter: new InMemoryRegistrationRateLimiter(),
     sessionCsrfTokenService,
     secureCookies: options.sessionSecurity.secureCookies,
     webOrigin: options.webOrigin,

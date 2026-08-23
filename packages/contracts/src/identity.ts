@@ -73,6 +73,11 @@ export const forgotPasswordRequestSchema = z.strictObject({
 
 export const forgotPasswordAcceptedResponseSchema = registerAcceptedResponseSchema;
 
+export const resetPasswordRequestSchema = z.strictObject({
+  token: z.string().min(1).max(512),
+  password: z.string().min(1),
+});
+
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 export type LoginSuccessResponse = z.infer<typeof loginSuccessResponseSchema>;
@@ -89,6 +94,7 @@ export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
 export type ResendVerificationRequest = z.infer<typeof resendVerificationRequestSchema>;
 export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
 export type ForgotPasswordAcceptedResponse = z.infer<typeof forgotPasswordAcceptedResponseSchema>;
+export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 export type ResendVerificationAcceptedResponse = z.infer<
   typeof resendVerificationAcceptedResponseSchema
 >;
