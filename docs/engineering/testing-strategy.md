@@ -601,7 +601,10 @@ Financial test data should explicitly communicate:
 
 Avoid ambiguous numeric literals whose unit or meaning is unclear.
 
-Financial numeric representation will be governed by the future financial-domain decision.
+Financial numeric representation is governed by
+[ADR-020 — Financial Accounting Foundation](../architecture/decisions/ADR-020-financial-accounting-foundation.md).
+Test data must express authoritative asset quantities as canonical decimal strings at transport
+boundaries and as explicit asset-aware atomic-unit values in domain code.
 
 ---
 
@@ -1194,7 +1197,10 @@ The exact cleanup mechanism remains pending.
 
 ### Financial numeric representation
 
-The representation and precision policy for financial values remains a separate financial-domain decision.
+Resolved by
+[ADR-020 — Financial Accounting Foundation](../architecture/decisions/ADR-020-financial-accounting-foundation.md).
+Atlas uses asset-specific scales, `bigint`-backed atomic units in domain code, PostgreSQL
+`NUMERIC(38, 0)`, and canonical decimal strings across transport boundaries.
 
 ### Coverage thresholds
 
