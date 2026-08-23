@@ -7,6 +7,8 @@ import {
   type CreateAuthenticationHttpClientOptions,
 } from "../api/authentication-http-client";
 import { getCurrentUser, type CurrentUser } from "../api/get-current-user";
+import { loginWithPassword } from "../api/login-with-password";
+import type { LoginRequest } from "@atlas/contracts";
 import {
   AuthenticationSessionContext,
   type AuthenticationSessionState,
@@ -30,6 +32,10 @@ export interface AuthenticationProviderProps {
   readonly currentUserLoader?: (
     client: Pick<AuthenticationSessionClient, "request">,
   ) => Promise<CurrentUser>;
+  readonly passwordLogin?: (
+    client: Pick<AuthenticationSessionClient, "request">,
+    input: LoginRequest,
+  ) => Promise<void>;
 }
 
 const checkingState = { status: "checking" } as const;
@@ -44,10 +50,12 @@ export function AuthenticationProvider({
   children,
   clientFactory = defaultClientFactory,
   currentUserLoader = getCurrentUser,
+  passwordLogin = loginWithPassword,
 }: AuthenticationProviderProps): React.JSX.Element {
   const [state, setState] = useState<AuthenticationSessionState>(checkingState);
   const clientRef = useRef<AuthenticationSessionClient | null>(null);
   const loadSequenceRef = useRef(0);
+  const signInFlightRef = useRef<Promise<void> | null>(null);
 
   const loadCurrentSession = useCallback(
     async (client: AuthenticationSessionClient): Promise<void> => {
@@ -106,6 +114,36 @@ export function AuthenticationProvider({
     await loadCurrentSession(client);
   }, [loadCurrentSession]);
 
-  const value = useMemo(() => ({ state, recheck }), [state, recheck]);
+  const signIn = useCallback(
+    (input: LoginRequest): Promise<void> => {
+      if (signInFlightRef.current !== null) {
+        return signInFlightRef.current;
+      }
+      const client = clientRef.current;
+      if (client === null) {
+        return Promise.reject(new Error("Authentication session is not ready."));
+      }
+
+      const operation = (async (): Promise<void> => {
+        await passwordLogin(client, input);
+        if (clientRef.current !== client) {
+          return;
+        }
+        setState(checkingState);
+        await loadCurrentSession(client);
+      })();
+      signInFlightRef.current = operation;
+      const clearSignIn = (): void => {
+        if (signInFlightRef.current === operation) {
+          signInFlightRef.current = null;
+        }
+      };
+      void operation.then(clearSignIn, clearSignIn);
+      return operation;
+    },
+    [loadCurrentSession, passwordLogin],
+  );
+
+  const value = useMemo(() => ({ state, recheck, signIn }), [state, recheck, signIn]);
   return <AuthenticationSessionContext value={value}>{children}</AuthenticationSessionContext>;
 }

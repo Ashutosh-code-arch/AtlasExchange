@@ -1,5 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -25,9 +26,11 @@ const secondUser: CurrentUser = {
 };
 
 type CurrentUserLoader = NonNullable<AuthenticationProviderProps["currentUserLoader"]>;
+type PasswordLogin = NonNullable<AuthenticationProviderProps["passwordLogin"]>;
 
 function SessionProbe(): React.JSX.Element {
-  const { state, recheck } = useAuthenticationSession();
+  const { state, recheck, signIn } = useAuthenticationSession();
+  const [signInFailed, setSignInFailed] = useState(false);
   return (
     <div>
       <span data-testid="session-status">{state.status}</span>
@@ -35,6 +38,17 @@ function SessionProbe(): React.JSX.Element {
       <button type="button" onClick={() => void recheck()}>
         Recheck session
       </button>
+      <button
+        type="button"
+        onClick={() => {
+          void signIn({ email: "user@example.com", password: "safe login passphrase" }).catch(() =>
+            setSignInFailed(true),
+          );
+        }}
+      >
+        Sign in
+      </button>
+      {signInFailed ? <span>Sign in failed</span> : null}
     </div>
   );
 }
@@ -147,6 +161,96 @@ describe("AuthenticationProvider", () => {
 
     await user.click(screen.getByRole("button", { name: "Recheck session" }));
     expect(await screen.findByText(secondUser.email)).toBeInTheDocument();
+    expect(currentUserLoader).toHaveBeenCalledTimes(2);
+  });
+
+  it("establishes authoritative session state after a confirmed password login", async () => {
+    const harness = createClientHarness();
+    const currentUserLoader = vi
+      .fn<CurrentUserLoader>()
+      .mockRejectedValueOnce(new ApiHttpError(401, "AUTHENTICATION_REQUIRED", "anonymous-request"))
+      .mockResolvedValueOnce(firstUser);
+    const passwordLogin = vi.fn<PasswordLogin>().mockResolvedValue();
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={currentUserLoader}
+        passwordLogin={passwordLogin}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
+    expect(passwordLogin).toHaveBeenCalledWith(harness.client, {
+      email: "user@example.com",
+      password: "safe login passphrase",
+    });
+    expect(currentUserLoader).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves unauthenticated state when password login fails", async () => {
+    const harness = createClientHarness();
+    const currentUserLoader = vi
+      .fn<CurrentUserLoader>()
+      .mockRejectedValue(new ApiHttpError(401, "AUTHENTICATION_REQUIRED", "anonymous-request"));
+    const passwordLogin = vi
+      .fn<PasswordLogin>()
+      .mockRejectedValue(new ApiHttpError(401, "AUTHENTICATION_FAILED", "login-request"));
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={currentUserLoader}
+        passwordLogin={passwordLogin}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByText("Sign in failed")).toBeInTheDocument();
+    expect(screen.getByTestId("session-status")).toHaveTextContent("unauthenticated");
+    expect(currentUserLoader).toHaveBeenCalledOnce();
+  });
+
+  it("deduplicates concurrent password-login submissions", async () => {
+    const harness = createClientHarness();
+    const currentUserLoader = vi
+      .fn<CurrentUserLoader>()
+      .mockRejectedValueOnce(new ApiHttpError(401, "AUTHENTICATION_REQUIRED", "anonymous-request"))
+      .mockResolvedValueOnce(firstUser);
+    let completeLogin = (): void => undefined;
+    const loginResult = new Promise<void>((resolve) => {
+      completeLogin = resolve;
+    });
+    const passwordLogin = vi.fn<PasswordLogin>().mockReturnValue(loginResult);
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={currentUserLoader}
+        passwordLogin={passwordLogin}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Sign in" }));
+    expect(passwordLogin).toHaveBeenCalledOnce();
+
+    completeLogin();
+    expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
     expect(currentUserLoader).toHaveBeenCalledTimes(2);
   });
 });

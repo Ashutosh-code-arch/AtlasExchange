@@ -6,6 +6,7 @@ export {
   type CreateAuthenticationHttpClientOptions,
 } from "./api/authentication-http-client";
 export { getCurrentUser, type CurrentUser } from "./api/get-current-user";
+export { loginWithPassword } from "./api/login-with-password";
 export {
   AuthenticationProvider,
   type AuthenticationProviderProps,
