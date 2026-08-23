@@ -220,6 +220,26 @@ a {
   font-size: 10px;
 }
 
+.login-form__verification-recovery {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.login-form__verification-recovery p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.login-form__verification-recovery .login-form__resend-error {
+  color: #ff9b75;
+  font-family: "DM Mono", monospace;
+}
+
 .registration-form {
   grid-template-columns: repeat(3, minmax(145px, 1fr)) auto;
 }
@@ -817,6 +837,12 @@ footer {
 
   .login-form__error {
     grid-column: auto;
+  }
+
+  .login-form__verification-recovery {
+    grid-column: auto;
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .authentication-panel__message,

@@ -29,10 +29,12 @@ type CurrentUserLoader = NonNullable<AuthenticationProviderProps["currentUserLoa
 type PasswordLogin = NonNullable<AuthenticationProviderProps["passwordLogin"]>;
 type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
 type AccountRegistration = NonNullable<AuthenticationProviderProps["accountRegistration"]>;
+type VerificationResender = NonNullable<AuthenticationProviderProps["verificationResender"]>;
 type EmailVerifier = NonNullable<AuthenticationProviderProps["emailVerifier"]>;
 
 function SessionProbe(): React.JSX.Element {
-  const { state, recheck, signIn, signOut, register, verifyEmail } = useAuthenticationSession();
+  const { state, recheck, signIn, signOut, register, resendVerification, verifyEmail } =
+    useAuthenticationSession();
   const [signInFailed, setSignInFailed] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
   const [registrationFailed, setRegistrationFailed] = useState(false);
@@ -42,6 +44,14 @@ function SessionProbe(): React.JSX.Element {
       {state.status === "authenticated" ? <span>{state.user.email}</span> : null}
       <button type="button" onClick={() => void recheck()}>
         Recheck session
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          void resendVerification({ email: "pending@example.com" });
+        }}
+      >
+        Resend verification
       </button>
       <button
         type="button"
@@ -447,5 +457,56 @@ describe("AuthenticationProvider", () => {
 
     completeVerification();
     await expect(verificationResult).resolves.toBeUndefined();
+  });
+
+  it("resends verification without inferring an authenticated session", async () => {
+    const harness = createClientHarness();
+    const verificationResender = vi.fn<VerificationResender>().mockResolvedValue();
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.reject(new ApiHttpError(401))}
+        verificationResender={verificationResender}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Resend verification" }));
+
+    expect(verificationResender).toHaveBeenCalledWith(harness.client, {
+      email: "pending@example.com",
+    });
+    expect(screen.getByTestId("session-status")).toHaveTextContent("unauthenticated");
+  });
+
+  it("deduplicates concurrent verification-resend submissions", async () => {
+    const harness = createClientHarness();
+    let completeResend = (): void => undefined;
+    const resendResult = new Promise<void>((resolve) => {
+      completeResend = resolve;
+    });
+    const verificationResender = vi.fn<VerificationResender>().mockReturnValue(resendResult);
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.reject(new ApiHttpError(401))}
+        verificationResender={verificationResender}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Resend verification" }));
+    expect(verificationResender).toHaveBeenCalledOnce();
+
+    completeResend();
+    await expect(resendResult).resolves.toBeUndefined();
   });
 });

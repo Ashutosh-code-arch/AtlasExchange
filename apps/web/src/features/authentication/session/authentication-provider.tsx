@@ -10,8 +10,9 @@ import { getCurrentUser, type CurrentUser } from "../api/get-current-user";
 import { loginWithPassword } from "../api/login-with-password";
 import { logoutCurrentSession } from "../api/logout-current-session";
 import { registerAccount } from "../api/register-account";
+import { resendVerificationEmail } from "../api/resend-verification-email";
 import { verifyEmailAddress } from "../api/verify-email-address";
-import type { LoginRequest, RegisterRequest } from "@atlas/contracts";
+import type { LoginRequest, RegisterRequest, ResendVerificationRequest } from "@atlas/contracts";
 import {
   AuthenticationSessionContext,
   type AuthenticationSessionState,
@@ -47,6 +48,10 @@ export interface AuthenticationProviderProps {
     client: Pick<AuthenticationSessionClient, "request">,
     input: RegisterRequest,
   ) => Promise<void>;
+  readonly verificationResender?: (
+    client: Pick<AuthenticationSessionClient, "request">,
+    input: ResendVerificationRequest,
+  ) => Promise<void>;
   readonly emailVerifier?: (
     client: Pick<AuthenticationSessionClient, "request">,
     token: string,
@@ -68,6 +73,7 @@ export function AuthenticationProvider({
   passwordLogin = loginWithPassword,
   sessionLogout = logoutCurrentSession,
   accountRegistration = registerAccount,
+  verificationResender = resendVerificationEmail,
   emailVerifier = verifyEmailAddress,
 }: AuthenticationProviderProps): React.JSX.Element {
   const [state, setState] = useState<AuthenticationSessionState>(checkingState);
@@ -76,6 +82,7 @@ export function AuthenticationProvider({
   const signInFlightRef = useRef<Promise<void> | null>(null);
   const signOutFlightRef = useRef<Promise<void> | null>(null);
   const registrationFlightRef = useRef<Promise<void> | null>(null);
+  const verificationResendFlightRef = useRef<Promise<void> | null>(null);
   const emailVerificationFlightRef = useRef<{
     readonly token: string;
     readonly operation: Promise<void>;
@@ -249,9 +256,34 @@ export function AuthenticationProvider({
     [emailVerifier],
   );
 
+  const resendVerification = useCallback(
+    (input: ResendVerificationRequest): Promise<void> => {
+      if (verificationResendFlightRef.current !== null) {
+        return verificationResendFlightRef.current;
+      }
+      const client = clientRef.current;
+      if (client === null) {
+        return Promise.reject(new Error("Authentication session is not ready."));
+      }
+
+      const operation = (async (): Promise<void> => {
+        await verificationResender(client, input);
+      })();
+      verificationResendFlightRef.current = operation;
+      const clearResend = (): void => {
+        if (verificationResendFlightRef.current === operation) {
+          verificationResendFlightRef.current = null;
+        }
+      };
+      void operation.then(clearResend, clearResend);
+      return operation;
+    },
+    [verificationResender],
+  );
+
   const value = useMemo(
-    () => ({ state, recheck, signIn, signOut, register, verifyEmail }),
-    [state, recheck, signIn, signOut, register, verifyEmail],
+    () => ({ state, recheck, signIn, signOut, register, resendVerification, verifyEmail }),
+    [state, recheck, signIn, signOut, register, resendVerification, verifyEmail],
   );
   return <AuthenticationSessionContext value={value}>{children}</AuthenticationSessionContext>;
 }

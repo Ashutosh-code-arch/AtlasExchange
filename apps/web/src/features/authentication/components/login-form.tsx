@@ -21,13 +21,23 @@ function loginErrorMessage(error: unknown): string {
   }
 }
 
+function resendErrorMessage(error: unknown): string {
+  return error instanceof ApiHttpError && error.code === "RATE_LIMITED"
+    ? "Too many verification requests. Try again later."
+    : "Verification email cannot be requested right now. Try again.";
+}
+
 export function LoginForm(): React.JSX.Element {
-  const { signIn } = useAuthenticationSession();
+  const { resendVerification, signIn } = useAuthenticationSession();
   const mountedRef = useRef(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendAccepted, setResendAccepted] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -43,15 +53,54 @@ export function LoginForm(): React.JSX.Element {
     }
     setSubmitting(true);
     setErrorMessage(null);
+    setVerificationEmail(null);
+    setResendAccepted(false);
+    setResendError(null);
     void signIn({ email, password })
       .catch((error: unknown) => {
         if (mountedRef.current) {
+          setPassword("");
           setErrorMessage(loginErrorMessage(error));
+          if (error instanceof ApiHttpError && error.code === "ACCOUNT_VERIFICATION_REQUIRED") {
+            setVerificationEmail(email);
+          }
         }
       })
       .finally(() => {
         if (mountedRef.current) {
           setSubmitting(false);
+        }
+      });
+  };
+
+  const handleEmailChange = (nextEmail: string): void => {
+    setEmail(nextEmail);
+    setErrorMessage(null);
+    setVerificationEmail(null);
+    setResendAccepted(false);
+    setResendError(null);
+  };
+
+  const handleResend = (): void => {
+    if (verificationEmail === null || resending || resendAccepted) {
+      return;
+    }
+    setResending(true);
+    setResendError(null);
+    void resendVerification({ email: verificationEmail })
+      .then(() => {
+        if (mountedRef.current) {
+          setResendAccepted(true);
+        }
+      })
+      .catch((error: unknown) => {
+        if (mountedRef.current) {
+          setResendError(resendErrorMessage(error));
+        }
+      })
+      .finally(() => {
+        if (mountedRef.current) {
+          setResending(false);
         }
       });
   };
@@ -70,7 +119,7 @@ export function LoginForm(): React.JSX.Element {
           required
           disabled={submitting}
           value={email}
-          onChange={(event) => setEmail(event.currentTarget.value)}
+          onChange={(event) => handleEmailChange(event.currentTarget.value)}
         />
       </div>
       <div className="login-form__field">
@@ -93,6 +142,29 @@ export function LoginForm(): React.JSX.Element {
       <p className="login-form__error" role="alert" aria-live="polite">
         {errorMessage}
       </p>
+      {verificationEmail === null ? null : (
+        <div className="login-form__verification-recovery">
+          {resendAccepted ? (
+            <p role="status">
+              If this address is eligible, Atlas will send new verification instructions shortly.
+            </p>
+          ) : (
+            <button
+              className="text-button"
+              type="button"
+              disabled={resending}
+              onClick={handleResend}
+            >
+              {resending ? "Requesting verification…" : "Resend verification email"}
+            </button>
+          )}
+          {resendError === null ? null : (
+            <p className="login-form__resend-error" role="alert">
+              {resendError}
+            </p>
+          )}
+        </div>
+      )}
     </form>
   );
 }

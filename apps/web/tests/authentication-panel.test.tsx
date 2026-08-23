@@ -21,12 +21,14 @@ type CurrentUserLoader = NonNullable<AuthenticationProviderProps["currentUserLoa
 type PasswordLogin = NonNullable<AuthenticationProviderProps["passwordLogin"]>;
 type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
 type AccountRegistration = NonNullable<AuthenticationProviderProps["accountRegistration"]>;
+type VerificationResender = NonNullable<AuthenticationProviderProps["verificationResender"]>;
 
 function renderPanel(options: {
   readonly currentUserLoader: CurrentUserLoader;
   readonly passwordLogin?: PasswordLogin;
   readonly sessionLogout?: SessionLogout;
   readonly accountRegistration?: AccountRegistration;
+  readonly verificationResender?: VerificationResender;
 }): void {
   const client: AuthenticationSessionClient = {
     request: vi.fn(),
@@ -43,6 +45,9 @@ function renderPanel(options: {
       {...(options.accountRegistration === undefined
         ? {}
         : { accountRegistration: options.accountRegistration })}
+      {...(options.verificationResender === undefined
+        ? {}
+        : { verificationResender: options.verificationResender })}
     >
       <AuthenticationPanel />
     </AuthenticationProvider>,
@@ -128,6 +133,72 @@ describe("AuthenticationPanel", () => {
 
     completeLogin();
     expect(await screen.findByText(currentUser.email)).toBeInTheDocument();
+  });
+
+  it("recovers an unverified account with an enumeration-resistant resend", async () => {
+    const currentUserLoader = vi.fn<CurrentUserLoader>().mockRejectedValue(anonymousSession());
+    const passwordLogin = vi
+      .fn<PasswordLogin>()
+      .mockRejectedValue(new ApiHttpError(403, "ACCOUNT_VERIFICATION_REQUIRED", "login-request"));
+    let completeResend = (): void => undefined;
+    const resendResult = new Promise<void>((resolve) => {
+      completeResend = resolve;
+    });
+    const verificationResender = vi.fn<VerificationResender>().mockReturnValue(resendResult);
+    const user = userEvent.setup();
+    renderPanel({ currentUserLoader, passwordLogin, verificationResender });
+
+    const email = await screen.findByRole("textbox", { name: "Email" });
+    const password = screen.getByLabelText("Password");
+    await user.type(email, "pending@example.com");
+    await user.type(password, "safe login passphrase");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByText("Verify your email before signing in.")).toBeInTheDocument();
+    expect(password).toHaveValue("");
+    await user.dblClick(screen.getByRole("button", { name: "Resend verification email" }));
+
+    expect(verificationResender).toHaveBeenCalledOnce();
+    expect(verificationResender).toHaveBeenCalledWith(expect.anything(), {
+      email: "pending@example.com",
+    });
+    expect(screen.getByRole("button", { name: "Requesting verification…" })).toBeDisabled();
+
+    completeResend();
+    expect(
+      await screen.findByText(
+        "If this address is eligible, Atlas will send new verification instructions shortly.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/account exists/i)).not.toBeInTheDocument();
+  });
+
+  it("maps verification-resend failures without exposing backend details", async () => {
+    const passwordLogin = vi
+      .fn<PasswordLogin>()
+      .mockRejectedValue(new ApiHttpError(403, "ACCOUNT_VERIFICATION_REQUIRED", "login-request"));
+    const verificationResender = vi
+      .fn<VerificationResender>()
+      .mockRejectedValue(
+        new ApiHttpError(429, "RATE_LIMITED", "sensitive-request-id", "internal backend detail"),
+      );
+    const user = userEvent.setup();
+    renderPanel({
+      currentUserLoader: () => Promise.reject(anonymousSession()),
+      passwordLogin,
+      verificationResender,
+    });
+
+    await user.type(await screen.findByRole("textbox", { name: "Email" }), "pending@example.com");
+    await user.type(screen.getByLabelText("Password"), "safe login passphrase");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.click(await screen.findByRole("button", { name: "Resend verification email" }));
+
+    expect(
+      await screen.findByText("Too many verification requests. Try again later."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("internal backend detail")).not.toBeInTheDocument();
+    expect(screen.queryByText("sensitive-request-id")).not.toBeInTheDocument();
   });
 
   it("allows an unavailable session check to be retried", async () => {
