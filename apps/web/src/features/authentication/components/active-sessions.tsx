@@ -22,12 +22,20 @@ function formatUtcTimestamp(value: string): string {
 }
 
 export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Element {
-  const { listSessions, revokeSession, state: sessionState } = useAuthenticationSession();
+  const {
+    listSessions,
+    revokeSession,
+    signOutEverywhere,
+    state: sessionState,
+  } = useAuthenticationSession();
   const mountedRef = useRef(true);
   const [inventory, setInventory] = useState<SessionInventoryState>({ status: "loading" });
   const [confirmingSessionId, setConfirmingSessionId] = useState<string | null>(null);
   const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
   const [revocationError, setRevocationError] = useState<string | null>(null);
+  const [confirmingLogoutAll, setConfirmingLogoutAll] = useState(false);
+  const [signingOutEverywhere, setSigningOutEverywhere] = useState(false);
+  const [logoutAllError, setLogoutAllError] = useState<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -53,12 +61,14 @@ export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Elem
   const loadSessions = useCallback((): void => {
     setConfirmingSessionId(null);
     setRevocationError(null);
+    setConfirmingLogoutAll(false);
+    setLogoutAllError(null);
     setInventory({ status: "loading" });
     requestSessions();
   }, [requestSessions]);
 
   const handleRevocation = (session: SessionSummary): void => {
-    if (revokingSessionId !== null) {
+    if (revokingSessionId !== null || signingOutEverywhere) {
       return;
     }
     setRevokingSessionId(session.id);
@@ -89,8 +99,27 @@ export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Elem
       });
   };
 
+  const handleLogoutAll = (): void => {
+    if (signingOutEverywhere || revokingSessionId !== null) {
+      return;
+    }
+    setSigningOutEverywhere(true);
+    setLogoutAllError(null);
+    void signOutEverywhere()
+      .catch(() => {
+        if (mountedRef.current) {
+          setLogoutAllError("Atlas could not sign out every session. Refresh and try again.");
+        }
+      })
+      .finally(() => {
+        if (mountedRef.current) {
+          setSigningOutEverywhere(false);
+        }
+      });
+  };
+
   useEffect(() => {
-    if (sessionState.status === "checking") {
+    if (sessionState.status !== "authenticated") {
       return;
     }
     requestSessions();
@@ -179,7 +208,7 @@ export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Elem
                       <button
                         className="text-button text-button--danger"
                         type="button"
-                        disabled={revokingSessionId !== null}
+                        disabled={revokingSessionId !== null || signingOutEverywhere}
                         onClick={() => handleRevocation(session)}
                       >
                         {revokingSessionId === session.id
@@ -191,7 +220,7 @@ export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Elem
                       <button
                         className="text-button"
                         type="button"
-                        disabled={revokingSessionId !== null}
+                        disabled={revokingSessionId !== null || signingOutEverywhere}
                         onClick={() => {
                           setConfirmingSessionId(null);
                           setRevocationError(null);
@@ -204,7 +233,7 @@ export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Elem
                     <button
                       className="text-button text-button--danger"
                       type="button"
-                      disabled={revokingSessionId !== null}
+                      disabled={revokingSessionId !== null || signingOutEverywhere}
                       onClick={() => {
                         setConfirmingSessionId(session.id);
                         setRevocationError(null);
@@ -226,6 +255,51 @@ export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Elem
             Refresh sessions
           </button>
         </>
+      ) : null}
+      {inventory.status === "ready" ? (
+        <div className="active-sessions__logout-all">
+          {confirmingLogoutAll ? (
+            <>
+              <p>Revoke every Atlas session and require a new sign-in on every device?</p>
+              <button
+                className="text-button text-button--danger"
+                type="button"
+                disabled={signingOutEverywhere || revokingSessionId !== null}
+                onClick={handleLogoutAll}
+              >
+                {signingOutEverywhere ? "Signing out everywhere…" : "Confirm sign out everywhere"}
+              </button>
+              <button
+                className="text-button"
+                type="button"
+                disabled={signingOutEverywhere}
+                onClick={() => {
+                  setConfirmingLogoutAll(false);
+                  setLogoutAllError(null);
+                }}
+              >
+                Cancel sign out everywhere
+              </button>
+            </>
+          ) : (
+            <button
+              className="text-button text-button--danger"
+              type="button"
+              disabled={revokingSessionId !== null}
+              onClick={() => {
+                setConfirmingLogoutAll(true);
+                setLogoutAllError(null);
+              }}
+            >
+              Sign out everywhere
+            </button>
+          )}
+          {logoutAllError === null ? null : (
+            <p className="active-sessions__revocation-error" role="alert">
+              {logoutAllError}
+            </p>
+          )}
+        </div>
       ) : null}
     </section>
   );

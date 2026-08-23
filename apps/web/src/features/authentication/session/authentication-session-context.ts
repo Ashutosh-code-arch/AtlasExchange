@@ -23,6 +23,7 @@ export interface AuthenticationSessionValue {
   readonly recheck: () => Promise<void>;
   readonly signIn: (input: LoginRequest) => Promise<void>;
   readonly signOut: () => Promise<void>;
+  readonly signOutEverywhere: () => Promise<void>;
   readonly register: (input: RegisterRequest) => Promise<void>;
   readonly resendVerification: (input: ResendVerificationRequest) => Promise<void>;
   readonly requestPasswordReset: (input: ForgotPasswordRequest) => Promise<void>;

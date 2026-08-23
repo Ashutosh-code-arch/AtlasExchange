@@ -13,6 +13,13 @@ import { ApiHttpError } from "../src/shared/api/http-client";
 
 type SessionLister = NonNullable<AuthenticationProviderProps["sessionLister"]>;
 type SessionRevoker = NonNullable<AuthenticationProviderProps["sessionRevoker"]>;
+type AllSessionsLogout = NonNullable<AuthenticationProviderProps["allSessionsLogout"]>;
+
+const authenticatedUser = {
+  id: "11111111-1111-4111-8111-111111111111",
+  email: "Trader@Example.com",
+  roles: ["user" as const],
+};
 
 const sessions: readonly SessionSummary[] = [
   {
@@ -36,6 +43,7 @@ const sessions: readonly SessionSummary[] = [
 function renderSessions(
   sessionLister: SessionLister,
   sessionRevoker: SessionRevoker = () => Promise.resolve(),
+  allSessionsLogout: AllSessionsLogout = () => Promise.resolve(),
   onClose = vi.fn(),
 ): void {
   const client: AuthenticationSessionClient = {
@@ -47,9 +55,10 @@ function renderSessions(
     <AuthenticationProvider
       apiBaseUrl="http://api.test"
       clientFactory={() => client}
-      currentUserLoader={() => Promise.reject(new ApiHttpError(401))}
+      currentUserLoader={() => Promise.resolve(authenticatedUser)}
       sessionLister={sessionLister}
       sessionRevoker={sessionRevoker}
+      allSessionsLogout={allSessionsLogout}
     >
       <ActiveSessions onClose={onClose} />
     </AuthenticationProvider>,
@@ -157,6 +166,60 @@ describe("ActiveSessions", () => {
       await screen.findByText("This session could not be revoked. Refresh and try again."),
     ).toBeInTheDocument();
     expect(screen.getByText("Other active session")).toBeInTheDocument();
+    expect(screen.queryByText("internal backend detail")).not.toBeInTheDocument();
+    expect(screen.queryByText("sensitive-request-id")).not.toBeInTheDocument();
+  });
+
+  it("signs out everywhere only after confirmation and locks conflicting actions", async () => {
+    let completeLogout = (): void => undefined;
+    const logoutResult = new Promise<void>((resolve) => {
+      completeLogout = resolve;
+    });
+    const allSessionsLogout = vi.fn<AllSessionsLogout>().mockReturnValue(logoutResult);
+    const user = userEvent.setup();
+    renderSessions(
+      () => Promise.resolve(sessions),
+      () => Promise.resolve(),
+      allSessionsLogout,
+    );
+
+    expect(await screen.findByText("This session")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign out everywhere" }));
+    expect(allSessionsLogout).not.toHaveBeenCalled();
+    expect(screen.getByText(/require a new sign-in on every device/i)).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Confirm sign out everywhere" }));
+
+    expect(allSessionsLogout).toHaveBeenCalledOnce();
+    expect(allSessionsLogout).toHaveBeenCalledWith(expect.anything());
+    expect(screen.getByRole("button", { name: "Signing out everywhere…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel sign out everywhere" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Revoke other session" })).toBeDisabled();
+
+    completeLogout();
+    await expect(logoutResult).resolves.toBeUndefined();
+  });
+
+  it("keeps global sign-out retryable and hides backend failure details", async () => {
+    const allSessionsLogout = vi
+      .fn<AllSessionsLogout>()
+      .mockRejectedValue(
+        new ApiHttpError(403, "CSRF_FAILED", "sensitive-request-id", "internal backend detail"),
+      );
+    const user = userEvent.setup();
+    renderSessions(
+      () => Promise.resolve(sessions),
+      () => Promise.resolve(),
+      allSessionsLogout,
+    );
+
+    expect(await screen.findByText("This session")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign out everywhere" }));
+    await user.click(screen.getByRole("button", { name: "Confirm sign out everywhere" }));
+
+    expect(
+      await screen.findByText("Atlas could not sign out every session. Refresh and try again."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm sign out everywhere" })).toBeEnabled();
     expect(screen.queryByText("internal backend detail")).not.toBeInTheDocument();
     expect(screen.queryByText("sensitive-request-id")).not.toBeInTheDocument();
   });

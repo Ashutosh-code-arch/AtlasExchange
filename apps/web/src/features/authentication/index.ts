@@ -9,6 +9,7 @@ export { getCurrentUser, type CurrentUser } from "./api/get-current-user";
 export { listActiveSessions } from "./api/list-active-sessions";
 export { loginWithPassword } from "./api/login-with-password";
 export { logoutCurrentSession } from "./api/logout-current-session";
+export { logoutAllSessions } from "./api/logout-all-sessions";
 export { registerAccount } from "./api/register-account";
 export { requestPasswordReset } from "./api/request-password-reset";
 export { resetPassword } from "./api/reset-password";

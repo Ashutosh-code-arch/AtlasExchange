@@ -9,6 +9,7 @@ import {
 import { getCurrentUser, type CurrentUser } from "../api/get-current-user";
 import { loginWithPassword } from "../api/login-with-password";
 import { listActiveSessions } from "../api/list-active-sessions";
+import { logoutAllSessions } from "../api/logout-all-sessions";
 import { logoutCurrentSession } from "../api/logout-current-session";
 import { registerAccount } from "../api/register-account";
 import { requestPasswordReset } from "../api/request-password-reset";
@@ -56,6 +57,9 @@ export interface AuthenticationProviderProps {
     input: LoginRequest,
   ) => Promise<void>;
   readonly sessionLogout?: (client: Pick<AuthenticationSessionClient, "request">) => Promise<void>;
+  readonly allSessionsLogout?: (
+    client: Pick<AuthenticationSessionClient, "request">,
+  ) => Promise<void>;
   readonly accountRegistration?: (
     client: Pick<AuthenticationSessionClient, "request">,
     input: RegisterRequest,
@@ -99,6 +103,7 @@ export function AuthenticationProvider({
   currentUserLoader = getCurrentUser,
   passwordLogin = loginWithPassword,
   sessionLogout = logoutCurrentSession,
+  allSessionsLogout = logoutAllSessions,
   accountRegistration = registerAccount,
   verificationResender = resendVerificationEmail,
   passwordResetRequester = requestPasswordReset,
@@ -112,6 +117,7 @@ export function AuthenticationProvider({
   const loadSequenceRef = useRef(0);
   const signInFlightRef = useRef<Promise<void> | null>(null);
   const signOutFlightRef = useRef<Promise<void> | null>(null);
+  const allSessionsLogoutFlightRef = useRef<Promise<void> | null>(null);
   const registrationFlightRef = useRef<Promise<void> | null>(null);
   const verificationResendFlightRef = useRef<Promise<void> | null>(null);
   const passwordResetRequestFlightRef = useRef<Promise<void> | null>(null);
@@ -214,6 +220,9 @@ export function AuthenticationProvider({
   );
 
   const signOut = useCallback((): Promise<void> => {
+    if (allSessionsLogoutFlightRef.current !== null) {
+      return allSessionsLogoutFlightRef.current;
+    }
     if (signOutFlightRef.current !== null) {
       return signOutFlightRef.current;
     }
@@ -397,6 +406,12 @@ export function AuthenticationProvider({
 
   const revokeSession = useCallback(
     (target: SessionRevocationTarget): Promise<void> => {
+      if (allSessionsLogoutFlightRef.current !== null) {
+        return Promise.reject(new Error("All sessions are already being revoked."));
+      }
+      if (signOutFlightRef.current !== null) {
+        return Promise.reject(new Error("The current session is already being revoked."));
+      }
       const existing = sessionRevocationFlightRef.current;
       if (existing !== null) {
         return existing.sessionId === target.id
@@ -429,12 +444,47 @@ export function AuthenticationProvider({
     [sessionRevoker],
   );
 
+  const signOutEverywhere = useCallback((): Promise<void> => {
+    if (allSessionsLogoutFlightRef.current !== null) {
+      return allSessionsLogoutFlightRef.current;
+    }
+    if (sessionRevocationFlightRef.current !== null) {
+      return Promise.reject(new Error("A session revocation is already in progress."));
+    }
+    if (signOutFlightRef.current !== null) {
+      return Promise.reject(new Error("The current session is already being revoked."));
+    }
+    const client = clientRef.current;
+    if (client === null) {
+      return Promise.reject(new Error("Authentication session is not ready."));
+    }
+
+    const operation = (async (): Promise<void> => {
+      await allSessionsLogout(client);
+      if (clientRef.current !== client) {
+        return;
+      }
+      client.announceAuthenticationLost();
+      loadSequenceRef.current += 1;
+      setState(unauthenticatedState);
+    })();
+    allSessionsLogoutFlightRef.current = operation;
+    const clearLogout = (): void => {
+      if (allSessionsLogoutFlightRef.current === operation) {
+        allSessionsLogoutFlightRef.current = null;
+      }
+    };
+    void operation.then(clearLogout, clearLogout);
+    return operation;
+  }, [allSessionsLogout]);
+
   const value = useMemo(
     () => ({
       state,
       recheck,
       signIn,
       signOut,
+      signOutEverywhere,
       register,
       resendVerification,
       requestPasswordReset: requestPasswordResetForEmail,
@@ -448,6 +498,7 @@ export function AuthenticationProvider({
       recheck,
       signIn,
       signOut,
+      signOutEverywhere,
       register,
       resendVerification,
       requestPasswordResetForEmail,

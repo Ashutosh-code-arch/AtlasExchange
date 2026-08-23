@@ -539,6 +539,25 @@ a {
   color: #ff9b75;
 }
 
+.active-sessions__logout-all {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.active-sessions__logout-all > p:first-child {
+  margin: 0 auto 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.active-sessions__logout-all .active-sessions__revocation-error {
+  flex-basis: 100%;
+}
+
 .text-button--danger:disabled {
   cursor: wait;
   opacity: 0.62;
@@ -1053,6 +1072,11 @@ footer {
   }
 
   .active-session-list__actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .active-sessions__logout-all {
     align-items: flex-start;
     flex-direction: column;
   }

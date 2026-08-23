@@ -20,6 +20,7 @@ const currentUser: CurrentUser = {
 type CurrentUserLoader = NonNullable<AuthenticationProviderProps["currentUserLoader"]>;
 type PasswordLogin = NonNullable<AuthenticationProviderProps["passwordLogin"]>;
 type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
+type AllSessionsLogout = NonNullable<AuthenticationProviderProps["allSessionsLogout"]>;
 type AccountRegistration = NonNullable<AuthenticationProviderProps["accountRegistration"]>;
 type VerificationResender = NonNullable<AuthenticationProviderProps["verificationResender"]>;
 type PasswordResetRequester = NonNullable<AuthenticationProviderProps["passwordResetRequester"]>;
@@ -29,6 +30,7 @@ function renderPanel(options: {
   readonly currentUserLoader: CurrentUserLoader;
   readonly passwordLogin?: PasswordLogin;
   readonly sessionLogout?: SessionLogout;
+  readonly allSessionsLogout?: AllSessionsLogout;
   readonly accountRegistration?: AccountRegistration;
   readonly verificationResender?: VerificationResender;
   readonly passwordResetRequester?: PasswordResetRequester;
@@ -46,6 +48,9 @@ function renderPanel(options: {
       currentUserLoader={options.currentUserLoader}
       {...(options.passwordLogin === undefined ? {} : { passwordLogin: options.passwordLogin })}
       {...(options.sessionLogout === undefined ? {} : { sessionLogout: options.sessionLogout })}
+      {...(options.allSessionsLogout === undefined
+        ? {}
+        : { allSessionsLogout: options.allSessionsLogout })}
       {...(options.accountRegistration === undefined
         ? {}
         : { accountRegistration: options.accountRegistration })}
@@ -321,6 +326,35 @@ describe("AuthenticationPanel", () => {
     expect(sessionLister).toHaveBeenCalledOnce();
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("heading", { name: "Active sessions" })).not.toBeInTheDocument();
+  });
+
+  it("signs out every session and returns to the anonymous flow", async () => {
+    const allSessionsLogout = vi.fn<AllSessionsLogout>().mockResolvedValue();
+    const sessionLister = vi.fn<SessionLister>().mockResolvedValue([
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        createdAt: "2026-08-20T10:00:00.000Z",
+        lastActivityAt: "2026-08-23T10:00:00.000Z",
+        idleExpiresAt: "2026-08-30T10:00:00.000Z",
+        absoluteExpiresAt: "2026-09-19T10:00:00.000Z",
+        current: true,
+      },
+    ]);
+    const user = userEvent.setup();
+    renderPanel({
+      currentUserLoader: () => Promise.resolve(currentUser),
+      sessionLister,
+      allSessionsLogout,
+    });
+
+    expect(await screen.findByText(currentUser.email)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "View sessions" }));
+    await user.click(await screen.findByRole("button", { name: "Sign out everywhere" }));
+    await user.click(screen.getByRole("button", { name: "Confirm sign out everywhere" }));
+
+    expect(allSessionsLogout).toHaveBeenCalledWith(expect.anything());
+    expect(await screen.findByRole("textbox", { name: "Email" })).toBeInTheDocument();
+    expect(screen.queryByText(currentUser.email)).not.toBeInTheDocument();
   });
 
   it("keeps identity visible and hides backend details when sign-out fails", async () => {
