@@ -16,6 +16,8 @@ export type AuthenticationSessionState =
   | { readonly status: "unavailable" }
   | { readonly status: "authenticated"; readonly user: CurrentUser };
 
+export type SessionRevocationTarget = Pick<SessionSummary, "id" | "current">;
+
 export interface AuthenticationSessionValue {
   readonly state: AuthenticationSessionState;
   readonly recheck: () => Promise<void>;
@@ -26,6 +28,7 @@ export interface AuthenticationSessionValue {
   readonly requestPasswordReset: (input: ForgotPasswordRequest) => Promise<void>;
   readonly resetPassword: (input: ResetPasswordRequest) => Promise<void>;
   readonly listSessions: () => Promise<readonly SessionSummary[]>;
+  readonly revokeSession: (target: SessionRevocationTarget) => Promise<void>;
   readonly verifyEmail: (token: string) => Promise<void>;
 }
 

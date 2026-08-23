@@ -12,6 +12,7 @@ export { logoutCurrentSession } from "./api/logout-current-session";
 export { registerAccount } from "./api/register-account";
 export { requestPasswordReset } from "./api/request-password-reset";
 export { resetPassword } from "./api/reset-password";
+export { revokeActiveSession } from "./api/revoke-active-session";
 export { resendVerificationEmail } from "./api/resend-verification-email";
 export { verifyEmailAddress } from "./api/verify-email-address";
 export { AuthenticationPanel } from "./components/authentication-panel";
@@ -34,5 +35,6 @@ export {
 export {
   type AuthenticationSessionState,
   type AuthenticationSessionValue,
+  type SessionRevocationTarget,
 } from "./session/authentication-session-context";
 export { useAuthenticationSession } from "./session/use-authentication-session";

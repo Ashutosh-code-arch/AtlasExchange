@@ -22,9 +22,12 @@ function formatUtcTimestamp(value: string): string {
 }
 
 export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Element {
-  const { listSessions, state: sessionState } = useAuthenticationSession();
+  const { listSessions, revokeSession, state: sessionState } = useAuthenticationSession();
   const mountedRef = useRef(true);
   const [inventory, setInventory] = useState<SessionInventoryState>({ status: "loading" });
+  const [confirmingSessionId, setConfirmingSessionId] = useState<string | null>(null);
+  const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
+  const [revocationError, setRevocationError] = useState<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -48,9 +51,43 @@ export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Elem
   }, [listSessions]);
 
   const loadSessions = useCallback((): void => {
+    setConfirmingSessionId(null);
+    setRevocationError(null);
     setInventory({ status: "loading" });
     requestSessions();
   }, [requestSessions]);
+
+  const handleRevocation = (session: SessionSummary): void => {
+    if (revokingSessionId !== null) {
+      return;
+    }
+    setRevokingSessionId(session.id);
+    setRevocationError(null);
+    void revokeSession({ id: session.id, current: session.current })
+      .then(() => {
+        if (mountedRef.current) {
+          setInventory((current) =>
+            current.status === "ready"
+              ? {
+                  status: "ready",
+                  sessions: current.sessions.filter((candidate) => candidate.id !== session.id),
+                }
+              : current,
+          );
+          setConfirmingSessionId(null);
+        }
+      })
+      .catch(() => {
+        if (mountedRef.current) {
+          setRevocationError("This session could not be revoked. Refresh and try again.");
+        }
+      })
+      .finally(() => {
+        if (mountedRef.current) {
+          setRevokingSessionId(null);
+        }
+      });
+  };
 
   useEffect(() => {
     if (sessionState.status === "checking") {
@@ -131,9 +168,60 @@ export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Elem
                     </dd>
                   </div>
                 </dl>
+                <div className="active-session-list__actions">
+                  {confirmingSessionId === session.id ? (
+                    <>
+                      <p>
+                        {session.current
+                          ? "Revoking this session will sign you out of Atlas."
+                          : "Revoke this session and all credentials in its token family?"}
+                      </p>
+                      <button
+                        className="text-button text-button--danger"
+                        type="button"
+                        disabled={revokingSessionId !== null}
+                        onClick={() => handleRevocation(session)}
+                      >
+                        {revokingSessionId === session.id
+                          ? "Revoking session…"
+                          : session.current
+                            ? "Confirm revoke current session"
+                            : "Confirm revoke other session"}
+                      </button>
+                      <button
+                        className="text-button"
+                        type="button"
+                        disabled={revokingSessionId !== null}
+                        onClick={() => {
+                          setConfirmingSessionId(null);
+                          setRevocationError(null);
+                        }}
+                      >
+                        Cancel revocation
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="text-button text-button--danger"
+                      type="button"
+                      disabled={revokingSessionId !== null}
+                      onClick={() => {
+                        setConfirmingSessionId(session.id);
+                        setRevocationError(null);
+                      }}
+                    >
+                      {session.current ? "Revoke current session" : "Revoke other session"}
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ol>
+          {revocationError === null ? null : (
+            <p className="active-sessions__revocation-error" role="alert">
+              {revocationError}
+            </p>
+          )}
           <button className="text-button" type="button" onClick={loadSessions}>
             Refresh sessions
           </button>

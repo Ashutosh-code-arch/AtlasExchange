@@ -13,6 +13,7 @@ import { logoutCurrentSession } from "../api/logout-current-session";
 import { registerAccount } from "../api/register-account";
 import { requestPasswordReset } from "../api/request-password-reset";
 import { resetPassword } from "../api/reset-password";
+import { revokeActiveSession } from "../api/revoke-active-session";
 import { resendVerificationEmail } from "../api/resend-verification-email";
 import { verifyEmailAddress } from "../api/verify-email-address";
 import type {
@@ -26,6 +27,7 @@ import type {
 import {
   AuthenticationSessionContext,
   type AuthenticationSessionState,
+  type SessionRevocationTarget,
 } from "./authentication-session-context";
 
 export type AuthenticationSessionClient = Pick<
@@ -73,6 +75,10 @@ export interface AuthenticationProviderProps {
   readonly sessionLister?: (
     client: Pick<AuthenticationSessionClient, "request">,
   ) => Promise<readonly SessionSummary[]>;
+  readonly sessionRevoker?: (
+    client: Pick<AuthenticationSessionClient, "request">,
+    sessionId: string,
+  ) => Promise<void>;
   readonly emailVerifier?: (
     client: Pick<AuthenticationSessionClient, "request">,
     token: string,
@@ -98,6 +104,7 @@ export function AuthenticationProvider({
   passwordResetRequester = requestPasswordReset,
   passwordResetter = resetPassword,
   sessionLister = listActiveSessions,
+  sessionRevoker = revokeActiveSession,
   emailVerifier = verifyEmailAddress,
 }: AuthenticationProviderProps): React.JSX.Element {
   const [state, setState] = useState<AuthenticationSessionState>(checkingState);
@@ -110,6 +117,10 @@ export function AuthenticationProvider({
   const passwordResetRequestFlightRef = useRef<Promise<void> | null>(null);
   const passwordResetFlightRef = useRef<Promise<void> | null>(null);
   const sessionListFlightRef = useRef<Promise<readonly SessionSummary[]> | null>(null);
+  const sessionRevocationFlightRef = useRef<{
+    readonly sessionId: string;
+    readonly operation: Promise<void>;
+  } | null>(null);
   const emailVerificationFlightRef = useRef<{
     readonly token: string;
     readonly operation: Promise<void>;
@@ -384,6 +395,40 @@ export function AuthenticationProvider({
     return operation;
   }, [sessionLister]);
 
+  const revokeSession = useCallback(
+    (target: SessionRevocationTarget): Promise<void> => {
+      const existing = sessionRevocationFlightRef.current;
+      if (existing !== null) {
+        return existing.sessionId === target.id
+          ? existing.operation
+          : Promise.reject(new Error("Another session revocation is already in progress."));
+      }
+      const client = clientRef.current;
+      if (client === null) {
+        return Promise.reject(new Error("Authentication session is not ready."));
+      }
+
+      const operation = (async (): Promise<void> => {
+        await sessionRevoker(client, target.id);
+        if (!target.current || clientRef.current !== client) {
+          return;
+        }
+        client.announceAuthenticationLost();
+        loadSequenceRef.current += 1;
+        setState(unauthenticatedState);
+      })();
+      sessionRevocationFlightRef.current = { sessionId: target.id, operation };
+      const clearRevocation = (): void => {
+        if (sessionRevocationFlightRef.current?.operation === operation) {
+          sessionRevocationFlightRef.current = null;
+        }
+      };
+      void operation.then(clearRevocation, clearRevocation);
+      return operation;
+    },
+    [sessionRevoker],
+  );
+
   const value = useMemo(
     () => ({
       state,
@@ -395,6 +440,7 @@ export function AuthenticationProvider({
       requestPasswordReset: requestPasswordResetForEmail,
       resetPassword: replacePassword,
       listSessions,
+      revokeSession,
       verifyEmail,
     }),
     [
@@ -407,6 +453,7 @@ export function AuthenticationProvider({
       requestPasswordResetForEmail,
       replacePassword,
       listSessions,
+      revokeSession,
       verifyEmail,
     ],
   );

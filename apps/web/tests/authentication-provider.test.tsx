@@ -34,6 +34,7 @@ type VerificationResender = NonNullable<AuthenticationProviderProps["verificatio
 type PasswordResetRequester = NonNullable<AuthenticationProviderProps["passwordResetRequester"]>;
 type PasswordResetter = NonNullable<AuthenticationProviderProps["passwordResetter"]>;
 type SessionLister = NonNullable<AuthenticationProviderProps["sessionLister"]>;
+type SessionRevoker = NonNullable<AuthenticationProviderProps["sessionRevoker"]>;
 type EmailVerifier = NonNullable<AuthenticationProviderProps["emailVerifier"]>;
 
 function SessionProbe(): React.JSX.Element {
@@ -47,6 +48,7 @@ function SessionProbe(): React.JSX.Element {
     requestPasswordReset,
     resetPassword,
     listSessions,
+    revokeSession,
     verifyEmail,
   } = useAuthenticationSession();
   const [signInFailed, setSignInFailed] = useState(false);
@@ -59,6 +61,28 @@ function SessionProbe(): React.JSX.Element {
       {state.status === "authenticated" ? <span>{state.user.email}</span> : null}
       <button type="button" onClick={() => void recheck()}>
         Recheck session
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          void revokeSession({
+            id: "33333333-3333-4333-8333-333333333333",
+            current: false,
+          });
+        }}
+      >
+        Revoke other session
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          void revokeSession({
+            id: "22222222-2222-4222-8222-222222222222",
+            current: true,
+          });
+        }}
+      >
+        Revoke current session
       </button>
       <button
         type="button"
@@ -715,5 +739,84 @@ describe("AuthenticationProvider", () => {
 
     completeList([]);
     expect(await screen.findByText("0 active sessions")).toBeInTheDocument();
+  });
+
+  it("revokes another session without changing current identity state", async () => {
+    const harness = createClientHarness();
+    const sessionRevoker = vi.fn<SessionRevoker>().mockResolvedValue();
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.resolve(firstUser)}
+        sessionRevoker={sessionRevoker}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Revoke other session" }));
+
+    expect(sessionRevoker).toHaveBeenCalledWith(
+      harness.client,
+      "33333333-3333-4333-8333-333333333333",
+    );
+    expect(screen.getByTestId("session-status")).toHaveTextContent("authenticated");
+    expect(harness.client.announceAuthenticationLost).not.toHaveBeenCalled();
+  });
+
+  it("invalidates authoritative identity state when the current session revokes itself", async () => {
+    const harness = createClientHarness();
+    const sessionRevoker = vi.fn<SessionRevoker>().mockResolvedValue();
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.resolve(firstUser)}
+        sessionRevoker={sessionRevoker}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Revoke current session" }));
+
+    expect(sessionRevoker).toHaveBeenCalledWith(
+      harness.client,
+      "22222222-2222-4222-8222-222222222222",
+    );
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    expect(harness.client.announceAuthenticationLost).toHaveBeenCalledOnce();
+  });
+
+  it("deduplicates concurrent revocation of one session", async () => {
+    const harness = createClientHarness();
+    let completeRevocation = (): void => undefined;
+    const revocationResult = new Promise<void>((resolve) => {
+      completeRevocation = resolve;
+    });
+    const sessionRevoker = vi.fn<SessionRevoker>().mockReturnValue(revocationResult);
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.resolve(firstUser)}
+        sessionRevoker={sessionRevoker}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Revoke other session" }));
+    expect(sessionRevoker).toHaveBeenCalledOnce();
+
+    completeRevocation();
+    await expect(revocationResult).resolves.toBeUndefined();
   });
 });

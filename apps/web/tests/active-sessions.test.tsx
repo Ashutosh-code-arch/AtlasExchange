@@ -12,6 +12,7 @@ import {
 import { ApiHttpError } from "../src/shared/api/http-client";
 
 type SessionLister = NonNullable<AuthenticationProviderProps["sessionLister"]>;
+type SessionRevoker = NonNullable<AuthenticationProviderProps["sessionRevoker"]>;
 
 const sessions: readonly SessionSummary[] = [
   {
@@ -32,7 +33,11 @@ const sessions: readonly SessionSummary[] = [
   },
 ];
 
-function renderSessions(sessionLister: SessionLister, onClose = vi.fn()): void {
+function renderSessions(
+  sessionLister: SessionLister,
+  sessionRevoker: SessionRevoker = () => Promise.resolve(),
+  onClose = vi.fn(),
+): void {
   const client: AuthenticationSessionClient = {
     request: vi.fn(),
     dispose: vi.fn(),
@@ -44,6 +49,7 @@ function renderSessions(sessionLister: SessionLister, onClose = vi.fn()): void {
       clientFactory={() => client}
       currentUserLoader={() => Promise.reject(new ApiHttpError(401))}
       sessionLister={sessionLister}
+      sessionRevoker={sessionRevoker}
     >
       <ActiveSessions onClose={onClose} />
     </AuthenticationProvider>,
@@ -90,5 +96,68 @@ describe("ActiveSessions", () => {
 
     expect(await screen.findByText("This session")).toBeInTheDocument();
     expect(sessionLister).toHaveBeenCalledTimes(2);
+  });
+
+  it("revokes another session only after confirmation and removes it after completion", async () => {
+    let completeRevocation = (): void => undefined;
+    const revocationResult = new Promise<void>((resolve) => {
+      completeRevocation = resolve;
+    });
+    const sessionRevoker = vi.fn<SessionRevoker>().mockReturnValue(revocationResult);
+    const user = userEvent.setup();
+    renderSessions(() => Promise.resolve(sessions), sessionRevoker);
+
+    expect(await screen.findByText("Other active session")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Revoke other session" }));
+    expect(sessionRevoker).not.toHaveBeenCalled();
+    expect(screen.getByText(/all credentials in its token family/i)).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Confirm revoke other session" }));
+
+    expect(sessionRevoker).toHaveBeenCalledOnce();
+    expect(sessionRevoker).toHaveBeenCalledWith(
+      expect.anything(),
+      "33333333-3333-4333-8333-333333333333",
+    );
+    expect(screen.getByRole("button", { name: "Revoking session…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel revocation" })).toBeDisabled();
+
+    completeRevocation();
+    expect(await screen.findByText("This session")).toBeInTheDocument();
+    expect(screen.queryByText("Other active session")).not.toBeInTheDocument();
+  });
+
+  it("allows a pending revocation confirmation to be cancelled", async () => {
+    const sessionRevoker = vi.fn<SessionRevoker>();
+    const user = userEvent.setup();
+    renderSessions(() => Promise.resolve(sessions), sessionRevoker);
+
+    expect(await screen.findByText("Other active session")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Revoke other session" }));
+    await user.click(screen.getByRole("button", { name: "Cancel revocation" }));
+
+    expect(sessionRevoker).not.toHaveBeenCalled();
+    expect(screen.queryByText(/all credentials in its token family/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revoke other session" })).toBeInTheDocument();
+  });
+
+  it("keeps the session visible when revocation fails and hides backend details", async () => {
+    const sessionRevoker = vi
+      .fn<SessionRevoker>()
+      .mockRejectedValue(
+        new ApiHttpError(403, "CSRF_FAILED", "sensitive-request-id", "internal backend detail"),
+      );
+    const user = userEvent.setup();
+    renderSessions(() => Promise.resolve(sessions), sessionRevoker);
+
+    expect(await screen.findByText("Other active session")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Revoke other session" }));
+    await user.click(screen.getByRole("button", { name: "Confirm revoke other session" }));
+
+    expect(
+      await screen.findByText("This session could not be revoked. Refresh and try again."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Other active session")).toBeInTheDocument();
+    expect(screen.queryByText("internal backend detail")).not.toBeInTheDocument();
+    expect(screen.queryByText("sensitive-request-id")).not.toBeInTheDocument();
   });
 });

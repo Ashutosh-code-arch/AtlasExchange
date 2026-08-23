@@ -520,6 +520,36 @@ a {
   white-space: nowrap;
 }
 
+.active-session-list__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.active-session-list__actions p {
+  margin: 0 auto 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.text-button--danger,
+.active-sessions__revocation-error {
+  color: #ff9b75;
+}
+
+.text-button--danger:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.active-sessions__revocation-error {
+  margin: 0;
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+}
+
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(380px, 0.92fr);
@@ -1020,6 +1050,11 @@ footer {
 
   .active-session-list dl {
     grid-template-columns: 1fr;
+  }
+
+  .active-session-list__actions {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .authentication-panel__identity {
