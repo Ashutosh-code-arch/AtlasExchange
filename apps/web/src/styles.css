@@ -229,7 +229,7 @@ a {
 
 .authentication-panel__identity {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 18px;
   align-items: center;
   min-height: 46px;
@@ -245,8 +245,21 @@ a {
   text-overflow: ellipsis;
 }
 
-.authentication-panel__identity span:last-child {
+.authentication-panel__roles {
   color: var(--acid);
+}
+
+.authentication-panel__identity .text-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.authentication-panel__sign-out-error {
+  grid-column: 1 / -1;
+  margin: 0 0 14px;
+  color: #ff9b75;
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
 }
 
 .hero {

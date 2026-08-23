@@ -1,8 +1,39 @@
+import { useEffect, useRef, useState } from "react";
+
 import { LoginForm } from "./login-form";
 import { useAuthenticationSession } from "../session/use-authentication-session";
 
 export function AuthenticationPanel(): React.JSX.Element {
-  const { state, recheck } = useAuthenticationSession();
+  const { state, recheck, signOut } = useAuthenticationSession();
+  const mountedRef = useRef(true);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const handleSignOut = (): void => {
+    if (signingOut) {
+      return;
+    }
+    setSigningOut(true);
+    setSignOutError(null);
+    void signOut()
+      .catch(() => {
+        if (mountedRef.current) {
+          setSignOutError("Sign out is unavailable. Try again.");
+        }
+      })
+      .finally(() => {
+        if (mountedRef.current) {
+          setSigningOut(false);
+        }
+      });
+  };
 
   return (
     <section className="authentication-panel" aria-labelledby="authentication-title">
@@ -28,7 +59,20 @@ export function AuthenticationPanel(): React.JSX.Element {
           <div className="authentication-panel__identity">
             <span>Authenticated as</span>
             <strong>{state.user.email}</strong>
-            <span>{state.user.roles.join(" · ")}</span>
+            <span className="authentication-panel__roles">{state.user.roles.join(" · ")}</span>
+            <button
+              className="text-button"
+              type="button"
+              disabled={signingOut}
+              onClick={handleSignOut}
+            >
+              {signingOut ? "Signing out…" : "Sign out"}
+            </button>
+            {signOutError === null ? null : (
+              <p className="authentication-panel__sign-out-error" role="alert">
+                {signOutError}
+              </p>
+            )}
           </div>
         ) : null}
       </div>

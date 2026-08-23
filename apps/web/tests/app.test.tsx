@@ -21,6 +21,7 @@ function renderApp(
   const client: AuthenticationSessionClient = {
     request: vi.fn(),
     dispose: vi.fn(),
+    announceAuthenticationLost: vi.fn(),
   };
   render(
     <AuthenticationProvider

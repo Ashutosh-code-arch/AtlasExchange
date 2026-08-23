@@ -13,6 +13,7 @@ export interface AuthenticationSessionValue {
   readonly state: AuthenticationSessionState;
   readonly recheck: () => Promise<void>;
   readonly signIn: (input: LoginRequest) => Promise<void>;
+  readonly signOut: () => Promise<void>;
 }
 
 export const AuthenticationSessionContext = createContext<AuthenticationSessionValue | undefined>(

@@ -27,10 +27,12 @@ const secondUser: CurrentUser = {
 
 type CurrentUserLoader = NonNullable<AuthenticationProviderProps["currentUserLoader"]>;
 type PasswordLogin = NonNullable<AuthenticationProviderProps["passwordLogin"]>;
+type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
 
 function SessionProbe(): React.JSX.Element {
-  const { state, recheck, signIn } = useAuthenticationSession();
+  const { state, recheck, signIn, signOut } = useAuthenticationSession();
   const [signInFailed, setSignInFailed] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
   return (
     <div>
       <span data-testid="session-status">{state.status}</span>
@@ -48,7 +50,16 @@ function SessionProbe(): React.JSX.Element {
       >
         Sign in
       </button>
+      <button
+        type="button"
+        onClick={() => {
+          void signOut().catch(() => setSignOutFailed(true));
+        }}
+      >
+        Sign out
+      </button>
       {signInFailed ? <span>Sign in failed</span> : null}
+      {signOutFailed ? <span>Sign out failed</span> : null}
     </div>
   );
 }
@@ -64,6 +75,7 @@ function createClientHarness(): {
   const client: AuthenticationSessionClient = {
     request: vi.fn(),
     dispose,
+    announceAuthenticationLost: vi.fn(),
   };
   let authenticationLost = (): void => undefined;
   let receivedFactoryOptions: AuthenticationSessionClientFactoryOptions | undefined;
@@ -222,6 +234,55 @@ describe("AuthenticationProvider", () => {
     expect(currentUserLoader).toHaveBeenCalledOnce();
   });
 
+  it("terminates the current session and exposes authoritative anonymous state", async () => {
+    const harness = createClientHarness();
+    const currentUserLoader = vi.fn<CurrentUserLoader>().mockResolvedValue(firstUser);
+    const sessionLogout = vi.fn<SessionLogout>().mockResolvedValue();
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={currentUserLoader}
+        sessionLogout={sessionLogout}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    expect(sessionLogout).toHaveBeenCalledWith(harness.client);
+    expect(harness.client.announceAuthenticationLost).toHaveBeenCalledOnce();
+    expect(currentUserLoader).toHaveBeenCalledOnce();
+  });
+
+  it("preserves authenticated state when current-session logout fails", async () => {
+    const harness = createClientHarness();
+    const sessionLogout = vi
+      .fn<SessionLogout>()
+      .mockRejectedValue(new ApiHttpError(403, "CSRF_FAILED", "logout-request"));
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.resolve(firstUser)}
+        sessionLogout={sessionLogout}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(await screen.findByText("Sign out failed")).toBeInTheDocument();
+    expect(screen.getByTestId("session-status")).toHaveTextContent("authenticated");
+  });
+
   it("deduplicates concurrent password-login submissions", async () => {
     const harness = createClientHarness();
     const currentUserLoader = vi
@@ -252,5 +313,32 @@ describe("AuthenticationProvider", () => {
     completeLogin();
     expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
     expect(currentUserLoader).toHaveBeenCalledTimes(2);
+  });
+
+  it("deduplicates concurrent current-session logout submissions", async () => {
+    const harness = createClientHarness();
+    let completeLogout = (): void => undefined;
+    const logoutResult = new Promise<void>((resolve) => {
+      completeLogout = resolve;
+    });
+    const sessionLogout = vi.fn<SessionLogout>().mockReturnValue(logoutResult);
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.resolve(firstUser)}
+        sessionLogout={sessionLogout}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Sign out" }));
+    expect(sessionLogout).toHaveBeenCalledOnce();
+
+    completeLogout();
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
   });
 });

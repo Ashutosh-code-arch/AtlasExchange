@@ -181,6 +181,32 @@ describe("RefreshCoordinator", () => {
     second.dispose();
   });
 
+  it("notifies every tab when a session ends explicitly", () => {
+    const hub = new ChannelHub();
+    const firstLost = vi.fn();
+    const secondLost = vi.fn();
+    const first = new RefreshCoordinator({
+      performRefresh: vi.fn(),
+      onAuthenticationLost: firstLost,
+      lockManager: null,
+      channel: hub.create(),
+    });
+    const second = new RefreshCoordinator({
+      performRefresh: vi.fn(),
+      onAuthenticationLost: secondLost,
+      lockManager: null,
+      channel: hub.create(),
+    });
+
+    first.announceAuthenticationLost();
+
+    expect(firstLost).toHaveBeenCalledOnce();
+    expect(secondLost).toHaveBeenCalledOnce();
+
+    first.dispose();
+    second.dispose();
+  });
+
   it("propagates transient refresh failures without declaring authentication loss", async () => {
     const onAuthenticationLost = vi.fn();
     const coordinator = new RefreshCoordinator({

@@ -19,14 +19,17 @@ const currentUser: CurrentUser = {
 
 type CurrentUserLoader = NonNullable<AuthenticationProviderProps["currentUserLoader"]>;
 type PasswordLogin = NonNullable<AuthenticationProviderProps["passwordLogin"]>;
+type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
 
 function renderPanel(options: {
   readonly currentUserLoader: CurrentUserLoader;
   readonly passwordLogin?: PasswordLogin;
+  readonly sessionLogout?: SessionLogout;
 }): void {
   const client: AuthenticationSessionClient = {
     request: vi.fn(),
     dispose: vi.fn(),
+    announceAuthenticationLost: vi.fn(),
   };
   render(
     <AuthenticationProvider
@@ -34,6 +37,7 @@ function renderPanel(options: {
       clientFactory={() => client}
       currentUserLoader={options.currentUserLoader}
       {...(options.passwordLogin === undefined ? {} : { passwordLogin: options.passwordLogin })}
+      {...(options.sessionLogout === undefined ? {} : { sessionLogout: options.sessionLogout })}
     >
       <AuthenticationPanel />
     </AuthenticationProvider>,
@@ -134,5 +138,48 @@ describe("AuthenticationPanel", () => {
 
     expect(await screen.findByText(currentUser.email)).toBeInTheDocument();
     await waitFor(() => expect(currentUserLoader).toHaveBeenCalledTimes(2));
+  });
+
+  it("locks current-session sign-out and returns to the anonymous form", async () => {
+    let completeLogout = (): void => undefined;
+    const logoutResult = new Promise<void>((resolve) => {
+      completeLogout = resolve;
+    });
+    const sessionLogout = vi.fn<SessionLogout>().mockReturnValue(logoutResult);
+    const user = userEvent.setup();
+    renderPanel({
+      currentUserLoader: () => Promise.resolve(currentUser),
+      sessionLogout,
+    });
+
+    expect(await screen.findByText(currentUser.email)).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(sessionLogout).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Signing out…" })).toBeDisabled();
+
+    completeLogout();
+    expect(await screen.findByRole("textbox", { name: "Email" })).toBeInTheDocument();
+  });
+
+  it("keeps identity visible and hides backend details when sign-out fails", async () => {
+    const sessionLogout = vi
+      .fn<SessionLogout>()
+      .mockRejectedValue(
+        new ApiHttpError(403, "CSRF_FAILED", "sensitive-request-id", "internal backend detail"),
+      );
+    const user = userEvent.setup();
+    renderPanel({
+      currentUserLoader: () => Promise.resolve(currentUser),
+      sessionLogout,
+    });
+
+    expect(await screen.findByText(currentUser.email)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(await screen.findByText("Sign out is unavailable. Try again.")).toBeInTheDocument();
+    expect(screen.getByText(currentUser.email)).toBeInTheDocument();
+    expect(screen.queryByText("internal backend detail")).not.toBeInTheDocument();
+    expect(screen.queryByText("sensitive-request-id")).not.toBeInTheDocument();
   });
 });

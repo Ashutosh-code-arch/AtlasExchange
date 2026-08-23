@@ -75,6 +75,10 @@ export class AuthenticationHttpClient {
   public dispose(): void {
     this.refreshCoordinator.dispose();
   }
+
+  public announceAuthenticationLost(): void {
+    this.refreshCoordinator.announceAuthenticationLost();
+  }
 }
 
 export function createAuthenticationHttpClient(

@@ -102,6 +102,10 @@ export class RefreshCoordinator {
     return recovery;
   }
 
+  public announceAuthenticationLost(): void {
+    this.recordCompletion(false);
+  }
+
   public dispose(): void {
     this.channel?.removeEventListener("message", this.handleMessage);
     this.channel?.close();
@@ -125,12 +129,16 @@ export class RefreshCoordinator {
 
   private async performAndPublish(): Promise<boolean> {
     const successful = await this.options.performRefresh();
+    this.recordCompletion(successful);
+    return successful;
+  }
+
+  private recordCompletion(successful: boolean): void {
     this.completionSequence += 1;
     this.lastObservedResult = successful;
     if (!successful) {
       this.options.onAuthenticationLost();
     }
     this.channel?.postMessage({ type: refreshCompletionType, successful });
-    return successful;
   }
 }
