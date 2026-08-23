@@ -23,6 +23,7 @@ type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
 type AccountRegistration = NonNullable<AuthenticationProviderProps["accountRegistration"]>;
 type VerificationResender = NonNullable<AuthenticationProviderProps["verificationResender"]>;
 type PasswordResetRequester = NonNullable<AuthenticationProviderProps["passwordResetRequester"]>;
+type SessionLister = NonNullable<AuthenticationProviderProps["sessionLister"]>;
 
 function renderPanel(options: {
   readonly currentUserLoader: CurrentUserLoader;
@@ -31,6 +32,7 @@ function renderPanel(options: {
   readonly accountRegistration?: AccountRegistration;
   readonly verificationResender?: VerificationResender;
   readonly passwordResetRequester?: PasswordResetRequester;
+  readonly sessionLister?: SessionLister;
 }): void {
   const client: AuthenticationSessionClient = {
     request: vi.fn(),
@@ -53,6 +55,7 @@ function renderPanel(options: {
       {...(options.passwordResetRequester === undefined
         ? {}
         : { passwordResetRequester: options.passwordResetRequester })}
+      {...(options.sessionLister === undefined ? {} : { sessionLister: options.sessionLister })}
     >
       <AuthenticationPanel />
     </AuthenticationProvider>,
@@ -290,6 +293,34 @@ describe("AuthenticationPanel", () => {
 
     completeLogout();
     expect(await screen.findByRole("textbox", { name: "Email" })).toBeInTheDocument();
+  });
+
+  it("opens and closes the authenticated session inventory on demand", async () => {
+    const sessionLister = vi.fn<SessionLister>().mockResolvedValue([
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        createdAt: "2026-08-20T10:00:00.000Z",
+        lastActivityAt: "2026-08-23T10:00:00.000Z",
+        idleExpiresAt: "2026-08-30T10:00:00.000Z",
+        absoluteExpiresAt: "2026-09-19T10:00:00.000Z",
+        current: true,
+      },
+    ]);
+    const user = userEvent.setup();
+    renderPanel({
+      currentUserLoader: () => Promise.resolve(currentUser),
+      sessionLister,
+    });
+
+    expect(await screen.findByText(currentUser.email)).toBeInTheDocument();
+    expect(sessionLister).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "View sessions" }));
+
+    expect(await screen.findByRole("heading", { name: "Active sessions" })).toBeInTheDocument();
+    expect(screen.getByText("This session")).toBeInTheDocument();
+    expect(sessionLister).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("heading", { name: "Active sessions" })).not.toBeInTheDocument();
   });
 
   it("keeps identity visible and hides backend details when sign-out fails", async () => {

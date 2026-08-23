@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { LoginForm } from "./login-form";
+import { ActiveSessions } from "./active-sessions";
 import { PasswordRecoveryForm } from "./password-recovery-form";
 import { RegistrationForm } from "./registration-form";
 import { useAuthenticationSession } from "../session/use-authentication-session";
@@ -10,6 +11,7 @@ export function AuthenticationPanel(): React.JSX.Element {
   const mountedRef = useRef(true);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [showSessions, setShowSessions] = useState(false);
   const [anonymousMode, setAnonymousMode] = useState<"sign-in" | "register" | "recover">("sign-in");
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export function AuthenticationPanel(): React.JSX.Element {
       .then(() => {
         if (mountedRef.current) {
           setAnonymousMode("sign-in");
+          setShowSessions(false);
         }
       })
       .catch(() => {
@@ -91,23 +94,34 @@ export function AuthenticationPanel(): React.JSX.Element {
           </div>
         ) : null}
         {state.status === "authenticated" ? (
-          <div className="authentication-panel__identity">
-            <span>Authenticated as</span>
-            <strong>{state.user.email}</strong>
-            <span className="authentication-panel__roles">{state.user.roles.join(" · ")}</span>
-            <button
-              className="text-button"
-              type="button"
-              disabled={signingOut}
-              onClick={handleSignOut}
-            >
-              {signingOut ? "Signing out…" : "Sign out"}
-            </button>
-            {signOutError === null ? null : (
-              <p className="authentication-panel__sign-out-error" role="alert">
-                {signOutError}
-              </p>
-            )}
+          <div className="authentication-panel__authenticated">
+            <div className="authentication-panel__identity">
+              <span>Authenticated as</span>
+              <strong>{state.user.email}</strong>
+              <span className="authentication-panel__roles">{state.user.roles.join(" · ")}</span>
+              <button
+                className="text-button"
+                type="button"
+                disabled={signingOut}
+                onClick={() => setShowSessions(true)}
+              >
+                View sessions
+              </button>
+              <button
+                className="text-button"
+                type="button"
+                disabled={signingOut}
+                onClick={handleSignOut}
+              >
+                {signingOut ? "Signing out…" : "Sign out"}
+              </button>
+              {signOutError === null ? null : (
+                <p className="authentication-panel__sign-out-error" role="alert">
+                  {signOutError}
+                </p>
+              )}
+            </div>
+            {showSessions ? <ActiveSessions onClose={() => setShowSessions(false)} /> : null}
           </div>
         ) : null}
       </div>

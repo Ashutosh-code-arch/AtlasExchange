@@ -13,6 +13,7 @@ import {
   type CurrentUser,
 } from "../src/features/authentication";
 import { ApiHttpError } from "../src/shared/api/http-client";
+import type { SessionSummary } from "@atlas/contracts";
 
 const firstUser: CurrentUser = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -32,6 +33,7 @@ type AccountRegistration = NonNullable<AuthenticationProviderProps["accountRegis
 type VerificationResender = NonNullable<AuthenticationProviderProps["verificationResender"]>;
 type PasswordResetRequester = NonNullable<AuthenticationProviderProps["passwordResetRequester"]>;
 type PasswordResetter = NonNullable<AuthenticationProviderProps["passwordResetter"]>;
+type SessionLister = NonNullable<AuthenticationProviderProps["sessionLister"]>;
 type EmailVerifier = NonNullable<AuthenticationProviderProps["emailVerifier"]>;
 
 function SessionProbe(): React.JSX.Element {
@@ -44,17 +46,27 @@ function SessionProbe(): React.JSX.Element {
     resendVerification,
     requestPasswordReset,
     resetPassword,
+    listSessions,
     verifyEmail,
   } = useAuthenticationSession();
   const [signInFailed, setSignInFailed] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
   const [registrationFailed, setRegistrationFailed] = useState(false);
+  const [sessionCount, setSessionCount] = useState<number | null>(null);
   return (
     <div>
       <span data-testid="session-status">{state.status}</span>
       {state.status === "authenticated" ? <span>{state.user.email}</span> : null}
       <button type="button" onClick={() => void recheck()}>
         Recheck session
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          void listSessions().then((sessions) => setSessionCount(sessions.length));
+        }}
+      >
+        List sessions
       </button>
       <button
         type="button"
@@ -123,6 +135,7 @@ function SessionProbe(): React.JSX.Element {
       {signInFailed ? <span>Sign in failed</span> : null}
       {signOutFailed ? <span>Sign out failed</span> : null}
       {registrationFailed ? <span>Registration failed</span> : null}
+      {sessionCount === null ? null : <span>{sessionCount} active sessions</span>}
     </div>
   );
 }
@@ -642,5 +655,65 @@ describe("AuthenticationProvider", () => {
 
     completeReset();
     await expect(resetResult).resolves.toBeUndefined();
+  });
+
+  it("lists sessions without changing authenticated identity state", async () => {
+    const harness = createClientHarness();
+    const listedSessions: readonly SessionSummary[] = [
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        createdAt: "2026-08-20T10:00:00.000Z",
+        lastActivityAt: "2026-08-23T10:00:00.000Z",
+        idleExpiresAt: "2026-08-30T10:00:00.000Z",
+        absoluteExpiresAt: "2026-09-19T10:00:00.000Z",
+        current: true,
+      },
+    ];
+    const sessionLister = vi.fn<SessionLister>().mockResolvedValue(listedSessions);
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.resolve(firstUser)}
+        sessionLister={sessionLister}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "List sessions" }));
+
+    expect(await screen.findByText("1 active sessions")).toBeInTheDocument();
+    expect(sessionLister).toHaveBeenCalledWith(harness.client);
+    expect(screen.getByTestId("session-status")).toHaveTextContent("authenticated");
+  });
+
+  it("deduplicates concurrent session-list requests", async () => {
+    const harness = createClientHarness();
+    let completeList = (_sessions: readonly SessionSummary[]): void => undefined;
+    const listResult = new Promise<readonly SessionSummary[]>((resolve) => {
+      completeList = resolve;
+    });
+    const sessionLister = vi.fn<SessionLister>().mockReturnValue(listResult);
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.resolve(firstUser)}
+        sessionLister={sessionLister}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "List sessions" }));
+    expect(sessionLister).toHaveBeenCalledOnce();
+
+    completeList([]);
+    expect(await screen.findByText("0 active sessions")).toBeInTheDocument();
   });
 });

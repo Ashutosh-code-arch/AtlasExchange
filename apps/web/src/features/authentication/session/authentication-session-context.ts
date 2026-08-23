@@ -5,6 +5,7 @@ import type {
   RegisterRequest,
   ResetPasswordRequest,
   ResendVerificationRequest,
+  SessionSummary,
 } from "@atlas/contracts";
 
 import type { CurrentUser } from "../api/get-current-user";
@@ -24,6 +25,7 @@ export interface AuthenticationSessionValue {
   readonly resendVerification: (input: ResendVerificationRequest) => Promise<void>;
   readonly requestPasswordReset: (input: ForgotPasswordRequest) => Promise<void>;
   readonly resetPassword: (input: ResetPasswordRequest) => Promise<void>;
+  readonly listSessions: () => Promise<readonly SessionSummary[]>;
   readonly verifyEmail: (token: string) => Promise<void>;
 }
 
