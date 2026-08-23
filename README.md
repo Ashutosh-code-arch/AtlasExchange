@@ -3,19 +3,22 @@
 Atlas Exchange is a production-inspired centralized-exchange learning platform. The repository is
 being delivered incrementally so every phase leaves behind a runnable, tested system.
 
-## Current phase: Engineering foundation
+## Current phase: Financial foundation
 
-This phase provides:
+The implemented foundation and Identity phase provide:
 
 - a pnpm TypeScript monorepo;
 - a React/Vite operations console;
 - an Express API with structured logging and request correlation;
 - PostgreSQL migration and readiness checks;
 - shared runtime contracts;
-- lint, formatting, type-check, test, build, Docker Compose, and CI quality gates.
+- lint, formatting, type-check, test, build, Docker Compose, and CI quality gates;
+- registration, email verification, authentication, rotating sessions, password recovery, roles,
+  and account/session surfaces;
+- an isolated browser journey through the web, API, PostgreSQL, and Mailpit.
 
-Domain functionality such as identity, wallets, ledger, and trading is intentionally introduced in
-later phases.
+The active phase introduces exact asset quantities, wallets, an append-only double-entry ledger,
+deposits, and withdrawals. Trading remains a later phase.
 
 ## Prerequisites
 
