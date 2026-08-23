@@ -17,6 +17,20 @@ function authenticationRequired(requestId: string): Response {
   );
 }
 
+function csrfFailed(requestId: string): Response {
+  return Response.json(
+    {
+      success: false,
+      error: {
+        code: "CSRF_FAILED",
+        message: "CSRF validation failed.",
+        requestId,
+      },
+    },
+    { status: 403 },
+  );
+}
+
 describe("AuthenticationHttpClient", () => {
   it("refreshes once and retries the original authenticated request", async () => {
     const fetchImplementation = vi
@@ -53,7 +67,7 @@ describe("AuthenticationHttpClient", () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(authenticationRequired("expired-access"))
-      .mockResolvedValueOnce(authenticationRequired("invalid-refresh"));
+      .mockResolvedValueOnce(csrfFailed("missing-session-csrf"));
     const onAuthenticationLost = vi.fn();
     const client = createAuthenticationHttpClient({
       apiBaseUrl: "http://api.test",

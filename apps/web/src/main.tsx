@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "./app";
 import { webConfig } from "./config/runtime-config";
+import { AuthenticationProvider } from "./features/authentication";
 import "./styles.css";
 
 const rootElement = document.querySelector<HTMLDivElement>("#root");
@@ -13,6 +14,8 @@ if (rootElement === null) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App apiBaseUrl={webConfig.apiBaseUrl} />
+    <AuthenticationProvider apiBaseUrl={webConfig.apiBaseUrl}>
+      <App apiBaseUrl={webConfig.apiBaseUrl} />
+    </AuthenticationProvider>
   </StrictMode>,
 );

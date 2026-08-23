@@ -97,7 +97,10 @@ export function createAuthenticationHttpClient(
         });
         return true;
       } catch (error) {
-        if (error instanceof ApiHttpError && error.status === 401) {
+        if (
+          error instanceof ApiHttpError &&
+          (error.status === 401 || error.code === "CSRF_FAILED")
+        ) {
           return false;
         }
         throw error;
