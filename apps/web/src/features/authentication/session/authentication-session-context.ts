@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { LoginRequest } from "@atlas/contracts";
+import type { LoginRequest, RegisterRequest } from "@atlas/contracts";
 
 import type { CurrentUser } from "../api/get-current-user";
 
@@ -14,6 +14,7 @@ export interface AuthenticationSessionValue {
   readonly recheck: () => Promise<void>;
   readonly signIn: (input: LoginRequest) => Promise<void>;
   readonly signOut: () => Promise<void>;
+  readonly register: (input: RegisterRequest) => Promise<void>;
 }
 
 export const AuthenticationSessionContext = createContext<AuthenticationSessionValue | undefined>(

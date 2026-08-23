@@ -9,7 +9,8 @@ import {
 import { getCurrentUser, type CurrentUser } from "../api/get-current-user";
 import { loginWithPassword } from "../api/login-with-password";
 import { logoutCurrentSession } from "../api/logout-current-session";
-import type { LoginRequest } from "@atlas/contracts";
+import { registerAccount } from "../api/register-account";
+import type { LoginRequest, RegisterRequest } from "@atlas/contracts";
 import {
   AuthenticationSessionContext,
   type AuthenticationSessionState,
@@ -41,6 +42,10 @@ export interface AuthenticationProviderProps {
     input: LoginRequest,
   ) => Promise<void>;
   readonly sessionLogout?: (client: Pick<AuthenticationSessionClient, "request">) => Promise<void>;
+  readonly accountRegistration?: (
+    client: Pick<AuthenticationSessionClient, "request">,
+    input: RegisterRequest,
+  ) => Promise<void>;
 }
 
 const checkingState = { status: "checking" } as const;
@@ -57,12 +62,14 @@ export function AuthenticationProvider({
   currentUserLoader = getCurrentUser,
   passwordLogin = loginWithPassword,
   sessionLogout = logoutCurrentSession,
+  accountRegistration = registerAccount,
 }: AuthenticationProviderProps): React.JSX.Element {
   const [state, setState] = useState<AuthenticationSessionState>(checkingState);
   const clientRef = useRef<AuthenticationSessionClient | null>(null);
   const loadSequenceRef = useRef(0);
   const signInFlightRef = useRef<Promise<void> | null>(null);
   const signOutFlightRef = useRef<Promise<void> | null>(null);
+  const registrationFlightRef = useRef<Promise<void> | null>(null);
 
   const loadCurrentSession = useCallback(
     async (client: AuthenticationSessionClient): Promise<void> => {
@@ -179,9 +186,34 @@ export function AuthenticationProvider({
     return operation;
   }, [sessionLogout]);
 
+  const register = useCallback(
+    (input: RegisterRequest): Promise<void> => {
+      if (registrationFlightRef.current !== null) {
+        return registrationFlightRef.current;
+      }
+      const client = clientRef.current;
+      if (client === null) {
+        return Promise.reject(new Error("Authentication session is not ready."));
+      }
+
+      const operation = (async (): Promise<void> => {
+        await accountRegistration(client, input);
+      })();
+      registrationFlightRef.current = operation;
+      const clearRegistration = (): void => {
+        if (registrationFlightRef.current === operation) {
+          registrationFlightRef.current = null;
+        }
+      };
+      void operation.then(clearRegistration, clearRegistration);
+      return operation;
+    },
+    [accountRegistration],
+  );
+
   const value = useMemo(
-    () => ({ state, recheck, signIn, signOut }),
-    [state, recheck, signIn, signOut],
+    () => ({ state, recheck, signIn, signOut, register }),
+    [state, recheck, signIn, signOut, register],
   );
   return <AuthenticationSessionContext value={value}>{children}</AuthenticationSessionContext>;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { LoginForm } from "./login-form";
+import { RegistrationForm } from "./registration-form";
 import { useAuthenticationSession } from "../session/use-authentication-session";
 
 export function AuthenticationPanel(): React.JSX.Element {
@@ -8,6 +9,7 @@ export function AuthenticationPanel(): React.JSX.Element {
   const mountedRef = useRef(true);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [anonymousMode, setAnonymousMode] = useState<"sign-in" | "register">("sign-in");
 
   useEffect(() => {
     mountedRef.current = true;
@@ -23,6 +25,11 @@ export function AuthenticationPanel(): React.JSX.Element {
     setSigningOut(true);
     setSignOutError(null);
     void signOut()
+      .then(() => {
+        if (mountedRef.current) {
+          setAnonymousMode("sign-in");
+        }
+      })
       .catch(() => {
         if (mountedRef.current) {
           setSignOutError("Sign out is unavailable. Try again.");
@@ -46,7 +53,25 @@ export function AuthenticationPanel(): React.JSX.Element {
         {state.status === "checking" ? (
           <p className="authentication-panel__status">Checking your session…</p>
         ) : null}
-        {state.status === "unauthenticated" ? <LoginForm /> : null}
+        {state.status === "unauthenticated" ? (
+          anonymousMode === "sign-in" ? (
+            <div className="authentication-anonymous-flow">
+              <LoginForm />
+              <div className="authentication-mode-switch">
+                <span>New to Atlas?</span>
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => setAnonymousMode("register")}
+                >
+                  Create account
+                </button>
+              </div>
+            </div>
+          ) : (
+            <RegistrationForm onReturnToSignIn={() => setAnonymousMode("sign-in")} />
+          )
+        ) : null}
         {state.status === "unavailable" ? (
           <div className="authentication-panel__message">
             <p>Identity services cannot be reached right now.</p>

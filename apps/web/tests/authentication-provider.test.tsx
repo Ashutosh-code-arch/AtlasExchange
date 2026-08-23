@@ -28,11 +28,13 @@ const secondUser: CurrentUser = {
 type CurrentUserLoader = NonNullable<AuthenticationProviderProps["currentUserLoader"]>;
 type PasswordLogin = NonNullable<AuthenticationProviderProps["passwordLogin"]>;
 type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
+type AccountRegistration = NonNullable<AuthenticationProviderProps["accountRegistration"]>;
 
 function SessionProbe(): React.JSX.Element {
-  const { state, recheck, signIn, signOut } = useAuthenticationSession();
+  const { state, recheck, signIn, signOut, register } = useAuthenticationSession();
   const [signInFailed, setSignInFailed] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
+  const [registrationFailed, setRegistrationFailed] = useState(false);
   return (
     <div>
       <span data-testid="session-status">{state.status}</span>
@@ -58,8 +60,20 @@ function SessionProbe(): React.JSX.Element {
       >
         Sign out
       </button>
+      <button
+        type="button"
+        onClick={() => {
+          void register({
+            email: "new@example.com",
+            password: "safe registration passphrase",
+          }).catch(() => setRegistrationFailed(true));
+        }}
+      >
+        Register account
+      </button>
       {signInFailed ? <span>Sign in failed</span> : null}
       {signOutFailed ? <span>Sign out failed</span> : null}
+      {registrationFailed ? <span>Registration failed</span> : null}
     </div>
   );
 }
@@ -340,5 +354,61 @@ describe("AuthenticationProvider", () => {
 
     completeLogout();
     expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+  });
+
+  it("registers an account without inferring an authenticated session", async () => {
+    const harness = createClientHarness();
+    const currentUserLoader = vi
+      .fn<CurrentUserLoader>()
+      .mockRejectedValue(new ApiHttpError(401, "AUTHENTICATION_REQUIRED", "anonymous-request"));
+    const accountRegistration = vi.fn<AccountRegistration>().mockResolvedValue();
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={currentUserLoader}
+        accountRegistration={accountRegistration}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Register account" }));
+
+    expect(accountRegistration).toHaveBeenCalledWith(harness.client, {
+      email: "new@example.com",
+      password: "safe registration passphrase",
+    });
+    expect(screen.getByTestId("session-status")).toHaveTextContent("unauthenticated");
+    expect(currentUserLoader).toHaveBeenCalledOnce();
+  });
+
+  it("deduplicates concurrent account-registration submissions", async () => {
+    const harness = createClientHarness();
+    let completeRegistration = (): void => undefined;
+    const registrationResult = new Promise<void>((resolve) => {
+      completeRegistration = resolve;
+    });
+    const accountRegistration = vi.fn<AccountRegistration>().mockReturnValue(registrationResult);
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.reject(new ApiHttpError(401))}
+        accountRegistration={accountRegistration}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Register account" }));
+    expect(accountRegistration).toHaveBeenCalledOnce();
+
+    completeRegistration();
+    await expect(registrationResult).resolves.toBeUndefined();
   });
 });

@@ -20,11 +20,13 @@ const currentUser: CurrentUser = {
 type CurrentUserLoader = NonNullable<AuthenticationProviderProps["currentUserLoader"]>;
 type PasswordLogin = NonNullable<AuthenticationProviderProps["passwordLogin"]>;
 type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
+type AccountRegistration = NonNullable<AuthenticationProviderProps["accountRegistration"]>;
 
 function renderPanel(options: {
   readonly currentUserLoader: CurrentUserLoader;
   readonly passwordLogin?: PasswordLogin;
   readonly sessionLogout?: SessionLogout;
+  readonly accountRegistration?: AccountRegistration;
 }): void {
   const client: AuthenticationSessionClient = {
     request: vi.fn(),
@@ -38,6 +40,9 @@ function renderPanel(options: {
       currentUserLoader={options.currentUserLoader}
       {...(options.passwordLogin === undefined ? {} : { passwordLogin: options.passwordLogin })}
       {...(options.sessionLogout === undefined ? {} : { sessionLogout: options.sessionLogout })}
+      {...(options.accountRegistration === undefined
+        ? {}
+        : { accountRegistration: options.accountRegistration })}
     >
       <AuthenticationPanel />
     </AuthenticationProvider>,
@@ -179,6 +184,87 @@ describe("AuthenticationPanel", () => {
 
     expect(await screen.findByText("Sign out is unavailable. Try again.")).toBeInTheDocument();
     expect(screen.getByText(currentUser.email)).toBeInTheDocument();
+    expect(screen.queryByText("internal backend detail")).not.toBeInTheDocument();
+    expect(screen.queryByText("sensitive-request-id")).not.toBeInTheDocument();
+  });
+
+  it("creates an account and shows an enumeration-resistant accepted state", async () => {
+    const currentUserLoader = vi.fn<CurrentUserLoader>().mockRejectedValue(anonymousSession());
+    let completeRegistration = (): void => undefined;
+    const registrationResult = new Promise<void>((resolve) => {
+      completeRegistration = resolve;
+    });
+    const accountRegistration = vi.fn<AccountRegistration>().mockReturnValue(registrationResult);
+    const user = userEvent.setup();
+    renderPanel({ currentUserLoader, accountRegistration });
+
+    await user.click(await screen.findByRole("button", { name: "Create account" }));
+    const email = screen.getByRole("textbox", { name: "Email" });
+    const password = screen.getByLabelText("Password");
+    const confirmation = screen.getByLabelText("Confirm password");
+    expect(password).toHaveAttribute("autocomplete", "new-password");
+    expect(confirmation).toHaveAttribute("autocomplete", "new-password");
+
+    await user.type(email, "new@example.com");
+    await user.type(password, "safe registration passphrase");
+    await user.type(confirmation, "safe registration passphrase");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(accountRegistration).toHaveBeenCalledWith(expect.anything(), {
+      email: "new@example.com",
+      password: "safe registration passphrase",
+    });
+    expect(screen.getByRole("button", { name: "Creating account…" })).toBeDisabled();
+    expect(screen.getByLabelText("Password")).toBeDisabled();
+
+    completeRegistration();
+    expect(await screen.findByText("Check your email")).toBeInTheDocument();
+    expect(screen.getByText(/if this address can be registered/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Return to sign in" }));
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  it("rejects mismatched registration passwords before transport", async () => {
+    const accountRegistration = vi.fn<AccountRegistration>();
+    const user = userEvent.setup();
+    renderPanel({
+      currentUserLoader: () => Promise.reject(anonymousSession()),
+      accountRegistration,
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Create account" }));
+    await user.type(screen.getByRole("textbox", { name: "Email" }), "new@example.com");
+    await user.type(screen.getByLabelText("Password"), "safe registration passphrase");
+    await user.type(screen.getByLabelText("Confirm password"), "different registration phrase");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(await screen.findByText("Passwords do not match.")).toBeInTheDocument();
+    expect(accountRegistration).not.toHaveBeenCalled();
+  });
+
+  it("maps registration failures without exposing backend details", async () => {
+    const accountRegistration = vi
+      .fn<AccountRegistration>()
+      .mockRejectedValue(
+        new ApiHttpError(429, "RATE_LIMITED", "sensitive-request-id", "internal backend detail"),
+      );
+    const user = userEvent.setup();
+    renderPanel({
+      currentUserLoader: () => Promise.reject(anonymousSession()),
+      accountRegistration,
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Create account" }));
+    await user.type(screen.getByRole("textbox", { name: "Email" }), "new@example.com");
+    await user.type(screen.getByLabelText("Password"), "safe registration passphrase");
+    await user.type(screen.getByLabelText("Confirm password"), "safe registration passphrase");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(
+      await screen.findByText("Too many registration attempts. Try again later."),
+    ).toBeInTheDocument();
     expect(screen.queryByText("internal backend detail")).not.toBeInTheDocument();
     expect(screen.queryByText("sensitive-request-id")).not.toBeInTheDocument();
   });

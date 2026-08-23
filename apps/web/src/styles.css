@@ -220,6 +220,59 @@ a {
   font-size: 10px;
 }
 
+.registration-form {
+  grid-template-columns: repeat(3, minmax(145px, 1fr)) auto;
+}
+
+.registration-form__guidance {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.authentication-mode-switch {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--muted);
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.registration-accepted {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 72px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.registration-accepted strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.registration-accepted p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.authentication-anonymous-flow,
+.registration-flow {
+  display: grid;
+  gap: 4px;
+}
+
 .authentication-panel__message {
   display: flex;
   gap: 18px;
@@ -680,6 +733,10 @@ footer {
     gap: 24px;
   }
 
+  .registration-form {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
   .hero__content {
     padding-right: 0;
   }
@@ -720,6 +777,10 @@ footer {
     grid-template-columns: 1fr;
   }
 
+  .registration-form {
+    grid-template-columns: 1fr;
+  }
+
   .login-form__error {
     grid-column: auto;
   }
@@ -733,6 +794,11 @@ footer {
   .authentication-panel__identity {
     display: flex;
     padding: 16px;
+  }
+
+  .registration-accepted {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .hero {
