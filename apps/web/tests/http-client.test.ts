@@ -3,6 +3,17 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiHttpError, ApiTransportError, HttpClient } from "../src/shared/api/http-client";
 
 describe("HttpClient", () => {
+  it("uses the global receiver required by native browser fetch", async () => {
+    const fetchImplementation: typeof fetch = function (this: unknown): Promise<Response> {
+      return this === globalThis
+        ? Promise.resolve(new Response(null, { status: 204 }))
+        : Promise.reject(new TypeError("Illegal invocation"));
+    };
+    const client = new HttpClient("http://api.test", fetchImplementation);
+
+    await expect(client.request("/api/v1/example")).resolves.toMatchObject({ status: 204 });
+  });
+
   it("serializes JSON and always sends browser credentials", async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()

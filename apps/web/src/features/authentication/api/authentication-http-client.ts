@@ -65,6 +65,10 @@ export class AuthenticationHttpClient {
       if (!(error instanceof ApiHttpError) || error.status !== 401 || !recoverAuthentication) {
         throw error;
       }
+      if (this.readCsrfToken() === undefined) {
+        this.refreshCoordinator.announceAuthenticationLost();
+        throw error;
+      }
       if (!(await this.refreshCoordinator.recover(refreshSequence))) {
         throw error;
       }

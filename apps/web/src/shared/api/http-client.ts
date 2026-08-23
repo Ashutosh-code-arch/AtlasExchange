@@ -25,12 +25,11 @@ export class ApiTransportError extends Error {
 
 export class HttpClient {
   private readonly baseUrl: string;
+  private readonly fetchImplementation: typeof fetch;
 
-  public constructor(
-    baseUrl: string,
-    private readonly fetchImplementation: typeof fetch = fetch,
-  ) {
+  public constructor(baseUrl: string, fetchImplementation: typeof fetch = fetch) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
+    this.fetchImplementation = fetchImplementation.bind(globalThis);
   }
 
   public async request(path: string, options: HttpRequestOptions = {}): Promise<Response> {

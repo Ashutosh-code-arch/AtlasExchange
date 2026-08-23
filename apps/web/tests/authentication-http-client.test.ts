@@ -63,11 +63,10 @@ describe("AuthenticationHttpClient", () => {
     expect(onAuthenticationLost).not.toHaveBeenCalled();
   });
 
-  it("clears authentication state after terminal refresh rejection", async () => {
+  it("skips impossible refresh without CSRF proof and clears authentication state", async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(authenticationRequired("expired-access"))
-      .mockResolvedValueOnce(csrfFailed("missing-session-csrf"));
+      .mockResolvedValueOnce(authenticationRequired("anonymous-request"));
     const onAuthenticationLost = vi.fn();
     const client = createAuthenticationHttpClient({
       apiBaseUrl: "http://api.test",
@@ -81,8 +80,29 @@ describe("AuthenticationHttpClient", () => {
     await expect(action).rejects.toBeInstanceOf(ApiHttpError);
     await expect(action).rejects.toMatchObject({
       status: 401,
-      requestId: "expired-access",
+      requestId: "anonymous-request",
     });
+    expect(onAuthenticationLost).toHaveBeenCalledOnce();
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
+
+  it("clears authentication state after terminal refresh rejection", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(authenticationRequired("expired-access"))
+      .mockResolvedValueOnce(csrfFailed("invalid-session-csrf"));
+    const onAuthenticationLost = vi.fn();
+    const client = createAuthenticationHttpClient({
+      apiBaseUrl: "http://api.test",
+      fetchImplementation,
+      readCsrfToken: () => "stale-csrf-token",
+      onAuthenticationLost,
+      lockManager: null,
+      channel: null,
+    });
+
+    const action = client.request("/api/v1/protected");
+    await expect(action).rejects.toMatchObject({ status: 401, requestId: "expired-access" });
     expect(onAuthenticationLost).toHaveBeenCalledOnce();
     expect(fetchImplementation).toHaveBeenCalledTimes(2);
   });
@@ -96,6 +116,7 @@ describe("AuthenticationHttpClient", () => {
     const client = createAuthenticationHttpClient({
       apiBaseUrl: "http://api.test",
       fetchImplementation,
+      readCsrfToken: () => "signed-csrf-token",
       onAuthenticationLost: vi.fn(),
       lockManager: null,
       channel: null,
