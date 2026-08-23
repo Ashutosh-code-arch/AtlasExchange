@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { getReadiness, type ReadinessView } from "./features/system-status";
+import { AuthenticationPanel } from "./features/authentication";
 import { OverviewPage } from "./pages/overview-page";
 
 interface AppProps {
@@ -60,6 +61,7 @@ export function App({ apiBaseUrl, readinessClient = getReadiness }: AppProps): R
           </a>
         </nav>
       </header>
+      <AuthenticationPanel />
       <OverviewPage readiness={readiness} onRefresh={() => void refresh()} />
       <footer>
         <span>Atlas Labs · Engineering Academy</span>

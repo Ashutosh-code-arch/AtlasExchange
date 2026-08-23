@@ -7,6 +7,8 @@ export {
 } from "./api/authentication-http-client";
 export { getCurrentUser, type CurrentUser } from "./api/get-current-user";
 export { loginWithPassword } from "./api/login-with-password";
+export { AuthenticationPanel } from "./components/authentication-panel";
+export { LoginForm } from "./components/login-form";
 export {
   AuthenticationProvider,
   type AuthenticationProviderProps,
