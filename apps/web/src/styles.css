@@ -244,6 +244,10 @@ a {
   grid-template-columns: repeat(3, minmax(145px, 1fr)) auto;
 }
 
+.password-recovery-form {
+  grid-template-columns: minmax(240px, 1fr) auto;
+}
+
 .registration-form__guidance {
   grid-column: 1 / -1;
   margin: 0;
@@ -262,7 +266,8 @@ a {
   text-transform: uppercase;
 }
 
-.registration-accepted {
+.registration-accepted,
+.recovery-accepted {
   display: flex;
   gap: 24px;
   align-items: center;
@@ -273,14 +278,16 @@ a {
   background: var(--surface);
 }
 
-.registration-accepted strong {
+.registration-accepted strong,
+.recovery-accepted strong {
   display: block;
   margin-bottom: 5px;
   font-size: 13px;
   font-weight: 500;
 }
 
-.registration-accepted p {
+.registration-accepted p,
+.recovery-accepted p {
   margin: 0;
   color: var(--muted);
   font-size: 11px;
@@ -835,6 +842,10 @@ footer {
     grid-template-columns: 1fr;
   }
 
+  .password-recovery-form {
+    grid-template-columns: 1fr;
+  }
+
   .login-form__error {
     grid-column: auto;
   }
@@ -856,7 +867,8 @@ footer {
     padding: 16px;
   }
 
-  .registration-accepted {
+  .registration-accepted,
+  .recovery-accepted {
     align-items: flex-start;
     flex-direction: column;
   }

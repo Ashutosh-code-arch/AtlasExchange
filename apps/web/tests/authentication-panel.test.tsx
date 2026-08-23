@@ -22,6 +22,7 @@ type PasswordLogin = NonNullable<AuthenticationProviderProps["passwordLogin"]>;
 type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
 type AccountRegistration = NonNullable<AuthenticationProviderProps["accountRegistration"]>;
 type VerificationResender = NonNullable<AuthenticationProviderProps["verificationResender"]>;
+type PasswordResetRequester = NonNullable<AuthenticationProviderProps["passwordResetRequester"]>;
 
 function renderPanel(options: {
   readonly currentUserLoader: CurrentUserLoader;
@@ -29,6 +30,7 @@ function renderPanel(options: {
   readonly sessionLogout?: SessionLogout;
   readonly accountRegistration?: AccountRegistration;
   readonly verificationResender?: VerificationResender;
+  readonly passwordResetRequester?: PasswordResetRequester;
 }): void {
   const client: AuthenticationSessionClient = {
     request: vi.fn(),
@@ -48,6 +50,9 @@ function renderPanel(options: {
       {...(options.verificationResender === undefined
         ? {}
         : { verificationResender: options.verificationResender })}
+      {...(options.passwordResetRequester === undefined
+        ? {}
+        : { passwordResetRequester: options.passwordResetRequester })}
     >
       <AuthenticationPanel />
     </AuthenticationProvider>,
@@ -214,6 +219,55 @@ describe("AuthenticationPanel", () => {
 
     expect(await screen.findByText(currentUser.email)).toBeInTheDocument();
     await waitFor(() => expect(currentUserLoader).toHaveBeenCalledTimes(2));
+  });
+
+  it("requests password recovery and shows an enumeration-resistant accepted state", async () => {
+    const passwordResetRequester = vi.fn<PasswordResetRequester>().mockResolvedValue();
+    const user = userEvent.setup();
+    renderPanel({
+      currentUserLoader: () => Promise.reject(anonymousSession()),
+      passwordResetRequester,
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Forgot password?" }));
+    const email = screen.getByRole("textbox", { name: "Email" });
+    expect(email).toHaveAttribute("autocomplete", "username");
+    await user.type(email, "recover@example.com");
+    await user.dblClick(screen.getByRole("button", { name: "Request password reset" }));
+
+    expect(passwordResetRequester).toHaveBeenCalledOnce();
+    expect(passwordResetRequester).toHaveBeenCalledWith(expect.anything(), {
+      email: "recover@example.com",
+    });
+    expect(await screen.findByText("Check your email")).toBeInTheDocument();
+    expect(screen.getByText(/if this address is eligible for recovery/i)).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Email" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Return to sign in" }));
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  it("maps password-recovery failures without exposing backend details", async () => {
+    const passwordResetRequester = vi
+      .fn<PasswordResetRequester>()
+      .mockRejectedValue(
+        new ApiHttpError(429, "RATE_LIMITED", "sensitive-request-id", "internal backend detail"),
+      );
+    const user = userEvent.setup();
+    renderPanel({
+      currentUserLoader: () => Promise.reject(anonymousSession()),
+      passwordResetRequester,
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Forgot password?" }));
+    await user.type(screen.getByRole("textbox", { name: "Email" }), "recover@example.com");
+    await user.click(screen.getByRole("button", { name: "Request password reset" }));
+
+    expect(
+      await screen.findByText("Too many recovery attempts. Try again later."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("internal backend detail")).not.toBeInTheDocument();
+    expect(screen.queryByText("sensitive-request-id")).not.toBeInTheDocument();
   });
 
   it("locks current-session sign-out and returns to the anonymous form", async () => {

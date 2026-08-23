@@ -10,9 +10,15 @@ import { getCurrentUser, type CurrentUser } from "../api/get-current-user";
 import { loginWithPassword } from "../api/login-with-password";
 import { logoutCurrentSession } from "../api/logout-current-session";
 import { registerAccount } from "../api/register-account";
+import { requestPasswordReset } from "../api/request-password-reset";
 import { resendVerificationEmail } from "../api/resend-verification-email";
 import { verifyEmailAddress } from "../api/verify-email-address";
-import type { LoginRequest, RegisterRequest, ResendVerificationRequest } from "@atlas/contracts";
+import type {
+  ForgotPasswordRequest,
+  LoginRequest,
+  RegisterRequest,
+  ResendVerificationRequest,
+} from "@atlas/contracts";
 import {
   AuthenticationSessionContext,
   type AuthenticationSessionState,
@@ -52,6 +58,10 @@ export interface AuthenticationProviderProps {
     client: Pick<AuthenticationSessionClient, "request">,
     input: ResendVerificationRequest,
   ) => Promise<void>;
+  readonly passwordResetRequester?: (
+    client: Pick<AuthenticationSessionClient, "request">,
+    input: ForgotPasswordRequest,
+  ) => Promise<void>;
   readonly emailVerifier?: (
     client: Pick<AuthenticationSessionClient, "request">,
     token: string,
@@ -74,6 +84,7 @@ export function AuthenticationProvider({
   sessionLogout = logoutCurrentSession,
   accountRegistration = registerAccount,
   verificationResender = resendVerificationEmail,
+  passwordResetRequester = requestPasswordReset,
   emailVerifier = verifyEmailAddress,
 }: AuthenticationProviderProps): React.JSX.Element {
   const [state, setState] = useState<AuthenticationSessionState>(checkingState);
@@ -83,6 +94,7 @@ export function AuthenticationProvider({
   const signOutFlightRef = useRef<Promise<void> | null>(null);
   const registrationFlightRef = useRef<Promise<void> | null>(null);
   const verificationResendFlightRef = useRef<Promise<void> | null>(null);
+  const passwordResetRequestFlightRef = useRef<Promise<void> | null>(null);
   const emailVerificationFlightRef = useRef<{
     readonly token: string;
     readonly operation: Promise<void>;
@@ -281,9 +293,52 @@ export function AuthenticationProvider({
     [verificationResender],
   );
 
+  const requestPasswordResetForEmail = useCallback(
+    (input: ForgotPasswordRequest): Promise<void> => {
+      if (passwordResetRequestFlightRef.current !== null) {
+        return passwordResetRequestFlightRef.current;
+      }
+      const client = clientRef.current;
+      if (client === null) {
+        return Promise.reject(new Error("Authentication session is not ready."));
+      }
+
+      const operation = (async (): Promise<void> => {
+        await passwordResetRequester(client, input);
+      })();
+      passwordResetRequestFlightRef.current = operation;
+      const clearRequest = (): void => {
+        if (passwordResetRequestFlightRef.current === operation) {
+          passwordResetRequestFlightRef.current = null;
+        }
+      };
+      void operation.then(clearRequest, clearRequest);
+      return operation;
+    },
+    [passwordResetRequester],
+  );
+
   const value = useMemo(
-    () => ({ state, recheck, signIn, signOut, register, resendVerification, verifyEmail }),
-    [state, recheck, signIn, signOut, register, resendVerification, verifyEmail],
+    () => ({
+      state,
+      recheck,
+      signIn,
+      signOut,
+      register,
+      resendVerification,
+      requestPasswordReset: requestPasswordResetForEmail,
+      verifyEmail,
+    }),
+    [
+      state,
+      recheck,
+      signIn,
+      signOut,
+      register,
+      resendVerification,
+      requestPasswordResetForEmail,
+      verifyEmail,
+    ],
   );
   return <AuthenticationSessionContext value={value}>{children}</AuthenticationSessionContext>;
 }

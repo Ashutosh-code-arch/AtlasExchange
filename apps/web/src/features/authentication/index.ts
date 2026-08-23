@@ -9,11 +9,16 @@ export { getCurrentUser, type CurrentUser } from "./api/get-current-user";
 export { loginWithPassword } from "./api/login-with-password";
 export { logoutCurrentSession } from "./api/logout-current-session";
 export { registerAccount } from "./api/register-account";
+export { requestPasswordReset } from "./api/request-password-reset";
 export { resendVerificationEmail } from "./api/resend-verification-email";
 export { verifyEmailAddress } from "./api/verify-email-address";
 export { AuthenticationPanel } from "./components/authentication-panel";
 export { EmailVerification, type EmailVerificationProps } from "./components/email-verification";
 export { LoginForm } from "./components/login-form";
+export {
+  PasswordRecoveryForm,
+  type PasswordRecoveryFormProps,
+} from "./components/password-recovery-form";
 export { RegistrationForm, type RegistrationFormProps } from "./components/registration-form";
 export {
   AuthenticationProvider,

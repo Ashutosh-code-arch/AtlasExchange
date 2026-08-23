@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { LoginForm } from "./login-form";
+import { PasswordRecoveryForm } from "./password-recovery-form";
 import { RegistrationForm } from "./registration-form";
 import { useAuthenticationSession } from "../session/use-authentication-session";
 
@@ -9,7 +10,7 @@ export function AuthenticationPanel(): React.JSX.Element {
   const mountedRef = useRef(true);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
-  const [anonymousMode, setAnonymousMode] = useState<"sign-in" | "register">("sign-in");
+  const [anonymousMode, setAnonymousMode] = useState<"sign-in" | "register" | "recover">("sign-in");
 
   useEffect(() => {
     mountedRef.current = true;
@@ -58,6 +59,13 @@ export function AuthenticationPanel(): React.JSX.Element {
             <div className="authentication-anonymous-flow">
               <LoginForm />
               <div className="authentication-mode-switch">
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => setAnonymousMode("recover")}
+                >
+                  Forgot password?
+                </button>
                 <span>New to Atlas?</span>
                 <button
                   className="text-button"
@@ -68,8 +76,10 @@ export function AuthenticationPanel(): React.JSX.Element {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : anonymousMode === "register" ? (
             <RegistrationForm onReturnToSignIn={() => setAnonymousMode("sign-in")} />
+          ) : (
+            <PasswordRecoveryForm onReturnToSignIn={() => setAnonymousMode("sign-in")} />
           )
         ) : null}
         {state.status === "unavailable" ? (

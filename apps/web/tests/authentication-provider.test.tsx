@@ -30,11 +30,20 @@ type PasswordLogin = NonNullable<AuthenticationProviderProps["passwordLogin"]>;
 type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
 type AccountRegistration = NonNullable<AuthenticationProviderProps["accountRegistration"]>;
 type VerificationResender = NonNullable<AuthenticationProviderProps["verificationResender"]>;
+type PasswordResetRequester = NonNullable<AuthenticationProviderProps["passwordResetRequester"]>;
 type EmailVerifier = NonNullable<AuthenticationProviderProps["emailVerifier"]>;
 
 function SessionProbe(): React.JSX.Element {
-  const { state, recheck, signIn, signOut, register, resendVerification, verifyEmail } =
-    useAuthenticationSession();
+  const {
+    state,
+    recheck,
+    signIn,
+    signOut,
+    register,
+    resendVerification,
+    requestPasswordReset,
+    verifyEmail,
+  } = useAuthenticationSession();
   const [signInFailed, setSignInFailed] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
   const [registrationFailed, setRegistrationFailed] = useState(false);
@@ -44,6 +53,14 @@ function SessionProbe(): React.JSX.Element {
       {state.status === "authenticated" ? <span>{state.user.email}</span> : null}
       <button type="button" onClick={() => void recheck()}>
         Recheck session
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          void requestPasswordReset({ email: "recover@example.com" });
+        }}
+      >
+        Request password reset
       </button>
       <button
         type="button"
@@ -508,5 +525,56 @@ describe("AuthenticationProvider", () => {
 
     completeResend();
     await expect(resendResult).resolves.toBeUndefined();
+  });
+
+  it("requests password recovery without inferring an authenticated session", async () => {
+    const harness = createClientHarness();
+    const passwordResetRequester = vi.fn<PasswordResetRequester>().mockResolvedValue();
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.reject(new ApiHttpError(401))}
+        passwordResetRequester={passwordResetRequester}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Request password reset" }));
+
+    expect(passwordResetRequester).toHaveBeenCalledWith(harness.client, {
+      email: "recover@example.com",
+    });
+    expect(screen.getByTestId("session-status")).toHaveTextContent("unauthenticated");
+  });
+
+  it("deduplicates concurrent password-recovery requests", async () => {
+    const harness = createClientHarness();
+    let completeRequest = (): void => undefined;
+    const requestResult = new Promise<void>((resolve) => {
+      completeRequest = resolve;
+    });
+    const passwordResetRequester = vi.fn<PasswordResetRequester>().mockReturnValue(requestResult);
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.reject(new ApiHttpError(401))}
+        passwordResetRequester={passwordResetRequester}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Request password reset" }));
+    expect(passwordResetRequester).toHaveBeenCalledOnce();
+
+    completeRequest();
+    await expect(requestResult).resolves.toBeUndefined();
   });
 });
