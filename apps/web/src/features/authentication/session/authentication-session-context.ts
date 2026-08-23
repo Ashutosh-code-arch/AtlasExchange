@@ -15,6 +15,7 @@ export interface AuthenticationSessionValue {
   readonly signIn: (input: LoginRequest) => Promise<void>;
   readonly signOut: () => Promise<void>;
   readonly register: (input: RegisterRequest) => Promise<void>;
+  readonly verifyEmail: (token: string) => Promise<void>;
 }
 
 export const AuthenticationSessionContext = createContext<AuthenticationSessionValue | undefined>(

@@ -29,9 +29,10 @@ type CurrentUserLoader = NonNullable<AuthenticationProviderProps["currentUserLoa
 type PasswordLogin = NonNullable<AuthenticationProviderProps["passwordLogin"]>;
 type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
 type AccountRegistration = NonNullable<AuthenticationProviderProps["accountRegistration"]>;
+type EmailVerifier = NonNullable<AuthenticationProviderProps["emailVerifier"]>;
 
 function SessionProbe(): React.JSX.Element {
-  const { state, recheck, signIn, signOut, register } = useAuthenticationSession();
+  const { state, recheck, signIn, signOut, register, verifyEmail } = useAuthenticationSession();
   const [signInFailed, setSignInFailed] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
   const [registrationFailed, setRegistrationFailed] = useState(false);
@@ -70,6 +71,14 @@ function SessionProbe(): React.JSX.Element {
         }}
       >
         Register account
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          void verifyEmail("opaque.verification-token");
+        }}
+      >
+        Verify email
       </button>
       {signInFailed ? <span>Sign in failed</span> : null}
       {signOutFailed ? <span>Sign out failed</span> : null}
@@ -410,5 +419,33 @@ describe("AuthenticationProvider", () => {
 
     completeRegistration();
     await expect(registrationResult).resolves.toBeUndefined();
+  });
+
+  it("deduplicates concurrent use of one email-verification capability", async () => {
+    const harness = createClientHarness();
+    let completeVerification = (): void => undefined;
+    const verificationResult = new Promise<void>((resolve) => {
+      completeVerification = resolve;
+    });
+    const emailVerifier = vi.fn<EmailVerifier>().mockReturnValue(verificationResult);
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.reject(new ApiHttpError(401))}
+        emailVerifier={emailVerifier}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Verify email" }));
+    expect(emailVerifier).toHaveBeenCalledOnce();
+    expect(emailVerifier).toHaveBeenCalledWith(harness.client, "opaque.verification-token");
+
+    completeVerification();
+    await expect(verificationResult).resolves.toBeUndefined();
   });
 });

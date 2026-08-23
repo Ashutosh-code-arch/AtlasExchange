@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 
+import type { ApplicationRoute } from "./app/initial-route";
 import { getReadiness, type ReadinessView } from "./features/system-status";
 import { AuthenticationPanel } from "./features/authentication";
 import { OverviewPage } from "./pages/overview-page";
+import { VerifyEmailPage } from "./pages/verify-email-page";
 
 interface AppProps {
   readonly apiBaseUrl: string;
   readonly readinessClient?: (apiBaseUrl: string) => ReturnType<typeof getReadiness>;
+  readonly initialRoute?: ApplicationRoute;
 }
 
-export function App({ apiBaseUrl, readinessClient = getReadiness }: AppProps): React.JSX.Element {
+function OverviewRoute({
+  apiBaseUrl,
+  readinessClient,
+}: Required<Pick<AppProps, "apiBaseUrl" | "readinessClient">>): React.JSX.Element {
   const [readiness, setReadiness] = useState<ReadinessView>("checking");
 
   const refresh = useCallback(async () => {
@@ -42,6 +48,19 @@ export function App({ apiBaseUrl, readinessClient = getReadiness }: AppProps): R
   }, [apiBaseUrl, readinessClient]);
 
   return (
+    <>
+      <AuthenticationPanel />
+      <OverviewPage readiness={readiness} onRefresh={() => void refresh()} />
+    </>
+  );
+}
+
+export function App({
+  apiBaseUrl,
+  readinessClient = getReadiness,
+  initialRoute = { name: "overview" },
+}: AppProps): React.JSX.Element {
+  return (
     <div className="app-shell">
       <header className="site-header">
         <a className="brand" href="/" aria-label="Atlas Exchange home">
@@ -51,7 +70,9 @@ export function App({ apiBaseUrl, readinessClient = getReadiness }: AppProps): R
           <span>ATLAS / EXCHANGE</span>
         </a>
         <nav aria-label="Primary navigation">
-          <a href="#roadmap">Roadmap</a>
+          <a href={initialRoute.name === "overview" ? "#roadmap" : "/"}>
+            {initialRoute.name === "overview" ? "Roadmap" : "Home"}
+          </a>
           <a
             href="https://github.com/Ashutosh-code-arch/AtlasExchange"
             target="_blank"
@@ -61,8 +82,11 @@ export function App({ apiBaseUrl, readinessClient = getReadiness }: AppProps): R
           </a>
         </nav>
       </header>
-      <AuthenticationPanel />
-      <OverviewPage readiness={readiness} onRefresh={() => void refresh()} />
+      {initialRoute.name === "overview" ? (
+        <OverviewRoute apiBaseUrl={apiBaseUrl} readinessClient={readinessClient} />
+      ) : (
+        <VerifyEmailPage token={initialRoute.token} />
+      )}
       <footer>
         <span>Atlas Labs · Engineering Academy</span>
         <span>Precision before velocity.</span>

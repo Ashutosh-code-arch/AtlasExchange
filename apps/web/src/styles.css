@@ -267,6 +267,40 @@ a {
   line-height: 1.5;
 }
 
+.identity-route {
+  display: grid;
+  min-height: 650px;
+  place-items: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.verification-card {
+  width: min(720px, 100%);
+  padding: 48px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--acid);
+  background: var(--surface);
+}
+
+.verification-card h1 {
+  margin-bottom: 20px;
+  font-size: clamp(40px, 6vw, 68px);
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.verification-card p:not(.eyebrow) {
+  max-width: 560px;
+  margin-bottom: 28px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.verification-card .primary-button {
+  cursor: pointer;
+}
+
 .authentication-anonymous-flow,
 .registration-flow {
   display: grid;
@@ -799,6 +833,14 @@ footer {
   .registration-accepted {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .identity-route {
+    min-height: 540px;
+  }
+
+  .verification-card {
+    padding: 30px 24px;
   }
 
   .hero {

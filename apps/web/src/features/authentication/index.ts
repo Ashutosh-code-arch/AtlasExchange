@@ -9,7 +9,9 @@ export { getCurrentUser, type CurrentUser } from "./api/get-current-user";
 export { loginWithPassword } from "./api/login-with-password";
 export { logoutCurrentSession } from "./api/logout-current-session";
 export { registerAccount } from "./api/register-account";
+export { verifyEmailAddress } from "./api/verify-email-address";
 export { AuthenticationPanel } from "./components/authentication-panel";
+export { EmailVerification, type EmailVerificationProps } from "./components/email-verification";
 export { LoginForm } from "./components/login-form";
 export { RegistrationForm, type RegistrationFormProps } from "./components/registration-form";
 export {

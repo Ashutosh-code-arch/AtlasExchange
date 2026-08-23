@@ -3,8 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { App } from "../src/app";
+import type { ApplicationRoute } from "../src/app/initial-route";
 import {
   AuthenticationProvider,
+  type AuthenticationProviderProps,
   type AuthenticationSessionClient,
   type CurrentUser,
 } from "../src/features/authentication";
@@ -17,6 +19,10 @@ const appUser: CurrentUser = {
 
 function renderApp(
   readinessClient: NonNullable<React.ComponentProps<typeof App>["readinessClient"]>,
+  options: {
+    readonly initialRoute?: ApplicationRoute;
+    readonly emailVerifier?: NonNullable<AuthenticationProviderProps["emailVerifier"]>;
+  } = {},
 ): void {
   const client: AuthenticationSessionClient = {
     request: vi.fn(),
@@ -28,8 +34,13 @@ function renderApp(
       apiBaseUrl="http://api.test"
       clientFactory={() => client}
       currentUserLoader={() => Promise.resolve(appUser)}
+      {...(options.emailVerifier === undefined ? {} : { emailVerifier: options.emailVerifier })}
     >
-      <App apiBaseUrl="http://api.test" readinessClient={readinessClient} />
+      <App
+        apiBaseUrl="http://api.test"
+        readinessClient={readinessClient}
+        {...(options.initialRoute === undefined ? {} : { initialRoute: options.initialRoute })}
+      />
     </AuthenticationProvider>,
   );
 }
@@ -64,5 +75,19 @@ describe("Atlas overview", () => {
 
     await waitFor(() => expect(readinessClient).toHaveBeenCalledTimes(2));
     expect(await screen.findByText("Operational")).toBeInTheDocument();
+  });
+
+  it("composes email verification without loading overview readiness", async () => {
+    const readinessClient = vi.fn();
+    const emailVerifier = vi.fn().mockResolvedValue(undefined);
+    renderApp(readinessClient, {
+      initialRoute: { name: "verify-email", token: "opaque.verification-token" },
+      emailVerifier,
+    });
+
+    expect(await screen.findByRole("heading", { name: "Email verified" })).toBeInTheDocument();
+    expect(emailVerifier).toHaveBeenCalledWith(expect.anything(), "opaque.verification-token");
+    expect(readinessClient).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: /build trust/i })).not.toBeInTheDocument();
   });
 });

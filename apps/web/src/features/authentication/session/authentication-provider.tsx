@@ -10,6 +10,7 @@ import { getCurrentUser, type CurrentUser } from "../api/get-current-user";
 import { loginWithPassword } from "../api/login-with-password";
 import { logoutCurrentSession } from "../api/logout-current-session";
 import { registerAccount } from "../api/register-account";
+import { verifyEmailAddress } from "../api/verify-email-address";
 import type { LoginRequest, RegisterRequest } from "@atlas/contracts";
 import {
   AuthenticationSessionContext,
@@ -46,6 +47,10 @@ export interface AuthenticationProviderProps {
     client: Pick<AuthenticationSessionClient, "request">,
     input: RegisterRequest,
   ) => Promise<void>;
+  readonly emailVerifier?: (
+    client: Pick<AuthenticationSessionClient, "request">,
+    token: string,
+  ) => Promise<void>;
 }
 
 const checkingState = { status: "checking" } as const;
@@ -63,6 +68,7 @@ export function AuthenticationProvider({
   passwordLogin = loginWithPassword,
   sessionLogout = logoutCurrentSession,
   accountRegistration = registerAccount,
+  emailVerifier = verifyEmailAddress,
 }: AuthenticationProviderProps): React.JSX.Element {
   const [state, setState] = useState<AuthenticationSessionState>(checkingState);
   const clientRef = useRef<AuthenticationSessionClient | null>(null);
@@ -70,6 +76,10 @@ export function AuthenticationProvider({
   const signInFlightRef = useRef<Promise<void> | null>(null);
   const signOutFlightRef = useRef<Promise<void> | null>(null);
   const registrationFlightRef = useRef<Promise<void> | null>(null);
+  const emailVerificationFlightRef = useRef<{
+    readonly token: string;
+    readonly operation: Promise<void>;
+  } | null>(null);
 
   const loadCurrentSession = useCallback(
     async (client: AuthenticationSessionClient): Promise<void> => {
@@ -211,9 +221,37 @@ export function AuthenticationProvider({
     [accountRegistration],
   );
 
+  const verifyEmail = useCallback(
+    (token: string): Promise<void> => {
+      const existing = emailVerificationFlightRef.current;
+      if (existing !== null) {
+        return existing.token === token
+          ? existing.operation
+          : Promise.reject(new Error("Another email verification is already in progress."));
+      }
+      const client = clientRef.current;
+      if (client === null) {
+        return Promise.reject(new Error("Authentication session is not ready."));
+      }
+
+      const operation = (async (): Promise<void> => {
+        await emailVerifier(client, token);
+      })();
+      emailVerificationFlightRef.current = { token, operation };
+      const clearVerification = (): void => {
+        if (emailVerificationFlightRef.current?.operation === operation) {
+          emailVerificationFlightRef.current = null;
+        }
+      };
+      void operation.then(clearVerification, clearVerification);
+      return operation;
+    },
+    [emailVerifier],
+  );
+
   const value = useMemo(
-    () => ({ state, recheck, signIn, signOut, register }),
-    [state, recheck, signIn, signOut, register],
+    () => ({ state, recheck, signIn, signOut, register, verifyEmail }),
+    [state, recheck, signIn, signOut, register, verifyEmail],
   );
   return <AuthenticationSessionContext value={value}>{children}</AuthenticationSessionContext>;
 }
