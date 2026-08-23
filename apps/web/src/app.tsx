@@ -4,6 +4,7 @@ import type { ApplicationRoute } from "./app/initial-route";
 import { getReadiness, type ReadinessView } from "./features/system-status";
 import { AuthenticationPanel } from "./features/authentication";
 import { OverviewPage } from "./pages/overview-page";
+import { ResetPasswordPage } from "./pages/reset-password-page";
 import { VerifyEmailPage } from "./pages/verify-email-page";
 
 interface AppProps {
@@ -84,8 +85,10 @@ export function App({
       </header>
       {initialRoute.name === "overview" ? (
         <OverviewRoute apiBaseUrl={apiBaseUrl} readinessClient={readinessClient} />
-      ) : (
+      ) : initialRoute.name === "verify-email" ? (
         <VerifyEmailPage token={initialRoute.token} />
+      ) : (
+        <ResetPasswordPage token={initialRoute.token} />
       )}
       <footer>
         <span>Atlas Labs · Engineering Academy</span>

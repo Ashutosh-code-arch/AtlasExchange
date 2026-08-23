@@ -301,7 +301,8 @@ a {
   border-bottom: 1px solid var(--line);
 }
 
-.verification-card {
+.verification-card,
+.password-reset-card {
   width: min(720px, 100%);
   padding: 48px;
   border: 1px solid var(--line);
@@ -309,14 +310,18 @@ a {
   background: var(--surface);
 }
 
-.verification-card h1 {
+.verification-card h1,
+.password-reset-card h1 {
   margin-bottom: 20px;
   font-size: clamp(40px, 6vw, 68px);
   letter-spacing: -0.055em;
   line-height: 1;
 }
 
-.verification-card p:not(.eyebrow) {
+.verification-card p:not(.eyebrow),
+.password-reset-card > p:not(.eyebrow),
+.password-reset-card [role="status"] > p:not(.eyebrow),
+.password-reset-card [role="alert"] > p:not(.eyebrow) {
   max-width: 560px;
   margin-bottom: 28px;
   color: var(--muted);
@@ -324,8 +329,43 @@ a {
   line-height: 1.7;
 }
 
-.verification-card .primary-button {
+.verification-card .primary-button,
+.password-reset-card .primary-button {
   cursor: pointer;
+}
+
+.password-reset-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.password-reset-form__guidance,
+.password-reset-form__error {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 10px;
+}
+
+.password-reset-form__guidance {
+  color: var(--muted);
+}
+
+.password-reset-form__error {
+  min-height: 17px;
+  color: #ff9b75;
+  font-family: "DM Mono", monospace;
+}
+
+.password-reset-form .primary-button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  border: 0;
+}
+
+.password-reset-form .primary-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .authentication-anonymous-flow,
@@ -796,6 +836,14 @@ footer {
 
   .registration-form {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .password-reset-card {
+    padding: 28px;
+  }
+
+  .password-reset-form {
+    grid-template-columns: 1fr;
   }
 
   .hero__content {

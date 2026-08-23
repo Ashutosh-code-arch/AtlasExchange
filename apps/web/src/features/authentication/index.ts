@@ -10,6 +10,7 @@ export { loginWithPassword } from "./api/login-with-password";
 export { logoutCurrentSession } from "./api/logout-current-session";
 export { registerAccount } from "./api/register-account";
 export { requestPasswordReset } from "./api/request-password-reset";
+export { resetPassword } from "./api/reset-password";
 export { resendVerificationEmail } from "./api/resend-verification-email";
 export { verifyEmailAddress } from "./api/verify-email-address";
 export { AuthenticationPanel } from "./components/authentication-panel";
@@ -19,6 +20,7 @@ export {
   PasswordRecoveryForm,
   type PasswordRecoveryFormProps,
 } from "./components/password-recovery-form";
+export { PasswordReset, type PasswordResetProps } from "./components/password-reset";
 export { RegistrationForm, type RegistrationFormProps } from "./components/registration-form";
 export {
   AuthenticationProvider,

@@ -1,6 +1,7 @@
 export type ApplicationRoute =
   | { readonly name: "overview" }
-  | { readonly name: "verify-email"; readonly token: string | undefined };
+  | { readonly name: "verify-email"; readonly token: string | undefined }
+  | { readonly name: "reset-password"; readonly token: string | undefined };
 
 export interface InitialRouteLocation {
   readonly pathname: string;
@@ -17,7 +18,7 @@ export function readInitialApplicationRoute(
   location: InitialRouteLocation,
   history: InitialRouteHistory,
 ): ApplicationRoute {
-  if (location.pathname !== "/verify-email") {
+  if (location.pathname !== "/verify-email" && location.pathname !== "/reset-password") {
     return { name: "overview" };
   }
 
@@ -25,7 +26,7 @@ export function readInitialApplicationRoute(
   const parsedToken = new URLSearchParams(fragment).get("token");
   history.replaceState(history.state, "", `${location.pathname}${location.search}`);
   return {
-    name: "verify-email",
+    name: location.pathname === "/verify-email" ? "verify-email" : "reset-password",
     token: parsedToken === null || parsedToken.length === 0 ? undefined : parsedToken,
   };
 }

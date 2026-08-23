@@ -3,6 +3,7 @@ import type {
   ForgotPasswordRequest,
   LoginRequest,
   RegisterRequest,
+  ResetPasswordRequest,
   ResendVerificationRequest,
 } from "@atlas/contracts";
 
@@ -22,6 +23,7 @@ export interface AuthenticationSessionValue {
   readonly register: (input: RegisterRequest) => Promise<void>;
   readonly resendVerification: (input: ResendVerificationRequest) => Promise<void>;
   readonly requestPasswordReset: (input: ForgotPasswordRequest) => Promise<void>;
+  readonly resetPassword: (input: ResetPasswordRequest) => Promise<void>;
   readonly verifyEmail: (token: string) => Promise<void>;
 }
 

@@ -22,6 +22,7 @@ function renderApp(
   options: {
     readonly initialRoute?: ApplicationRoute;
     readonly emailVerifier?: NonNullable<AuthenticationProviderProps["emailVerifier"]>;
+    readonly passwordResetter?: NonNullable<AuthenticationProviderProps["passwordResetter"]>;
   } = {},
 ): void {
   const client: AuthenticationSessionClient = {
@@ -35,6 +36,9 @@ function renderApp(
       clientFactory={() => client}
       currentUserLoader={() => Promise.resolve(appUser)}
       {...(options.emailVerifier === undefined ? {} : { emailVerifier: options.emailVerifier })}
+      {...(options.passwordResetter === undefined
+        ? {}
+        : { passwordResetter: options.passwordResetter })}
     >
       <App
         apiBaseUrl="http://api.test"
@@ -88,6 +92,20 @@ describe("Atlas overview", () => {
     expect(await screen.findByRole("heading", { name: "Email verified" })).toBeInTheDocument();
     expect(emailVerifier).toHaveBeenCalledWith(expect.anything(), "opaque.verification-token");
     expect(readinessClient).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: /build trust/i })).not.toBeInTheDocument();
+  });
+
+  it("composes password reset without loading overview readiness", () => {
+    const readinessClient = vi.fn();
+    const passwordResetter = vi.fn().mockResolvedValue(undefined);
+    renderApp(readinessClient, {
+      initialRoute: { name: "reset-password", token: "opaque.reset-token" },
+      passwordResetter,
+    });
+
+    expect(screen.getByRole("heading", { name: "Choose a new password" })).toBeInTheDocument();
+    expect(readinessClient).not.toHaveBeenCalled();
+    expect(passwordResetter).not.toHaveBeenCalled();
     expect(screen.queryByRole("heading", { name: /build trust/i })).not.toBeInTheDocument();
   });
 });

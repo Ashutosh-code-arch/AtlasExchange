@@ -11,12 +11,14 @@ import { loginWithPassword } from "../api/login-with-password";
 import { logoutCurrentSession } from "../api/logout-current-session";
 import { registerAccount } from "../api/register-account";
 import { requestPasswordReset } from "../api/request-password-reset";
+import { resetPassword } from "../api/reset-password";
 import { resendVerificationEmail } from "../api/resend-verification-email";
 import { verifyEmailAddress } from "../api/verify-email-address";
 import type {
   ForgotPasswordRequest,
   LoginRequest,
   RegisterRequest,
+  ResetPasswordRequest,
   ResendVerificationRequest,
 } from "@atlas/contracts";
 import {
@@ -62,6 +64,10 @@ export interface AuthenticationProviderProps {
     client: Pick<AuthenticationSessionClient, "request">,
     input: ForgotPasswordRequest,
   ) => Promise<void>;
+  readonly passwordResetter?: (
+    client: Pick<AuthenticationSessionClient, "request">,
+    input: ResetPasswordRequest,
+  ) => Promise<void>;
   readonly emailVerifier?: (
     client: Pick<AuthenticationSessionClient, "request">,
     token: string,
@@ -85,6 +91,7 @@ export function AuthenticationProvider({
   accountRegistration = registerAccount,
   verificationResender = resendVerificationEmail,
   passwordResetRequester = requestPasswordReset,
+  passwordResetter = resetPassword,
   emailVerifier = verifyEmailAddress,
 }: AuthenticationProviderProps): React.JSX.Element {
   const [state, setState] = useState<AuthenticationSessionState>(checkingState);
@@ -95,6 +102,7 @@ export function AuthenticationProvider({
   const registrationFlightRef = useRef<Promise<void> | null>(null);
   const verificationResendFlightRef = useRef<Promise<void> | null>(null);
   const passwordResetRequestFlightRef = useRef<Promise<void> | null>(null);
+  const passwordResetFlightRef = useRef<Promise<void> | null>(null);
   const emailVerificationFlightRef = useRef<{
     readonly token: string;
     readonly operation: Promise<void>;
@@ -318,6 +326,37 @@ export function AuthenticationProvider({
     [passwordResetRequester],
   );
 
+  const replacePassword = useCallback(
+    (input: ResetPasswordRequest): Promise<void> => {
+      if (passwordResetFlightRef.current !== null) {
+        return passwordResetFlightRef.current;
+      }
+      const client = clientRef.current;
+      if (client === null) {
+        return Promise.reject(new Error("Authentication session is not ready."));
+      }
+
+      const operation = (async (): Promise<void> => {
+        await passwordResetter(client, input);
+        if (clientRef.current !== client) {
+          return;
+        }
+        client.announceAuthenticationLost();
+        loadSequenceRef.current += 1;
+        setState(unauthenticatedState);
+      })();
+      passwordResetFlightRef.current = operation;
+      const clearReset = (): void => {
+        if (passwordResetFlightRef.current === operation) {
+          passwordResetFlightRef.current = null;
+        }
+      };
+      void operation.then(clearReset, clearReset);
+      return operation;
+    },
+    [passwordResetter],
+  );
+
   const value = useMemo(
     () => ({
       state,
@@ -327,6 +366,7 @@ export function AuthenticationProvider({
       register,
       resendVerification,
       requestPasswordReset: requestPasswordResetForEmail,
+      resetPassword: replacePassword,
       verifyEmail,
     }),
     [
@@ -337,6 +377,7 @@ export function AuthenticationProvider({
       register,
       resendVerification,
       requestPasswordResetForEmail,
+      replacePassword,
       verifyEmail,
     ],
   );

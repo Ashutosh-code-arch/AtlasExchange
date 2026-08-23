@@ -31,6 +31,7 @@ type SessionLogout = NonNullable<AuthenticationProviderProps["sessionLogout"]>;
 type AccountRegistration = NonNullable<AuthenticationProviderProps["accountRegistration"]>;
 type VerificationResender = NonNullable<AuthenticationProviderProps["verificationResender"]>;
 type PasswordResetRequester = NonNullable<AuthenticationProviderProps["passwordResetRequester"]>;
+type PasswordResetter = NonNullable<AuthenticationProviderProps["passwordResetter"]>;
 type EmailVerifier = NonNullable<AuthenticationProviderProps["emailVerifier"]>;
 
 function SessionProbe(): React.JSX.Element {
@@ -42,6 +43,7 @@ function SessionProbe(): React.JSX.Element {
     register,
     resendVerification,
     requestPasswordReset,
+    resetPassword,
     verifyEmail,
   } = useAuthenticationSession();
   const [signInFailed, setSignInFailed] = useState(false);
@@ -53,6 +55,17 @@ function SessionProbe(): React.JSX.Element {
       {state.status === "authenticated" ? <span>{state.user.email}</span> : null}
       <button type="button" onClick={() => void recheck()}>
         Recheck session
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          void resetPassword({
+            token: "opaque.reset-token",
+            password: "a new safe password phrase",
+          });
+        }}
+      >
+        Replace password
       </button>
       <button
         type="button"
@@ -576,5 +589,58 @@ describe("AuthenticationProvider", () => {
 
     completeRequest();
     await expect(requestResult).resolves.toBeUndefined();
+  });
+
+  it("invalidates authoritative session state after password replacement", async () => {
+    const harness = createClientHarness();
+    const passwordResetter = vi.fn<PasswordResetter>().mockResolvedValue();
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.resolve(firstUser)}
+        passwordResetter={passwordResetter}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText(firstUser.email)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Replace password" }));
+
+    expect(passwordResetter).toHaveBeenCalledWith(harness.client, {
+      token: "opaque.reset-token",
+      password: "a new safe password phrase",
+    });
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    expect(harness.client.announceAuthenticationLost).toHaveBeenCalledOnce();
+  });
+
+  it("deduplicates concurrent password-replacement submissions", async () => {
+    const harness = createClientHarness();
+    let completeReset = (): void => undefined;
+    const resetResult = new Promise<void>((resolve) => {
+      completeReset = resolve;
+    });
+    const passwordResetter = vi.fn<PasswordResetter>().mockReturnValue(resetResult);
+    const user = userEvent.setup();
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={harness.clientFactory}
+        currentUserLoader={() => Promise.reject(new ApiHttpError(401))}
+        passwordResetter={passwordResetter}
+      >
+        <SessionProbe />
+      </AuthenticationProvider>,
+    );
+
+    expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    await user.dblClick(screen.getByRole("button", { name: "Replace password" }));
+    expect(passwordResetter).toHaveBeenCalledOnce();
+
+    completeReset();
+    await expect(resetResult).resolves.toBeUndefined();
   });
 });
