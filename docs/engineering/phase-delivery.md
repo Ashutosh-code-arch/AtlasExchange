@@ -55,9 +55,11 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - Exact asset quantities, wallet ownership, available/reserved accounts, append-only journals,
   idempotent posting, concurrency protection, and authoritative balance reads are implemented.
 - [ADR-021 — MVP Asset Catalog and System-Account Provisioning](../architecture/decisions/ADR-021-mvp-asset-catalog-and-system-account-provisioning.md)
-  defines the next migration's catalog and accounting-account authority.
-- Deposit, withdrawal, and public Financial HTTP behavior remain gated by their focused lifecycle
-  and transport decisions.
+  defines the implemented catalog and system-account authority.
+- [ADR-022 — Simulated Deposit Lifecycle and Custody Boundary](../architecture/decisions/ADR-022-simulated-deposit-lifecycle-and-custody-boundary.md)
+  defines the next implementation increment: an atomic, idempotent simulated deposit capability.
+- Withdrawal and public Financial HTTP behavior remain gated by focused lifecycle and transport
+  decisions.
 
 ## Phase transition rule
 
