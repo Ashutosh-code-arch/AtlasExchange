@@ -1,9 +1,7 @@
 import type { AssetCode } from "./asset-code.js";
 import type { AssetScale } from "./asset-scale.js";
 import { FinancialInputValidationError } from "./financial-input-validation-error.js";
-
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\s\S])/i;
+import { isUuid } from "./uuid.js";
 
 declare const ledgerAccountIdBrand: unique symbol;
 
@@ -29,7 +27,7 @@ const ledgerAccountPolicies: Readonly<Record<LedgerAccountKind, LedgerAccountPol
 };
 
 export function parseLedgerAccountId(input: string): LedgerAccountId {
-  if (!uuidPattern.test(input)) {
+  if (!isUuid(input)) {
     throw new FinancialInputValidationError("ledgerAccountId", "LEDGER_ACCOUNT_ID_INVALID");
   }
 

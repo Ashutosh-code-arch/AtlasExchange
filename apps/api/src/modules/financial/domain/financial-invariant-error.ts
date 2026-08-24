@@ -9,7 +9,10 @@ export type FinancialInvariantIssue =
   | "JOURNAL_UNBALANCED"
   | "POSTING_AMOUNT_NOT_POSITIVE"
   | "POSTING_DENOMINATION_MISMATCH"
-  | "POSTING_POSITION_INVALID";
+  | "POSTING_POSITION_INVALID"
+  | "WALLET_ACCOUNT_IDS_NOT_DISTINCT"
+  | "WALLET_BALANCE_DENOMINATION_MISMATCH"
+  | "WALLET_BALANCE_OVERFLOW";
 
 export class FinancialInvariantError extends Error {
   public constructor(public readonly issue: FinancialInvariantIssue) {
