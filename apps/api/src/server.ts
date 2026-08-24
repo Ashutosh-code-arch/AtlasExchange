@@ -10,6 +10,7 @@ import {
   SmtpPasswordResetEmailDelivery,
   type IdentityDatabaseSchema,
 } from "./modules/identity/index.js";
+import type { FinancialDatabaseSchema } from "./modules/financial/index.js";
 import {
   createDatabaseResources,
   type DatabaseResources,
@@ -25,7 +26,7 @@ import {
 } from "./platform/lifecycle/process-lifecycle.js";
 import { createLogger } from "./platform/logging/logger.js";
 
-type AtlasDatabaseSchema = DatabaseSchema & IdentityDatabaseSchema;
+type AtlasDatabaseSchema = DatabaseSchema & IdentityDatabaseSchema & FinancialDatabaseSchema;
 
 interface RunningServer extends ManagedRuntime {
   readonly server: Server;
