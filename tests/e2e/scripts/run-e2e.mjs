@@ -65,7 +65,7 @@ const environment = {
   ATLAS_ENV: "test",
   LOG_LEVEL: "warn",
   DATABASE_URL: databaseUrl,
-  EXPECTED_SCHEMA_VERSION: "2",
+  EXPECTED_SCHEMA_VERSION: "3",
   API_PORT: String(apiPort),
   WEB_ORIGIN: webOrigin,
   VITE_API_BASE_URL: apiOrigin,

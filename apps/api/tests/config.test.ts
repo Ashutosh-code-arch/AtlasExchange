@@ -13,7 +13,7 @@ describe("API configuration", () => {
     const config = parseApiConfig(validEnvironment);
 
     expect(config.http.port).toBe(3000);
-    expect(config.database.expectedSchemaVersion).toBe("2");
+    expect(config.database.expectedSchemaVersion).toBe("3");
     expect(config.identity.passwordBlocklistPath).toMatch(
       /resources\/development-password-blocklist\.sha256$/,
     );
