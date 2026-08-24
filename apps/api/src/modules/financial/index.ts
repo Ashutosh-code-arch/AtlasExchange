@@ -21,4 +21,9 @@ export {
   type CreateWalletCommand,
   type CreateWalletResult,
 } from "./application/create-wallet.js";
+export {
+  GetWalletBalance,
+  type GetWalletBalanceCommand,
+  type GetWalletBalanceResult,
+} from "./application/get-wallet-balance.js";
 export type { FinancialDatabaseSchema } from "./infrastructure/persistence/financial-database-schema.js";
