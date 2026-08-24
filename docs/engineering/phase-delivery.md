@@ -1,7 +1,7 @@
 # Atlas Exchange Phase Delivery
 
 **Status:** Active  
-**Last reviewed:** 2026-08-24
+**Last reviewed:** 2026-08-25
 
 This document translates the canonical product and sprint documents into small, demonstrable
 delivery increments. A phase is complete only after its acceptance checks pass.
@@ -49,6 +49,15 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - Deposit, withdrawal, and public Financial API behavior remain gated by focused follow-up decisions.
 - The first implementation increment is the independently testable asset-quantity and accounting
   domain core; persistence follows only with its invariant-preserving migration and integration tests.
+
+## Phase 3 delivery state
+
+- Exact asset quantities, wallet ownership, available/reserved accounts, append-only journals,
+  idempotent posting, concurrency protection, and authoritative balance reads are implemented.
+- [ADR-021 — MVP Asset Catalog and System-Account Provisioning](../architecture/decisions/ADR-021-mvp-asset-catalog-and-system-account-provisioning.md)
+  defines the next migration's catalog and accounting-account authority.
+- Deposit, withdrawal, and public Financial HTTP behavior remain gated by their focused lifecycle
+  and transport decisions.
 
 ## Phase transition rule
 
