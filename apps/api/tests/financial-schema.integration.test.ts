@@ -97,6 +97,7 @@ describe("Financial schema migrations", () => {
     );
     expect(tables.rows.map(({ table_name }) => table_name)).toEqual([
       "assets",
+      "deposits",
       "journal_postings",
       "journal_transactions",
       "ledger_accounts",
@@ -106,7 +107,7 @@ describe("Financial schema migrations", () => {
     const version = await pool.query<{ value: string }>(
       "SELECT value FROM atlas_system_metadata WHERE key = 'schema_version'",
     );
-    expect(version.rows[0]?.value).toBe("5");
+    expect(version.rows[0]?.value).toBe("6");
   });
 
   it("enforces canonical asset codes, names, scales, and states", async () => {

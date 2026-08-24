@@ -53,8 +53,23 @@ interface JournalPostingsTable {
   amount: string;
 }
 
+interface DepositsTable {
+  id: GeneratedUuid;
+  owner_id: string;
+  wallet_id: string;
+  asset_code: string;
+  amount: string;
+  method: "simulated";
+  status: "credited";
+  journal_id: string;
+  idempotency_key: string;
+  intent_hash: string;
+  credited_at: GeneratedTimestamp;
+}
+
 export interface FinancialDatabaseSchema {
   "financial.assets": AssetsTable;
+  "financial.deposits": DepositsTable;
   "financial.wallets": WalletsTable;
   "financial.ledger_accounts": LedgerAccountsTable;
   "financial.journal_transactions": JournalTransactionsTable;

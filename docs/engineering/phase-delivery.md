@@ -57,7 +57,8 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - [ADR-021 — MVP Asset Catalog and System-Account Provisioning](../architecture/decisions/ADR-021-mvp-asset-catalog-and-system-account-provisioning.md)
   defines the implemented catalog and system-account authority.
 - [ADR-022 — Simulated Deposit Lifecycle and Custody Boundary](../architecture/decisions/ADR-022-simulated-deposit-lifecycle-and-custody-boundary.md)
-  defines the next implementation increment: an atomic, idempotent simulated deposit capability.
+  defines the deposit lifecycle; its persistence schema and cross-ledger invariants are implemented,
+  with the atomic application capability as the next increment.
 - Withdrawal and public Financial HTTP behavior remain gated by focused lifecycle and transport
   decisions.
 
