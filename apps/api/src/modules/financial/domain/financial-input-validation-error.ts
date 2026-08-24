@@ -1,8 +1,9 @@
-export type FinancialInputField = "assetCode" | "assetScale" | "quantity";
+export type FinancialInputField = "assetCode" | "assetScale" | "ledgerAccountId" | "quantity";
 
 export type FinancialInputValidationIssue =
   | "ASSET_CODE_INVALID"
   | "ASSET_SCALE_INVALID"
+  | "LEDGER_ACCOUNT_ID_INVALID"
   | "QUANTITY_INVALID"
   | "QUANTITY_SCALE_EXCEEDED"
   | "QUANTITY_OVERFLOW"
