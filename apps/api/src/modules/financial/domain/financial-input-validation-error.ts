@@ -1,10 +1,25 @@
 export type FinancialInputField =
-  "assetCode" | "assetScale" | "ledgerAccountId" | "quantity" | "walletId" | "walletOwnerId";
+  | "assetCode"
+  | "assetScale"
+  | "businessReferences"
+  | "idempotencyKey"
+  | "idempotencyScope"
+  | "journalOperationType"
+  | "ledgerAccountId"
+  | "postingDirection"
+  | "quantity"
+  | "walletId"
+  | "walletOwnerId";
 
 export type FinancialInputValidationIssue =
   | "ASSET_CODE_INVALID"
   | "ASSET_SCALE_INVALID"
+  | "BUSINESS_REFERENCES_INVALID"
+  | "IDEMPOTENCY_KEY_INVALID"
+  | "IDEMPOTENCY_SCOPE_INVALID"
+  | "JOURNAL_OPERATION_TYPE_INVALID"
   | "LEDGER_ACCOUNT_ID_INVALID"
+  | "POSTING_DIRECTION_INVALID"
   | "QUANTITY_INVALID"
   | "QUANTITY_SCALE_EXCEEDED"
   | "QUANTITY_OVERFLOW"

@@ -13,7 +13,15 @@ export function evaluateLedgerAccountBalance(
     throw new FinancialInvariantError("ACCOUNT_OPENING_BALANCE_DENOMINATION_MISMATCH");
   }
 
-  let closingAtomicUnits = openingBalance.atomicUnits;
+  return evaluateLedgerAccountBalanceFromAtomicUnits(account, openingBalance.atomicUnits, journal);
+}
+
+export function evaluateLedgerAccountBalanceFromAtomicUnits(
+  account: LedgerAccount,
+  openingAtomicUnits: bigint,
+  journal: JournalTransaction,
+): bigint {
+  let closingAtomicUnits = openingAtomicUnits;
   for (const posting of journal.postings) {
     if (posting.account.id !== account.id) {
       continue;
