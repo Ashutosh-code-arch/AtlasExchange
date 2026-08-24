@@ -76,7 +76,7 @@ async function createWallet(assetCode: string, ownerId = randomUUID()): Promise<
   }
 }
 
-describe("Financial wallet schema migration", () => {
+describe("Financial schema migrations", () => {
   beforeAll(async () => {
     await adminPool.query(`CREATE DATABASE "${databaseName}"`);
     await applyMigrations(integrationDatabaseUrl);
@@ -88,7 +88,7 @@ describe("Financial wallet schema migration", () => {
     await adminPool.end();
   });
 
-  it("creates the Financial wallet tables and advances schema compatibility", async () => {
+  it("creates the Financial tables and advances schema compatibility", async () => {
     const tables = await pool.query<{ table_name: string }>(
       `SELECT table_name
        FROM information_schema.tables
@@ -97,6 +97,8 @@ describe("Financial wallet schema migration", () => {
     );
     expect(tables.rows.map(({ table_name }) => table_name)).toEqual([
       "assets",
+      "journal_postings",
+      "journal_transactions",
       "ledger_accounts",
       "wallets",
     ]);
@@ -104,7 +106,7 @@ describe("Financial wallet schema migration", () => {
     const version = await pool.query<{ value: string }>(
       "SELECT value FROM atlas_system_metadata WHERE key = 'schema_version'",
     );
-    expect(version.rows[0]?.value).toBe("3");
+    expect(version.rows[0]?.value).toBe("4");
   });
 
   it("enforces canonical asset codes, names, scales, and states", async () => {

@@ -1,10 +1,14 @@
-import type { ColumnType } from "kysely";
+import type { ColumnType, JSONColumnType } from "kysely";
 
 import type { FinancialAssetStatus } from "../../application/wallet-creation-transaction.js";
 import type { LedgerAccountKind } from "../../domain/ledger-account.js";
 
 type GeneratedUuid = ColumnType<string, string | undefined, never>;
 type GeneratedTimestamp = ColumnType<Date, Date | string | undefined, Date | string>;
+
+type JsonPrimitive = boolean | number | string | null;
+type JsonValue = JsonPrimitive | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonObject = { readonly [key: string]: JsonValue };
 
 interface AssetsTable {
   code: string;
@@ -30,8 +34,29 @@ interface LedgerAccountsTable {
   created_at: GeneratedTimestamp;
 }
 
+interface JournalTransactionsTable {
+  id: GeneratedUuid;
+  operation_type: string;
+  idempotency_scope: string;
+  idempotency_key: string;
+  intent_hash: string;
+  business_references: JSONColumnType<JsonObject, JsonObject | undefined, never>;
+  created_at: GeneratedTimestamp;
+}
+
+interface JournalPostingsTable {
+  journal_id: string;
+  position: number;
+  account_id: string;
+  asset_code: string;
+  direction: "credit" | "debit";
+  amount: string;
+}
+
 export interface FinancialDatabaseSchema {
   "financial.assets": AssetsTable;
   "financial.wallets": WalletsTable;
   "financial.ledger_accounts": LedgerAccountsTable;
+  "financial.journal_transactions": JournalTransactionsTable;
+  "financial.journal_postings": JournalPostingsTable;
 }
