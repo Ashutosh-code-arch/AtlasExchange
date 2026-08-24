@@ -48,8 +48,6 @@ describe("PostgreSQL wallet creation persistence", () => {
   beforeAll(async () => {
     await adminPool.query(`CREATE DATABASE "${databaseName}"`);
     await applyMigrations(integrationDatabaseUrl);
-    await insertAsset("BTC", 8);
-    await insertAsset("USD", 2);
     await insertAsset("OFF", 4, "disabled");
   });
 

@@ -30,7 +30,7 @@ describe("PostgreSQL foundation integration", () => {
   });
 
   it("is not ready before the committed migration history is applied", async () => {
-    const database = createDatabaseResources(integrationDatabaseUrl, "4");
+    const database = createDatabaseResources(integrationDatabaseUrl, "5");
 
     await expect(database.checkReadiness()).resolves.toBe(false);
 
@@ -43,10 +43,11 @@ describe("PostgreSQL foundation integration", () => {
       "0002_create_identity_schema.sql",
       "0003_create_financial_wallet_schema.sql",
       "0004_create_financial_journal_schema.sql",
+      "0005_provision_mvp_asset_catalog.sql",
     ]);
     await expect(applyMigrations(integrationDatabaseUrl)).resolves.toEqual([]);
 
-    const compatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "4");
+    const compatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "5");
     const incompatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "999");
 
     await expect(compatibleDatabase.checkReadiness()).resolves.toBe(true);
@@ -61,6 +62,6 @@ describe("PostgreSQL foundation integration", () => {
     );
     await verificationPool.end();
 
-    expect(result.rows[0]?.count).toBe("4");
+    expect(result.rows[0]?.count).toBe("5");
   });
 });
