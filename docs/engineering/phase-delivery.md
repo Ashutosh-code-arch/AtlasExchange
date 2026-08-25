@@ -69,7 +69,10 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   retry ordering, concurrency boundary, and truthful simulation contract. Its immutable persistence
   schema, journal-shape constraints, exact domain record, atomic application capability, retry
   semantics, reserved-fund rejection, and concurrent-overdraft protection are implemented. Public
-  HTTP exposure remains gated by a focused withdrawal transport decision.
+  HTTP exposure is defined by
+  [ADR-025 — Simulated Withdrawal HTTP API and Error Contract](../architecture/decisions/ADR-025-simulated-withdrawal-http-api-and-error-contract.md),
+  whose shared schemas, owner-scoped reader, authenticated routes, operational control, limiter, and
+  HTTP evidence remain the next Phase 3 implementation increment.
 
 ## Phase transition rule
 
