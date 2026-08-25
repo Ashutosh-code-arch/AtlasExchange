@@ -71,8 +71,9 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   semantics, reserved-fund rejection, and concurrent-overdraft protection are implemented. Public
   HTTP exposure is defined by
   [ADR-025 — Simulated Withdrawal HTTP API and Error Contract](../architecture/decisions/ADR-025-simulated-withdrawal-http-api-and-error-contract.md),
-  whose shared schemas, owner-scoped reader, authenticated routes, operational control, limiter, and
-  HTTP evidence remain the next Phase 3 implementation increment.
+  whose strict request, header, parameter, resource, response, and public-error contracts are
+  implemented in `@atlas/contracts`. The owner-scoped reader, authenticated routes, operational
+  control, limiter, and HTTP evidence remain the next Phase 3 implementation increment.
 
 ## Phase transition rule
 

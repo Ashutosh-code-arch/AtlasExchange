@@ -100,6 +100,36 @@ export const simulatedDepositResponseSchema = z.strictObject({
   }),
 });
 
+export const simulatedWithdrawalRequestSchema = z.strictObject({
+  assetCode: financialAssetCodeSchema,
+  amount: positiveFinancialQuantitySchema,
+});
+
+export const simulatedWithdrawalHeadersSchema = z.strictObject({
+  "idempotency-key": financialIdempotencyKeySchema,
+});
+
+export const simulatedWithdrawalParamsSchema = z.strictObject({
+  withdrawalId: z.uuid(),
+});
+
+export const simulatedWithdrawalSchema = z.strictObject({
+  id: z.uuid(),
+  walletId: z.uuid(),
+  assetCode: financialAssetCodeSchema,
+  amount: positiveFinancialQuantitySchema,
+  method: z.literal("simulated"),
+  status: z.literal("completed"),
+  completedAt: z.iso.datetime(),
+});
+
+export const simulatedWithdrawalResponseSchema = z.strictObject({
+  success: z.literal(true),
+  data: z.strictObject({
+    withdrawal: simulatedWithdrawalSchema,
+  }),
+});
+
 export const financialApiErrorCodeSchema = z.enum([
   "ASSET_NOT_FOUND",
   "ASSET_UNAVAILABLE",
@@ -108,11 +138,14 @@ export const financialApiErrorCodeSchema = z.enum([
   "DEPOSIT_NOT_FOUND",
   "FORBIDDEN",
   "IDEMPOTENCY_CONFLICT",
+  "INSUFFICIENT_AVAILABLE_BALANCE",
   "INTERNAL_SERVER_ERROR",
   "RATE_LIMITED",
   "SIMULATED_FUNDING_UNAVAILABLE",
+  "SIMULATED_WITHDRAWALS_UNAVAILABLE",
   "VALIDATION_FAILED",
   "WALLET_NOT_FOUND",
+  "WITHDRAWAL_NOT_FOUND",
 ]);
 
 export const financialApiErrorResponseSchema = z.strictObject({
@@ -141,5 +174,10 @@ export type SimulatedDepositHeaders = z.infer<typeof simulatedDepositHeadersSche
 export type SimulatedDepositParams = z.infer<typeof simulatedDepositParamsSchema>;
 export type SimulatedDeposit = z.infer<typeof simulatedDepositSchema>;
 export type SimulatedDepositResponse = z.infer<typeof simulatedDepositResponseSchema>;
+export type SimulatedWithdrawalRequest = z.infer<typeof simulatedWithdrawalRequestSchema>;
+export type SimulatedWithdrawalHeaders = z.infer<typeof simulatedWithdrawalHeadersSchema>;
+export type SimulatedWithdrawalParams = z.infer<typeof simulatedWithdrawalParamsSchema>;
+export type SimulatedWithdrawal = z.infer<typeof simulatedWithdrawalSchema>;
+export type SimulatedWithdrawalResponse = z.infer<typeof simulatedWithdrawalResponseSchema>;
 export type FinancialApiErrorCode = z.infer<typeof financialApiErrorCodeSchema>;
 export type FinancialApiErrorResponse = z.infer<typeof financialApiErrorResponseSchema>;

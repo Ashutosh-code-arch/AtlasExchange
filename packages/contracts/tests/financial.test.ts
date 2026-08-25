@@ -10,14 +10,20 @@ import {
   simulatedDepositParamsSchema,
   simulatedDepositRequestSchema,
   simulatedDepositResponseSchema,
+  simulatedWithdrawalHeadersSchema,
+  simulatedWithdrawalParamsSchema,
+  simulatedWithdrawalRequestSchema,
+  simulatedWithdrawalResponseSchema,
   walletListResponseSchema,
   walletParamsSchema,
   walletResponseSchema,
   type SimulatedDepositRequest,
+  type SimulatedWithdrawalRequest,
 } from "../src/index.js";
 
 const walletId = "01900000-0000-7000-8000-000000000001";
 const depositId = "01900000-0000-7000-8000-000000000002";
+const withdrawalId = "01900000-0000-7000-8000-000000000003";
 
 const wallet = {
   id: walletId,
@@ -35,6 +41,16 @@ const deposit = {
   method: "simulated",
   status: "credited",
   creditedAt: "2026-08-25T00:00:00.000Z",
+};
+
+const withdrawal = {
+  id: withdrawalId,
+  walletId,
+  assetCode: "BTC",
+  amount: "1.25",
+  method: "simulated",
+  status: "completed",
+  completedAt: "2026-08-25T00:00:00.000Z",
 };
 
 describe("Financial asset contracts", () => {
@@ -219,6 +235,84 @@ describe("Simulated deposit contracts", () => {
   });
 });
 
+describe("Simulated withdrawal contracts", () => {
+  it("accepts only asset and positive canonical amount in the request", () => {
+    const request: SimulatedWithdrawalRequest = simulatedWithdrawalRequestSchema.parse({
+      assetCode: "BTC",
+      amount: "1.25",
+    });
+    expect(request).toEqual({ assetCode: "BTC", amount: "1.25" });
+
+    for (const invalidRequest of [
+      { assetCode: "BTC", amount: 1.25 },
+      { assetCode: "BTC", amount: "0" },
+      { assetCode: "BTC", amount: "1.0" },
+      { assetCode: "BTC", amount: "1.25", ownerId: "must-not-be-accepted" },
+      { assetCode: "BTC", amount: "1.25", walletId },
+      { assetCode: "BTC", amount: "1.25", fee: "0" },
+      { assetCode: "BTC", amount: "1.25", destination: "not-a-real-destination" },
+      { assetCode: "BTC", amount: "1.25", network: "not-a-real-network" },
+      { assetCode: "BTC", amount: "1.25", direction: "debit" },
+    ]) {
+      expect(simulatedWithdrawalRequestSchema.safeParse(invalidRequest).success).toBe(false);
+    }
+  });
+
+  it("requires one transport-safe withdrawal idempotency-key value", () => {
+    for (const key of ["withdrawal-1", "01900000-0000-7000-8000-000000000003", "client.key:1"]) {
+      expect(simulatedWithdrawalHeadersSchema.safeParse({ "idempotency-key": key }).success).toBe(
+        true,
+      );
+    }
+
+    for (const key of ["", "contains space", "two,values", "a".repeat(201), ["one", "two"]]) {
+      expect(simulatedWithdrawalHeadersSchema.safeParse({ "idempotency-key": key }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("accepts only a UUID withdrawal route parameter", () => {
+    expect(simulatedWithdrawalParamsSchema.parse({ withdrawalId })).toEqual({ withdrawalId });
+    expect(simulatedWithdrawalParamsSchema.safeParse({ withdrawalId: "not-a-uuid" }).success).toBe(
+      false,
+    );
+    expect(
+      simulatedWithdrawalParamsSchema.safeParse({
+        withdrawalId,
+        ownerId: "must-not-be-accepted",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts the explicit simulated completed resource", () => {
+    expect(
+      simulatedWithdrawalResponseSchema.parse({ success: true, data: { withdrawal } }),
+    ).toEqual({ success: true, data: { withdrawal } });
+  });
+
+  it("rejects external-transfer claims, fees, and accounting internals", () => {
+    for (const invalidWithdrawal of [
+      { ...withdrawal, amount: 1.25 },
+      { ...withdrawal, method: "blockchain" },
+      { ...withdrawal, status: "confirmed" },
+      { ...withdrawal, fee: "0" },
+      { ...withdrawal, destination: "not-a-real-destination" },
+      { ...withdrawal, transactionHash: "must-not-cross-the-contract" },
+      { ...withdrawal, journalId: "must-not-cross-the-contract" },
+      { ...withdrawal, custodyAccountId: "must-not-cross-the-contract" },
+      { ...withdrawal, intentHash: "must-not-cross-the-contract" },
+    ]) {
+      expect(
+        simulatedWithdrawalResponseSchema.safeParse({
+          success: true,
+          data: { withdrawal: invalidWithdrawal },
+        }).success,
+      ).toBe(false);
+    }
+  });
+});
+
 describe("Financial error contract", () => {
   it.each([
     "ASSET_NOT_FOUND",
@@ -228,11 +322,14 @@ describe("Financial error contract", () => {
     "DEPOSIT_NOT_FOUND",
     "FORBIDDEN",
     "IDEMPOTENCY_CONFLICT",
+    "INSUFFICIENT_AVAILABLE_BALANCE",
     "INTERNAL_SERVER_ERROR",
     "RATE_LIMITED",
     "SIMULATED_FUNDING_UNAVAILABLE",
+    "SIMULATED_WITHDRAWALS_UNAVAILABLE",
     "VALIDATION_FAILED",
     "WALLET_NOT_FOUND",
+    "WITHDRAWAL_NOT_FOUND",
   ])("accepts public error code %s", (code) => {
     expect(
       financialApiErrorResponseSchema.safeParse({
