@@ -1,4 +1,4 @@
-import pino, { type Logger } from "pino";
+import pino, { type DestinationStream, type Logger, type LoggerOptions } from "pino";
 
 import type { ApiConfig } from "../../config/config.js";
 
@@ -8,13 +8,18 @@ const REDACTED_PATHS = [
   "authorization",
   "req.headers.authorization",
   "req.headers.cookie",
+  'req.headers["x-csrf-token"]',
+  'req.headers["idempotency-key"]',
   "database.url",
   "err.client.password",
   "err.client.connectionParameters.password",
 ];
 
-export function createLogger(config: ApiConfig["logging"]): Logger {
-  return pino({
+export function createLogger(
+  config: ApiConfig["logging"],
+  destination?: DestinationStream,
+): Logger {
+  const options: LoggerOptions = {
     level: config.level,
     base: {
       service: "atlas-api",
@@ -26,5 +31,6 @@ export function createLogger(config: ApiConfig["logging"]): Logger {
       censor: "[REDACTED]",
     },
     enabled: config.environment !== "test",
-  });
+  };
+  return destination === undefined ? pino(options) : pino(options, destination);
 }

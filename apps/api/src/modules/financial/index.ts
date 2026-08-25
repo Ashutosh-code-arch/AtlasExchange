@@ -54,3 +54,8 @@ export {
   type WalletBalanceView,
 } from "./application/list-wallets.js";
 export type { FinancialDatabaseSchema } from "./infrastructure/persistence/financial-database-schema.js";
+export {
+  createFinancialModuleRouter,
+  type CreateFinancialModuleRouterOptions,
+} from "./financial-module.js";
+export { createFinancialRouter, type FinancialRouterOptions } from "./http/financial-router.js";

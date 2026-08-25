@@ -13,6 +13,7 @@ import { ResendVerification } from "./application/resend-verification.js";
 import { RequestPasswordReset } from "./application/request-password-reset.js";
 import { ResetPassword } from "./application/reset-password.js";
 import type { PasswordResetEmailDelivery } from "./application/password-reset-email-delivery.js";
+import type { SessionCsrfTokenService } from "./application/session-csrf-token-service.js";
 import { RevokeSession } from "./application/revoke-session.js";
 import type { VerificationEmailDelivery } from "./application/verification-email-delivery.js";
 import { VerifyEmail } from "./application/verify-email.js";
@@ -53,6 +54,10 @@ export {
   type AuthenticationState,
   type RequireAuthenticationOptions,
 } from "./http/require-authentication.js";
+export { requireSessionCsrf, type RequireSessionCsrfOptions } from "./http/require-session-csrf.js";
+export type { AuthenticateAccess } from "./application/authenticate-access.js";
+export type { SessionCsrfTokenService } from "./application/session-csrf-token-service.js";
+export { CryptoSessionCsrfTokenService } from "./infrastructure/security/crypto-session-csrf-token-service.js";
 export type { AuthenticatedContext, IdentityRole } from "./application/authenticated-context.js";
 export {
   SmtpVerificationEmailDelivery,
@@ -69,6 +74,16 @@ export interface CreateIdentityModuleRouterOptions {
     readonly secureCookies: boolean;
     readonly csrfHmacKey: string;
   }>;
+  readonly authenticateAccess?: AuthenticateAccess;
+  readonly sessionCsrfTokenService?: SessionCsrfTokenService;
+}
+
+export function createAccessAuthentication(
+  database: Kysely<IdentityDatabaseSchema>,
+): AuthenticateAccess {
+  return new AuthenticateAccess({
+    accessSessionAuthenticator: new PostgresAccessSessionAuthenticator(database),
+  });
 }
 
 export async function createIdentityModuleRouter(
@@ -77,9 +92,8 @@ export async function createIdentityModuleRouter(
   const compromisedPasswordChecker = await LocalCompromisedPasswordChecker.fromFile(
     options.passwordBlocklistPath,
   );
-  const authenticateAccess = new AuthenticateAccess({
-    accessSessionAuthenticator: new PostgresAccessSessionAuthenticator(options.database),
-  });
+  const authenticateAccess =
+    options.authenticateAccess ?? createAccessAuthentication(options.database);
   const listSessions = new ListSessions({
     sessionReader: new PostgresSessionReader(options.database),
   });
@@ -96,9 +110,9 @@ export async function createIdentityModuleRouter(
     transactionRunner: new PostgresLoginSessionTransactionRunner(options.database),
   });
   const credentialGenerator = new CryptoOpaqueCredentialGenerator();
-  const sessionCsrfTokenService = new CryptoSessionCsrfTokenService(
-    options.sessionSecurity.csrfHmacKey,
-  );
+  const sessionCsrfTokenService =
+    options.sessionCsrfTokenService ??
+    new CryptoSessionCsrfTokenService(options.sessionSecurity.csrfHmacKey);
   const revokeSession = new RevokeSession({
     sessionCsrfTokenService,
     transactionRunner: new PostgresRevokeSessionTransactionRunner(options.database),

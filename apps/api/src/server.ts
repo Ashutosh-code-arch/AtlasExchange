@@ -5,12 +5,17 @@ import type { Logger } from "pino";
 import { createApp } from "./app.js";
 import { parseApiConfig } from "./config/config.js";
 import {
+  createAccessAuthentication,
   createIdentityModuleRouter,
+  CryptoSessionCsrfTokenService,
   SmtpVerificationEmailDelivery,
   SmtpPasswordResetEmailDelivery,
   type IdentityDatabaseSchema,
 } from "./modules/identity/index.js";
-import type { FinancialDatabaseSchema } from "./modules/financial/index.js";
+import {
+  createFinancialModuleRouter,
+  type FinancialDatabaseSchema,
+} from "./modules/financial/index.js";
 import {
   createDatabaseResources,
   type DatabaseResources,
@@ -97,6 +102,10 @@ async function start(): Promise<RunningServer> {
       webOrigin: config.http.webOrigin,
       logger,
     });
+    const authenticateAccess = createAccessAuthentication(database.database);
+    const sessionCsrfTokenService = new CryptoSessionCsrfTokenService(
+      config.identity.sessionSecurity.csrfHmacKey,
+    );
     const identityRouter = await createIdentityModuleRouter({
       database: database.database,
       passwordBlocklistPath: config.identity.passwordBlocklistPath,
@@ -104,12 +113,23 @@ async function start(): Promise<RunningServer> {
       passwordResetEmailDelivery,
       webOrigin: config.http.webOrigin,
       sessionSecurity: config.identity.sessionSecurity,
+      authenticateAccess,
+      sessionCsrfTokenService,
+    });
+    const financialRouter = createFinancialModuleRouter({
+      database: database.database,
+      authenticateAccess,
+      sessionCsrfTokenService,
+      secureCookies: config.identity.sessionSecurity.secureCookies,
+      webOrigin: config.http.webOrigin,
+      simulatedFundingEnabled: config.financial.simulatedFundingEnabled,
     });
     const app = createApp({
       lifecycle,
       logger,
       webOrigin: config.http.webOrigin,
       identityRouter,
+      financialRouter,
       applicationVersion: config.logging.applicationVersion,
     });
     const server = createServer(app);

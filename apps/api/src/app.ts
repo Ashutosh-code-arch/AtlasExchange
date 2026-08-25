@@ -20,6 +20,7 @@ export interface CreateAppOptions {
   readonly logger: Logger;
   readonly webOrigin: string;
   readonly identityRouter?: Router;
+  readonly financialRouter?: Router;
   readonly applicationVersion?: string;
 }
 
@@ -65,7 +66,13 @@ export function createApp(options: CreateAppOptions): Express {
 
   app.disable("x-powered-by");
   app.use(helmet());
-  app.use(cors({ origin: options.webOrigin, credentials: true }));
+  app.use(
+    cors({
+      origin: options.webOrigin,
+      credentials: true,
+      allowedHeaders: ["Content-Type", "X-CSRF-Token", "Idempotency-Key", "X-Request-ID"],
+    }),
+  );
   app.use(
     pinoHttp({
       logger: options.logger,
@@ -90,6 +97,9 @@ export function createApp(options: CreateAppOptions): Express {
 
   if (options.identityRouter !== undefined) {
     app.use("/api/v1/auth", options.identityRouter);
+  }
+  if (options.financialRouter !== undefined) {
+    app.use("/api/v1", options.financialRouter);
   }
 
   app.get("/health/live", (_request, response) => {

@@ -61,8 +61,9 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   capability, retry semantics, and concurrency controls are implemented.
 - [ADR-023 — Financial HTTP API and Error Contract](../architecture/decisions/ADR-023-financial-http-api-and-error-contract.md)
   defines the Financial transport boundary; shared asset, wallet, balance, deposit, idempotency, and
-  error schemas and PostgreSQL-backed, owner-scoped read models are implemented. HTTP composition,
-  authentication, CSRF enforcement, controllers, and contract-level endpoint tests are next.
+  error schemas, PostgreSQL-backed read models, public and authenticated endpoints, owner derivation,
+  session-bound CSRF, retry-preserving rate limiting, and HTTP contract/integration tests are
+  implemented.
 - Withdrawal behavior remains gated by a focused lifecycle decision.
 
 ## Phase transition rule
