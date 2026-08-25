@@ -82,4 +82,31 @@ test("registers, verifies the captured email, and signs in", async ({ page, requ
   await expect(page.getByText("Authenticated as")).toBeVisible();
   await expect(page.getByText(email)).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+
+  await expect(page.getByRole("heading", { name: "Move simulated value" })).toBeVisible();
+  await page.getByRole("button", { name: "Open BTC wallet" }).click();
+  await expect(
+    page.getByLabel("BTC balance").getByText("0", { exact: true }).first(),
+  ).toBeVisible();
+
+  await page.locator("#deposit-amount").fill("1.25");
+  await page.getByRole("button", { name: "Add simulated funds" }).click();
+  await expect(page.getByText("Simulated funds were credited.")).toBeVisible();
+  await expect(
+    page.getByLabel("BTC balance").getByText("1.25", { exact: true }).first(),
+  ).toBeVisible();
+
+  await page.locator("#withdrawal-amount").fill("0.5");
+  await page.getByRole("button", { name: "Complete simulated withdrawal" }).click();
+  await expect(
+    page.getByText("Simulated withdrawal completed. No external asset was transferred."),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("BTC balance").getByText("0.75", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "0.5 BTC" })).toBeVisible();
+  await expect(page.getByText("completed", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("No destination is collected because no external transfer occurs."),
+  ).toBeVisible();
 });

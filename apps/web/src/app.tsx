@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 
 import type { ApplicationRoute } from "./app/initial-route";
 import { getReadiness, type ReadinessView } from "./features/system-status";
@@ -6,6 +6,11 @@ import { AuthenticationPanel } from "./features/authentication";
 import { OverviewPage } from "./pages/overview-page";
 import { ResetPasswordPage } from "./pages/reset-password-page";
 import { VerifyEmailPage } from "./pages/verify-email-page";
+
+const FinancialWorkspace = lazy(async () => {
+  const financial = await import("./features/financial");
+  return { default: financial.FinancialWorkspace };
+});
 
 interface AppProps {
   readonly apiBaseUrl: string;
@@ -51,6 +56,15 @@ function OverviewRoute({
   return (
     <>
       <AuthenticationPanel />
+      <Suspense
+        fallback={
+          <section className="financial-workspace" aria-label="Financial sandbox">
+            <p className="financial-workspace__gate">Loading the Financial sandbox…</p>
+          </section>
+        }
+      >
+        <FinancialWorkspace />
+      </Suspense>
       <OverviewPage readiness={readiness} onRefresh={() => void refresh()} />
     </>
   );

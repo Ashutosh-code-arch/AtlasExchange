@@ -771,6 +771,252 @@ h1 span {
   bottom: 15%;
 }
 
+.financial-workspace {
+  padding: 52px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.financial-workspace__heading {
+  display: flex;
+  gap: 36px;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.financial-workspace__heading .eyebrow,
+.financial-actions .eyebrow,
+.withdrawal-receipt .eyebrow {
+  margin-bottom: 8px;
+}
+
+.financial-workspace__heading h2 {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+
+.financial-workspace__heading > p {
+  max-width: 510px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: right;
+}
+
+.financial-workspace__gate {
+  display: flex;
+  gap: 18px;
+  min-height: 92px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  margin: 0;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.financial-workspace__body {
+  display: grid;
+  gap: 20px;
+}
+
+.financial-workspace__asset {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 360px) 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.financial-workspace__asset label,
+.financial-actions label,
+.financial-balances dt,
+.withdrawal-receipt dt {
+  color: var(--muted);
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.financial-workspace__asset select,
+.financial-actions input {
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  outline: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.financial-workspace__asset select:focus-visible,
+.financial-actions input:focus-visible {
+  border-color: var(--acid);
+}
+
+.financial-workspace__asset select:disabled,
+.financial-actions input:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.financial-workspace__asset > span {
+  color: var(--muted);
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.financial-workspace__empty {
+  display: flex;
+  gap: 24px;
+  min-height: 120px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.financial-workspace__empty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.financial-workspace .primary-button {
+  border: 1px solid var(--acid);
+  cursor: pointer;
+}
+
+.financial-workspace .primary-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.financial-balances {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.financial-balances > div {
+  min-width: 0;
+  padding: 24px;
+}
+
+.financial-balances > div + div {
+  border-left: 1px solid var(--line);
+}
+
+.financial-balances dt {
+  margin-bottom: 9px;
+}
+
+.financial-balances dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--acid);
+  font-family: "DM Mono", monospace;
+  font-size: clamp(22px, 3vw, 34px);
+  text-overflow: ellipsis;
+}
+
+.financial-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.financial-actions form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.financial-actions .eyebrow,
+.financial-actions label,
+.financial-actions small {
+  grid-column: 1 / -1;
+}
+
+.financial-actions small {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.financial-actions .primary-button {
+  min-height: 46px;
+  white-space: nowrap;
+}
+
+.financial-feedback {
+  padding: 14px 16px;
+  margin: 0;
+  border-left: 2px solid var(--acid);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.financial-feedback--error {
+  border-left-color: #ff9b75;
+  color: #ff9b75;
+}
+
+.financial-feedback--notice {
+  border-left-color: #ffc857;
+}
+
+.withdrawal-receipt {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.55fr) minmax(0, 1.45fr);
+  gap: 28px;
+  padding: 24px;
+  border: 1px solid rgba(216, 255, 62, 0.38);
+  background: linear-gradient(110deg, rgba(216, 255, 62, 0.08), var(--surface) 45%);
+}
+
+.withdrawal-receipt h3 {
+  margin: 0;
+  font-family: "DM Mono", monospace;
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.withdrawal-receipt dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 22px;
+  margin: 0;
+}
+
+.withdrawal-receipt dl > div:last-child {
+  grid-column: 1 / -1;
+}
+
+.withdrawal-receipt dd {
+  overflow: hidden;
+  margin: 4px 0 0;
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: 0.88fr 1.12fr;
@@ -1012,6 +1258,10 @@ footer {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
+
+  .financial-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1119,6 +1369,55 @@ footer {
 
   .hero__visual {
     min-height: 390px;
+  }
+
+  .financial-workspace__heading,
+  .financial-workspace__empty {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .financial-workspace__heading {
+    display: flex;
+  }
+
+  .financial-workspace__heading > p {
+    text-align: left;
+  }
+
+  .financial-workspace__asset {
+    grid-template-columns: 1fr;
+  }
+
+  .financial-workspace__asset > span {
+    text-align: left;
+  }
+
+  .financial-balances {
+    grid-template-columns: 1fr;
+  }
+
+  .financial-balances > div + div {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .financial-actions form {
+    grid-template-columns: 1fr;
+  }
+
+  .financial-actions input,
+  .financial-actions .primary-button {
+    width: 100%;
+  }
+
+  .withdrawal-receipt,
+  .withdrawal-receipt dl {
+    grid-template-columns: 1fr;
+  }
+
+  .withdrawal-receipt dl > div:last-child {
+    grid-column: auto;
   }
 
   .orbit--outer {

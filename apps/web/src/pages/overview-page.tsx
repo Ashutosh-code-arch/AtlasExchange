@@ -6,10 +6,10 @@ interface OverviewPageProps {
 }
 
 const phases = [
-  { number: "01", label: "Foundation", state: "Current" },
-  { number: "02", label: "Identity", state: "Next" },
-  { number: "03", label: "Financial core", state: "Planned" },
-  { number: "04", label: "Trading", state: "Planned" },
+  { number: "01", label: "Foundation", state: "Complete" },
+  { number: "02", label: "Identity", state: "Complete" },
+  { number: "03", label: "Financial core", state: "Current" },
+  { number: "04", label: "Trading", state: "Next" },
 ];
 
 export function OverviewPage({ readiness, onRefresh }: OverviewPageProps): React.JSX.Element {
@@ -25,13 +25,14 @@ export function OverviewPage({ readiness, onRefresh }: OverviewPageProps): React
           </h1>
           <p className="hero__summary">
             Atlas is a production-inspired exchange built one dependable boundary at a time. The
-            current release establishes the platform every financial workflow will rely on.
+            current release exposes exact wallet balances and a truthful simulated money-movement
+            sandbox without claiming external custody.
           </p>
           <div className="hero__actions">
             <a className="primary-button" href="#roadmap">
               Explore the build
             </a>
-            <span className="release-tag">v0.1 · Foundation</span>
+            <span className="release-tag">v0.3 · Financial core</span>
           </div>
         </div>
         <div className="hero__visual" aria-label="Atlas foundation architecture">

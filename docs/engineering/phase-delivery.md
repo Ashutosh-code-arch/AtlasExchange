@@ -74,7 +74,8 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   whose strict request, header, parameter, resource, response, and public-error contracts are
   implemented in `@atlas/contracts`. Its PostgreSQL-backed owner-scoped lookup, authenticated create
   and lookup routes, operational control, independent retry-preserving limiter, controller tests,
-  and real-PostgreSQL HTTP evidence are implemented.
+  real-PostgreSQL HTTP evidence, authenticated Financial web sandbox, and full-stack browser journey
+  are implemented.
 
 ## Phase transition rule
 

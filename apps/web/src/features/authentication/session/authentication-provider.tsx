@@ -28,6 +28,7 @@ import type {
 import {
   AuthenticationSessionContext,
   type AuthenticationSessionState,
+  type AuthenticationSessionValue,
   type SessionRevocationTarget,
 } from "./authentication-session-context";
 
@@ -478,9 +479,17 @@ export function AuthenticationProvider({
     return operation;
   }, [allSessionsLogout]);
 
+  const request = useCallback<AuthenticationSessionValue["request"]>((path, options) => {
+    const client = clientRef.current;
+    return client === null
+      ? Promise.reject(new Error("Authentication session is not ready."))
+      : client.request(path, options);
+  }, []);
+
   const value = useMemo(
     () => ({
       state,
+      request,
       recheck,
       signIn,
       signOut,
@@ -495,6 +504,7 @@ export function AuthenticationProvider({
     }),
     [
       state,
+      request,
       recheck,
       signIn,
       signOut,

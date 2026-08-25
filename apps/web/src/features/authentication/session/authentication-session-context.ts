@@ -9,6 +9,7 @@ import type {
 } from "@atlas/contracts";
 
 import type { CurrentUser } from "../api/get-current-user";
+import type { AuthenticationHttpClient } from "../api/authentication-http-client";
 
 export type AuthenticationSessionState =
   | { readonly status: "checking" }
@@ -20,6 +21,7 @@ export type SessionRevocationTarget = Pick<SessionSummary, "id" | "current">;
 
 export interface AuthenticationSessionValue {
   readonly state: AuthenticationSessionState;
+  readonly request: AuthenticationHttpClient["request"];
   readonly recheck: () => Promise<void>;
   readonly signIn: (input: LoginRequest) => Promise<void>;
   readonly signOut: () => Promise<void>;
