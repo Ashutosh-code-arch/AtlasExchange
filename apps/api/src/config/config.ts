@@ -28,6 +28,7 @@ const apiEnvironmentSchema = z.object({
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
   EXPECTED_SCHEMA_VERSION: integerString.default("7"),
   SIMULATED_FUNDING_ENABLED: z.enum(["true", "false"]).optional(),
+  SIMULATED_WITHDRAWALS_ENABLED: z.enum(["true", "false"]).optional(),
   PASSWORD_BLOCKLIST_PATH: z.string().min(1).optional(),
   SMTP_HOST: z.string().min(1).optional(),
   SMTP_PORT: integerString
@@ -81,6 +82,7 @@ export interface ApiConfig {
   }>;
   readonly financial: Readonly<{
     simulatedFundingEnabled: boolean;
+    simulatedWithdrawalsEnabled: boolean;
   }>;
   readonly nodeEnvironment: "development" | "test" | "production";
 }
@@ -166,6 +168,10 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
         values.SIMULATED_FUNDING_ENABLED === undefined
           ? values.ATLAS_ENV === "local" || values.ATLAS_ENV === "test" || values.ATLAS_ENV === "ci"
           : values.SIMULATED_FUNDING_ENABLED === "true",
+      simulatedWithdrawalsEnabled:
+        values.SIMULATED_WITHDRAWALS_ENABLED === undefined
+          ? values.ATLAS_ENV === "local" || values.ATLAS_ENV === "test" || values.ATLAS_ENV === "ci"
+          : values.SIMULATED_WITHDRAWALS_ENABLED === "true",
     }),
     nodeEnvironment: values.NODE_ENV,
   });

@@ -123,6 +123,7 @@ async function start(): Promise<RunningServer> {
       secureCookies: config.identity.sessionSecurity.secureCookies,
       webOrigin: config.http.webOrigin,
       simulatedFundingEnabled: config.financial.simulatedFundingEnabled,
+      simulatedWithdrawalsEnabled: config.financial.simulatedWithdrawalsEnabled,
     });
     const app = createApp({
       lifecycle,

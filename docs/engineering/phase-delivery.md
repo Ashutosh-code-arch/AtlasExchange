@@ -72,9 +72,9 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   HTTP exposure is defined by
   [ADR-025 — Simulated Withdrawal HTTP API and Error Contract](../architecture/decisions/ADR-025-simulated-withdrawal-http-api-and-error-contract.md),
   whose strict request, header, parameter, resource, response, and public-error contracts are
-  implemented in `@atlas/contracts`. Its PostgreSQL-backed owner-scoped lookup and public read model
-  are also implemented. The authenticated routes, operational control, limiter, and HTTP evidence
-  remain the next Phase 3 implementation increment.
+  implemented in `@atlas/contracts`. Its PostgreSQL-backed owner-scoped lookup, authenticated create
+  and lookup routes, operational control, independent retry-preserving limiter, controller tests,
+  and real-PostgreSQL HTTP evidence are implemented.
 
 ## Phase transition rule
 

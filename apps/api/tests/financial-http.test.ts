@@ -1,12 +1,18 @@
-import { walletResponseSchema } from "@atlas/contracts";
+import {
+  financialApiErrorResponseSchema,
+  simulatedWithdrawalResponseSchema,
+  walletResponseSchema,
+} from "@atlas/contracts";
 import pino from "pino";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../src/app.js";
 import type { CreateSimulatedDeposit } from "../src/modules/financial/application/create-simulated-deposit.js";
+import type { CreateSimulatedWithdrawal } from "../src/modules/financial/application/create-simulated-withdrawal.js";
 import type { CreateWallet } from "../src/modules/financial/application/create-wallet.js";
 import type { GetSimulatedDeposit } from "../src/modules/financial/application/get-simulated-deposit.js";
+import type { GetSimulatedWithdrawal } from "../src/modules/financial/application/get-simulated-withdrawal.js";
 import type { GetWalletBalance } from "../src/modules/financial/application/get-wallet-balance.js";
 import type { ListAssets } from "../src/modules/financial/application/list-assets.js";
 import type { ListWallets } from "../src/modules/financial/application/list-wallets.js";
@@ -20,6 +26,10 @@ import {
   SimulatedDepositRecord,
 } from "../src/modules/financial/domain/simulated-deposit.js";
 import {
+  parseSimulatedWithdrawalId,
+  SimulatedWithdrawalRecord,
+} from "../src/modules/financial/domain/simulated-withdrawal.js";
+import {
   Wallet,
   parseWalletId,
   parseWalletOwnerId,
@@ -32,8 +42,10 @@ const ownerId = "00000000-0000-4000-8000-000000000701";
 const sessionId = "00000000-0000-4000-8000-000000000702";
 const walletId = "00000000-0000-4000-8000-000000000703";
 const depositId = "00000000-0000-4000-8000-000000000704";
+const withdrawalId = "00000000-0000-4000-8000-000000000708";
 const csrfToken = "session-bound-csrf-token";
 const creditedAt = "2026-08-25T00:00:00.000Z";
+const completedAt = "2026-08-25T00:01:00.000Z";
 const btc = parseAssetCode("BTC");
 const btcScale = parseAssetScale(8);
 
@@ -58,6 +70,16 @@ function deposit(): SimulatedDepositRecord {
   });
 }
 
+function withdrawal(): SimulatedWithdrawalRecord {
+  return SimulatedWithdrawalRecord.create({
+    id: parseSimulatedWithdrawalId(withdrawalId),
+    wallet: wallet(),
+    amount: AssetQuantity.parse(btc, btcScale, "0.5"),
+    journalId: "00000000-0000-4000-8000-000000000709",
+    completedAt,
+  });
+}
+
 interface TestHarness {
   readonly app: ReturnType<typeof createApp>;
   readonly authenticateAccess: ReturnType<typeof vi.fn<AuthenticateAccess["execute"]>>;
@@ -67,6 +89,8 @@ interface TestHarness {
   readonly createWallet: ReturnType<typeof vi.fn<CreateWallet["execute"]>>;
   readonly createDeposit: ReturnType<typeof vi.fn<CreateSimulatedDeposit["execute"]>>;
   readonly getDeposit: ReturnType<typeof vi.fn<GetSimulatedDeposit["execute"]>>;
+  readonly createWithdrawal: ReturnType<typeof vi.fn<CreateSimulatedWithdrawal["execute"]>>;
+  readonly getWithdrawal: ReturnType<typeof vi.fn<GetSimulatedWithdrawal["execute"]>>;
   readonly verifyCsrf: ReturnType<typeof vi.fn<(sessionId: string, token: string) => boolean>>;
 }
 
@@ -121,6 +145,22 @@ function createTestHarness(
       creditedAt,
     },
   });
+  const createWithdrawal = vi.fn<CreateSimulatedWithdrawal["execute"]>().mockResolvedValue({
+    status: "created",
+    withdrawal: withdrawal(),
+  });
+  const getWithdrawal = vi.fn<GetSimulatedWithdrawal["execute"]>().mockResolvedValue({
+    status: "found",
+    withdrawal: {
+      id: withdrawalId,
+      walletId,
+      assetCode: "BTC",
+      amount: "0.5",
+      method: "simulated",
+      status: "completed",
+      completedAt,
+    },
+  });
   const verifyCsrf = vi
     .fn<(sessionId: string, token: string) => boolean>()
     .mockReturnValue(options.csrfValid ?? true);
@@ -136,6 +176,9 @@ function createTestHarness(
     createSimulatedDeposit: { execute: createDeposit },
     getSimulatedDeposit: { execute: getDeposit },
     simulatedDepositRateLimiter: { consume: () => ({ allowed: true }) },
+    createSimulatedWithdrawal: { execute: createWithdrawal },
+    getSimulatedWithdrawal: { execute: getWithdrawal },
+    simulatedWithdrawalRateLimiter: { consume: () => ({ allowed: true }) },
   });
   const app = createApp({
     lifecycle: new LifecycleState({ checkReadiness: () => Promise.resolve(true) }),
@@ -152,6 +195,8 @@ function createTestHarness(
     createWallet,
     createDeposit,
     getDeposit,
+    createWithdrawal,
+    getWithdrawal,
     verifyCsrf,
   };
 }
@@ -424,6 +469,9 @@ describe("Financial simulated-deposit HTTP API", () => {
       simulatedDepositRateLimiter: {
         consume: () => ({ allowed: false, retryAfterSeconds: 17 }),
       },
+      createSimulatedWithdrawal: { execute: harness.createWithdrawal },
+      getSimulatedWithdrawal: { execute: harness.getWithdrawal },
+      simulatedWithdrawalRateLimiter: { consume: () => ({ allowed: true }) },
     });
     const app = createApp({
       lifecycle: new LifecycleState({ checkReadiness: () => Promise.resolve(true) }),
@@ -449,5 +497,207 @@ describe("Financial simulated-deposit HTTP API", () => {
     const missingResponse = await authenticatedGet(missing.app, `/api/v1/deposits/${depositId}`);
     expect(missingResponse.status).toBe(404);
     expect(missingResponse.body).toMatchObject({ error: { code: "DEPOSIT_NOT_FOUND" } });
+  });
+});
+
+describe("Financial simulated-withdrawal HTTP API", () => {
+  function withdrawalRequest(app: ReturnType<typeof createApp>): request.Test {
+    return authenticatedMutation(app, "post", "/api/v1/withdrawals/simulated")
+      .set("idempotency-key", "withdrawal-intent-1")
+      .send({ assetCode: "BTC", amount: "0.5" });
+  }
+
+  it.each([
+    ["created", 201],
+    ["existing", 200],
+  ] as const)("maps a %s withdrawal to one safe resource", async (status, expectedStatus) => {
+    const harness = createTestHarness();
+    harness.createWithdrawal.mockResolvedValue({ status, withdrawal: withdrawal() });
+
+    const response = await withdrawalRequest(harness.app);
+
+    expect(response.status).toBe(expectedStatus);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.headers.location).toBe(`/api/v1/withdrawals/${withdrawalId}`);
+    expect(simulatedWithdrawalResponseSchema.parse(response.body)).toEqual({
+      success: true,
+      data: {
+        withdrawal: {
+          id: withdrawalId,
+          walletId,
+          assetCode: "BTC",
+          amount: "0.5",
+          method: "simulated",
+          status: "completed",
+          completedAt,
+        },
+      },
+    });
+    expect(harness.createWithdrawal).toHaveBeenCalledWith({
+      ownerId,
+      assetCode: "BTC",
+      amount: "0.5",
+      idempotencyKey: "withdrawal-intent-1",
+    });
+    expect(JSON.stringify(response.body)).not.toMatch(
+      /journal|posting|intentHash|owner|custody|destination|address|network|fee/i,
+    );
+  });
+
+  it("rejects malformed bodies and idempotency headers before application execution", async () => {
+    const harness = createTestHarness();
+    const numericAmount = await authenticatedMutation(
+      harness.app,
+      "post",
+      "/api/v1/withdrawals/simulated",
+    )
+      .set("idempotency-key", "withdrawal-intent-1")
+      .send({ assetCode: "BTC", amount: 0.5 });
+    const missingHeader = await authenticatedMutation(
+      harness.app,
+      "post",
+      "/api/v1/withdrawals/simulated",
+    ).send({ assetCode: "BTC", amount: "0.5" });
+    const unknownField = await authenticatedMutation(
+      harness.app,
+      "post",
+      "/api/v1/withdrawals/simulated",
+    )
+      .set("idempotency-key", "withdrawal-intent-1")
+      .send({ assetCode: "BTC", amount: "0.5", destination: "fictional-address" });
+    const foldedHeader = await authenticatedMutation(
+      harness.app,
+      "post",
+      "/api/v1/withdrawals/simulated",
+    )
+      .set("idempotency-key", "withdrawal-intent-1,withdrawal-intent-2")
+      .send({ assetCode: "BTC", amount: "0.5" });
+
+    expect([
+      numericAmount.status,
+      missingHeader.status,
+      unknownField.status,
+      foldedHeader.status,
+    ]).toEqual([400, 400, 400, 400]);
+    expect(harness.createWithdrawal).not.toHaveBeenCalled();
+  });
+
+  it("requires authentication, exact origin, session CSRF, and JSON", async () => {
+    const unauthenticated = createTestHarness({ authenticated: false });
+    expect((await withdrawalRequest(unauthenticated.app)).status).toBe(401);
+    expect(unauthenticated.createWithdrawal).not.toHaveBeenCalled();
+
+    const wrongOrigin = createTestHarness();
+    expect(
+      (await withdrawalRequest(wrongOrigin.app).set("origin", "http://evil.example")).status,
+    ).toBe(403);
+    expect(wrongOrigin.createWithdrawal).not.toHaveBeenCalled();
+
+    const badCsrf = createTestHarness({ csrfValid: false });
+    expect((await withdrawalRequest(badCsrf.app)).status).toBe(403);
+    expect(badCsrf.createWithdrawal).not.toHaveBeenCalled();
+
+    const invalidTransport = createTestHarness();
+    const formResponse = await authenticatedMutation(
+      invalidTransport.app,
+      "post",
+      "/api/v1/withdrawals/simulated",
+    )
+      .set("idempotency-key", "withdrawal-intent-1")
+      .type("form")
+      .send({ assetCode: "BTC", amount: "0.5" });
+    expect(formResponse.status).toBe(400);
+    expect(invalidTransport.createWithdrawal).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["asset_not_found", 404, "ASSET_NOT_FOUND"],
+    ["wallet_not_found", 404, "WALLET_NOT_FOUND"],
+    ["asset_disabled", 409, "ASSET_UNAVAILABLE"],
+    ["idempotency_conflict", 409, "IDEMPOTENCY_CONFLICT"],
+    ["insufficient_available_balance", 409, "INSUFFICIENT_AVAILABLE_BALANCE"],
+    ["withdrawals_disabled", 503, "SIMULATED_WITHDRAWALS_UNAVAILABLE"],
+  ] as const)("maps withdrawal result %s to %s", async (status, expectedStatus, code) => {
+    const harness = createTestHarness();
+    harness.createWithdrawal.mockResolvedValue(
+      status === "idempotency_conflict" ? { status, withdrawalId } : { status },
+    );
+
+    const response = await withdrawalRequest(harness.app);
+    expect(response.status).toBe(expectedStatus);
+    expect(response.body).toMatchObject({ error: { code } });
+    if (status === "insufficient_available_balance") {
+      const error = financialApiErrorResponseSchema.parse(response.body).error;
+      expect(error.code).toBe("INSUFFICIENT_AVAILABLE_BALANCE");
+      expect(error.message).toBe("Available balance is insufficient.");
+      expect(error.requestId).toBeTypeOf("string");
+    }
+  });
+
+  it("returns Retry-After when a new withdrawal intent is rate limited", async () => {
+    const harness = createTestHarness();
+    const financialRouter = createFinancialRouter({
+      authenticateAccess: { execute: harness.authenticateAccess },
+      sessionCsrfTokenService: { issue: () => csrfToken, verify: () => true },
+      secureCookies: false,
+      webOrigin,
+      listAssets: { execute: harness.listAssets },
+      listWallets: { execute: harness.listWallets },
+      getWalletBalance: { execute: harness.getWalletBalance },
+      createWallet: { execute: harness.createWallet },
+      createSimulatedDeposit: { execute: harness.createDeposit },
+      getSimulatedDeposit: { execute: harness.getDeposit },
+      simulatedDepositRateLimiter: { consume: () => ({ allowed: true }) },
+      createSimulatedWithdrawal: { execute: harness.createWithdrawal },
+      getSimulatedWithdrawal: { execute: harness.getWithdrawal },
+      simulatedWithdrawalRateLimiter: {
+        consume: () => ({ allowed: false, retryAfterSeconds: 23 }),
+      },
+    });
+    const app = createApp({
+      lifecycle: new LifecycleState({ checkReadiness: () => Promise.resolve(true) }),
+      logger: pino({ enabled: false }),
+      webOrigin,
+      financialRouter,
+    });
+
+    const response = await withdrawalRequest(app);
+    expect(response.status).toBe(429);
+    expect(response.headers["retry-after"]).toBe("23");
+    expect(harness.createWithdrawal).not.toHaveBeenCalled();
+  });
+
+  it("looks up withdrawals by authenticated owner and hides missing ownership", async () => {
+    const found = createTestHarness();
+    const foundResponse = await authenticatedGet(found.app, `/api/v1/withdrawals/${withdrawalId}`);
+    expect(foundResponse.status).toBe(200);
+    expect(foundResponse.headers["cache-control"]).toBe("no-store");
+    expect(simulatedWithdrawalResponseSchema.parse(foundResponse.body).data.withdrawal.id).toBe(
+      withdrawalId,
+    );
+    expect(found.getWithdrawal).toHaveBeenCalledWith({ ownerId, withdrawalId });
+
+    const missing = createTestHarness();
+    missing.getWithdrawal.mockResolvedValue({ status: "not_found" });
+    const missingResponse = await authenticatedGet(
+      missing.app,
+      `/api/v1/withdrawals/${withdrawalId}`,
+    );
+    expect(missingResponse.status).toBe(404);
+    expect(missingResponse.body).toMatchObject({ error: { code: "WITHDRAWAL_NOT_FOUND" } });
+
+    const malformed = createTestHarness();
+    const malformedResponse = await authenticatedGet(
+      malformed.app,
+      "/api/v1/withdrawals/not-a-uuid",
+    );
+    expect(malformedResponse.status).toBe(400);
+    expect(malformed.getWithdrawal).not.toHaveBeenCalled();
+
+    const unauthenticated = createTestHarness({ authenticated: false });
+    expect(
+      (await request(unauthenticated.app).get(`/api/v1/withdrawals/${withdrawalId}`)).status,
+    ).toBe(401);
+    expect(unauthenticated.getWithdrawal).not.toHaveBeenCalled();
   });
 });

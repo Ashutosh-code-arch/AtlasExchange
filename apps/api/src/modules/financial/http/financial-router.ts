@@ -5,6 +5,10 @@ import {
   simulatedDepositParamsSchema,
   simulatedDepositRequestSchema,
   simulatedDepositResponseSchema,
+  simulatedWithdrawalHeadersSchema,
+  simulatedWithdrawalParamsSchema,
+  simulatedWithdrawalRequestSchema,
+  simulatedWithdrawalResponseSchema,
   walletListResponseSchema,
   walletParamsSchema,
   walletResponseSchema,
@@ -12,6 +16,7 @@ import {
   type FinancialApiErrorCode,
   type FinancialWallet,
   type SimulatedDepositResponse,
+  type SimulatedWithdrawalResponse,
   type WalletListResponse,
   type WalletResponse,
 } from "@atlas/contracts";
@@ -26,8 +31,10 @@ import {
   type SessionCsrfTokenService,
 } from "../../identity/index.js";
 import type { CreateSimulatedDeposit } from "../application/create-simulated-deposit.js";
+import type { CreateSimulatedWithdrawal } from "../application/create-simulated-withdrawal.js";
 import type { CreateWallet } from "../application/create-wallet.js";
 import type { GetSimulatedDeposit } from "../application/get-simulated-deposit.js";
+import type { GetSimulatedWithdrawal } from "../application/get-simulated-withdrawal.js";
 import type {
   GetWalletBalance,
   GetWalletBalanceResult,
@@ -35,8 +42,10 @@ import type {
 import type { ListAssets } from "../application/list-assets.js";
 import type { ListWallets, WalletBalanceView } from "../application/list-wallets.js";
 import type { SimulatedDepositRateLimiter } from "../application/simulated-deposit-rate-limiter.js";
+import type { SimulatedWithdrawalRateLimiter } from "../application/simulated-withdrawal-rate-limiter.js";
 import { FinancialInputValidationError } from "../domain/financial-input-validation-error.js";
 import type { SimulatedDepositRecord } from "../domain/simulated-deposit.js";
+import type { SimulatedWithdrawalRecord } from "../domain/simulated-withdrawal.js";
 
 export interface FinancialRouterOptions {
   readonly authenticateAccess: Pick<AuthenticateAccess, "execute">;
@@ -50,6 +59,9 @@ export interface FinancialRouterOptions {
   readonly createSimulatedDeposit: Pick<CreateSimulatedDeposit, "execute">;
   readonly getSimulatedDeposit: Pick<GetSimulatedDeposit, "execute">;
   readonly simulatedDepositRateLimiter: SimulatedDepositRateLimiter;
+  readonly createSimulatedWithdrawal: Pick<CreateSimulatedWithdrawal, "execute">;
+  readonly getSimulatedWithdrawal: Pick<GetSimulatedWithdrawal, "execute">;
+  readonly simulatedWithdrawalRateLimiter: SimulatedWithdrawalRateLimiter;
 }
 
 function nextValidationError(next: NextFunction): void {
@@ -77,6 +89,20 @@ function mapDeposit(deposit: SimulatedDepositRecord): SimulatedDepositResponse["
     method: deposit.method,
     status: deposit.status,
     creditedAt: deposit.creditedAt,
+  };
+}
+
+function mapWithdrawal(
+  withdrawal: SimulatedWithdrawalRecord,
+): SimulatedWithdrawalResponse["data"]["withdrawal"] {
+  return {
+    id: withdrawal.id,
+    walletId: withdrawal.wallet.id,
+    assetCode: withdrawal.amount.assetCode,
+    amount: withdrawal.amount.toCanonicalDecimal(),
+    method: withdrawal.method,
+    status: withdrawal.status,
+    completedAt: withdrawal.completedAt,
   };
 }
 
@@ -130,7 +156,7 @@ export function createFinancialRouter(options: FinancialRouterOptions): Router {
     webOrigin: options.webOrigin,
   });
 
-  router.use(["/wallets", "/deposits"], (_request, response, next) => {
+  router.use(["/wallets", "/deposits", "/withdrawals"], (_request, response, next) => {
     response.setHeader("cache-control", "no-store");
     next();
   });
@@ -327,6 +353,123 @@ export function createFinancialRouter(options: FinancialRouterOptions): Router {
       const body: SimulatedDepositResponse = simulatedDepositResponseSchema.parse({
         success: true,
         data: { deposit: result.deposit },
+      });
+      response.status(200).json(body);
+    } catch (error) {
+      handleFinancialInputError(error, next);
+    }
+  });
+
+  router.post(
+    "/withdrawals/simulated",
+    requireAccess,
+    requireCsrf,
+    async (request, response, next) => {
+      if (request.is("application/json") !== "application/json") {
+        nextValidationError(next);
+        return;
+      }
+      const idempotencyKey = readSingleHeader(request, "idempotency-key");
+      const headers = simulatedWithdrawalHeadersSchema.safeParse({
+        "idempotency-key": idempotencyKey,
+      });
+      const bodyInput = simulatedWithdrawalRequestSchema.safeParse(request.body);
+      if (!headers.success || !bodyInput.success) {
+        nextValidationError(next);
+        return;
+      }
+      try {
+        const ownerId = getAuthenticationState(request).context.userId;
+        const rateLimit = options.simulatedWithdrawalRateLimiter.consume(
+          ownerId,
+          headers.data["idempotency-key"],
+        );
+        if (!rateLimit.allowed) {
+          response.setHeader("retry-after", String(rateLimit.retryAfterSeconds));
+          next(financialError(429, "RATE_LIMITED", "Simulated withdrawal rate limit exceeded."));
+          return;
+        }
+        const result = await options.createSimulatedWithdrawal.execute({
+          ownerId,
+          assetCode: bodyInput.data.assetCode,
+          amount: bodyInput.data.amount,
+          idempotencyKey: headers.data["idempotency-key"],
+        });
+        if (result.status === "asset_not_found") {
+          next(financialError(404, "ASSET_NOT_FOUND", "Asset was not found."));
+          return;
+        }
+        if (result.status === "wallet_not_found") {
+          next(financialError(404, "WALLET_NOT_FOUND", "Wallet was not found."));
+          return;
+        }
+        if (result.status === "asset_disabled") {
+          next(financialError(409, "ASSET_UNAVAILABLE", "Asset is unavailable."));
+          return;
+        }
+        if (result.status === "insufficient_available_balance") {
+          next(
+            financialError(
+              409,
+              "INSUFFICIENT_AVAILABLE_BALANCE",
+              "Available balance is insufficient.",
+            ),
+          );
+          return;
+        }
+        if (result.status === "withdrawals_disabled") {
+          next(
+            financialError(
+              503,
+              "SIMULATED_WITHDRAWALS_UNAVAILABLE",
+              "Simulated withdrawals are unavailable.",
+            ),
+          );
+          return;
+        }
+        if (result.status === "idempotency_conflict") {
+          next(
+            financialError(
+              409,
+              "IDEMPOTENCY_CONFLICT",
+              "Idempotency key conflicts with another request.",
+            ),
+          );
+          return;
+        }
+        const responseBody: SimulatedWithdrawalResponse = simulatedWithdrawalResponseSchema.parse({
+          success: true,
+          data: { withdrawal: mapWithdrawal(result.withdrawal) },
+        });
+        response
+          .setHeader("location", `/api/v1/withdrawals/${result.withdrawal.id}`)
+          .status(result.status === "created" ? 201 : 200)
+          .json(responseBody);
+      } catch (error) {
+        handleFinancialInputError(error, next);
+      }
+    },
+  );
+
+  router.get("/withdrawals/:withdrawalId", requireAccess, async (request, response, next) => {
+    const params = simulatedWithdrawalParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      nextValidationError(next);
+      return;
+    }
+    try {
+      const ownerId = getAuthenticationState(request).context.userId;
+      const result = await options.getSimulatedWithdrawal.execute({
+        ownerId,
+        withdrawalId: params.data.withdrawalId,
+      });
+      if (result.status === "not_found") {
+        next(financialError(404, "WITHDRAWAL_NOT_FOUND", "Withdrawal was not found."));
+        return;
+      }
+      const body: SimulatedWithdrawalResponse = simulatedWithdrawalResponseSchema.parse({
+        success: true,
+        data: { withdrawal: result.withdrawal },
       });
       response.status(200).json(body);
     } catch (error) {

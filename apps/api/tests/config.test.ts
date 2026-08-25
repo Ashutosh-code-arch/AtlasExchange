@@ -15,6 +15,7 @@ describe("API configuration", () => {
     expect(config.http.port).toBe(3000);
     expect(config.database.expectedSchemaVersion).toBe("7");
     expect(config.financial.simulatedFundingEnabled).toBe(true);
+    expect(config.financial.simulatedWithdrawalsEnabled).toBe(true);
     expect(config.identity.passwordBlocklistPath).toMatch(
       /resources\/development-password-blocklist\.sha256$/,
     );
@@ -44,7 +45,7 @@ describe("API configuration", () => {
     expect(() => parseApiConfig({ ...validEnvironment, API_PORT: "70000" })).toThrow(/API_PORT/);
   });
 
-  it("defaults simulated funding off in managed environments and permits an explicit override", () => {
+  it("defaults simulated Financial operations off in managed environments and permits explicit overrides", () => {
     const managedEnvironment = {
       ...validEnvironment,
       ATLAS_ENV: "staging",
@@ -55,9 +56,14 @@ describe("API configuration", () => {
     };
 
     expect(parseApiConfig(managedEnvironment).financial.simulatedFundingEnabled).toBe(false);
+    expect(parseApiConfig(managedEnvironment).financial.simulatedWithdrawalsEnabled).toBe(false);
     expect(
       parseApiConfig({ ...managedEnvironment, SIMULATED_FUNDING_ENABLED: "true" }).financial
         .simulatedFundingEnabled,
+    ).toBe(true);
+    expect(
+      parseApiConfig({ ...managedEnvironment, SIMULATED_WITHDRAWALS_ENABLED: "true" }).financial
+        .simulatedWithdrawalsEnabled,
     ).toBe(true);
   });
 

@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import {
   assetCatalogResponseSchema,
   simulatedDepositResponseSchema,
+  simulatedWithdrawalResponseSchema,
   walletListResponseSchema,
   walletResponseSchema,
 } from "@atlas/contracts";
@@ -139,6 +140,7 @@ describe("composed Financial HTTP flow", () => {
       secureCookies: false,
       webOrigin,
       simulatedFundingEnabled: true,
+      simulatedWithdrawalsEnabled: true,
     });
     app = createApp({
       lifecycle: new LifecycleState({ checkReadiness: () => Promise.resolve(true) }),
@@ -253,6 +255,127 @@ describe("composed Financial HTTP flow", () => {
       owner_id: firstBrowser.userId,
       wallet_id: walletId,
       amount: "125000000",
+    });
+  });
+
+  it("atomically withdraws available value, replays safely, and conceals ownership", async () => {
+    const createdWallet = await request(app)
+      .put("/api/v1/wallets/ETH")
+      .set("origin", webOrigin)
+      .set("x-csrf-token", firstBrowser.csrfToken)
+      .set("Cookie", mutationCookies(firstBrowser));
+    expect(createdWallet.status).toBe(201);
+    const walletId = walletResponseSchema.parse(createdWallet.body).data.wallet.id;
+
+    const funding = await request(app)
+      .post("/api/v1/deposits/simulated")
+      .set("origin", webOrigin)
+      .set("x-csrf-token", firstBrowser.csrfToken)
+      .set("idempotency-key", "financial-http-withdrawal-funding-1")
+      .set("Cookie", mutationCookies(firstBrowser))
+      .send({ assetCode: "ETH", amount: "2" });
+    expect(funding.status).toBe(201);
+
+    const createWithdrawal = (): request.Test =>
+      request(app)
+        .post("/api/v1/withdrawals/simulated")
+        .set("origin", webOrigin)
+        .set("x-csrf-token", firstBrowser.csrfToken)
+        .set("idempotency-key", "financial-http-withdrawal-1")
+        .set("Cookie", mutationCookies(firstBrowser))
+        .send({ assetCode: "ETH", amount: "0.75" });
+    const created = await createWithdrawal();
+    const replayed = await createWithdrawal();
+    expect(created.status).toBe(201);
+    expect(replayed.status).toBe(200);
+    expect(created.headers["cache-control"]).toBe("no-store");
+    const createdBody = simulatedWithdrawalResponseSchema.parse(created.body);
+    expect(simulatedWithdrawalResponseSchema.parse(replayed.body)).toEqual(createdBody);
+    const withdrawalId = createdBody.data.withdrawal.id;
+    expect(created.headers.location).toBe(`/api/v1/withdrawals/${withdrawalId}`);
+    expect(createdBody.data.withdrawal).toEqual({
+      id: withdrawalId,
+      walletId,
+      assetCode: "ETH",
+      amount: "0.75",
+      method: "simulated",
+      status: "completed",
+      completedAt: createdBody.data.withdrawal.completedAt,
+    });
+    expect(JSON.stringify(createdBody)).not.toMatch(
+      /journal|posting|intentHash|owner|custody|destination|address|network|fee/i,
+    );
+
+    const lookup = await request(app)
+      .get(`/api/v1/withdrawals/${withdrawalId}`)
+      .set("Cookie", accessCookies(firstBrowser));
+    const concealed = await request(app)
+      .get(`/api/v1/withdrawals/${withdrawalId}`)
+      .set("Cookie", accessCookies(secondBrowser));
+    expect(lookup.status).toBe(200);
+    expect(simulatedWithdrawalResponseSchema.parse(lookup.body)).toEqual(createdBody);
+    expect(concealed.status).toBe(404);
+    expect(concealed.body).toMatchObject({ error: { code: "WITHDRAWAL_NOT_FOUND" } });
+
+    const persisted = await database
+      .selectFrom("financial.withdrawals")
+      .select(["owner_id", "wallet_id", "amount", "journal_id"])
+      .where("id", "=", withdrawalId)
+      .executeTakeFirstOrThrow();
+    expect(persisted).toMatchObject({
+      owner_id: firstBrowser.userId,
+      wallet_id: walletId,
+      amount: "750000000000000000",
+    });
+    const postings = await database
+      .selectFrom("financial.journal_postings as posting")
+      .innerJoin("financial.ledger_accounts as account", "account.id", "posting.account_id")
+      .select(["posting.direction", "posting.amount", "account.kind"])
+      .where("posting.journal_id", "=", persisted.journal_id)
+      .orderBy("posting.position")
+      .execute();
+    expect(postings).toEqual([
+      { direction: "debit", amount: "750000000000000000", kind: "user_available" },
+      { direction: "credit", amount: "750000000000000000", kind: "external_custody" },
+    ]);
+
+    const walletAfterWithdrawal = await request(app)
+      .get("/api/v1/wallets/ETH")
+      .set("Cookie", accessCookies(firstBrowser));
+    expect(walletResponseSchema.parse(walletAfterWithdrawal.body).data.wallet).toMatchObject({
+      id: walletId,
+      available: "1.25",
+      reserved: "0",
+      total: "1.25",
+    });
+
+    const insufficient = await request(app)
+      .post("/api/v1/withdrawals/simulated")
+      .set("origin", webOrigin)
+      .set("x-csrf-token", firstBrowser.csrfToken)
+      .set("idempotency-key", "financial-http-withdrawal-insufficient-1")
+      .set("Cookie", mutationCookies(firstBrowser))
+      .send({ assetCode: "ETH", amount: "2" });
+    expect(insufficient.status).toBe(409);
+    expect(insufficient.body).toMatchObject({
+      error: { code: "INSUFFICIENT_AVAILABLE_BALANCE" },
+    });
+    expect(JSON.stringify(insufficient.body)).not.toMatch(/reserved|requested|amount/i);
+
+    const withdrawals = await database
+      .selectFrom("financial.withdrawals")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("owner_id", "=", firstBrowser.userId)
+      .where("asset_code", "=", "ETH")
+      .executeTakeFirstOrThrow();
+    expect(withdrawals.count).toBe("1");
+    const walletAfterRejection = await request(app)
+      .get("/api/v1/wallets/ETH")
+      .set("Cookie", accessCookies(firstBrowser));
+    expect(walletResponseSchema.parse(walletAfterRejection.body).data.wallet).toMatchObject({
+      available: "1.25",
+      reserved: "0",
+      total: "1.25",
     });
   });
 
