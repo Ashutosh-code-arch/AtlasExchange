@@ -9,10 +9,12 @@ import {
   CreateSimulatedWithdrawal,
   type CreateSimulatedWithdrawalCommand,
 } from "../src/modules/financial/application/create-simulated-withdrawal.js";
+import { GetSimulatedWithdrawal } from "../src/modules/financial/application/get-simulated-withdrawal.js";
 import { PostJournal } from "../src/modules/financial/application/post-journal.js";
 import type { FinancialDatabaseSchema } from "../src/modules/financial/infrastructure/persistence/financial-database-schema.js";
 import { PostgresJournalPostingTransactionRunner } from "../src/modules/financial/infrastructure/persistence/postgres-journal-posting-transaction-runner.js";
 import { PostgresSimulatedDepositTransactionRunner } from "../src/modules/financial/infrastructure/persistence/postgres-simulated-deposit-transaction-runner.js";
+import { PostgresSimulatedWithdrawalReader } from "../src/modules/financial/infrastructure/persistence/postgres-simulated-withdrawal-reader.js";
 import { PostgresSimulatedWithdrawalTransactionRunner } from "../src/modules/financial/infrastructure/persistence/postgres-simulated-withdrawal-transaction-runner.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
 
@@ -35,6 +37,7 @@ const database = new Kysely<FinancialDatabaseSchema>({
 });
 const withdrawalRunner = new PostgresSimulatedWithdrawalTransactionRunner(database);
 const createWithdrawal = new CreateSimulatedWithdrawal(withdrawalRunner, true);
+const getWithdrawal = new GetSimulatedWithdrawal(new PostgresSimulatedWithdrawalReader(database));
 const createDeposit = new CreateSimulatedDeposit(
   new PostgresSimulatedDepositTransactionRunner(database),
   true,
@@ -183,6 +186,37 @@ describe("PostgreSQL simulated-withdrawal persistence", () => {
     });
     await expect(accountBalance(funded.walletId, "user_reserved")).resolves.toEqual({
       balance: "0",
+    });
+  });
+
+  it("reads only the owner's public withdrawal representation", async () => {
+    const ownerId = randomUUID();
+    const otherOwnerId = randomUUID();
+    const funded = await fund(ownerId, "BTC", "0.00000002");
+    const created = await createWithdrawal.execute(command(ownerId, { amount: "0.00000001" }));
+    if (created.status !== "created") {
+      throw new Error(`Expected a created withdrawal, received ${created.status}`);
+    }
+
+    await expect(
+      getWithdrawal.execute({ ownerId, withdrawalId: created.withdrawal.id }),
+    ).resolves.toEqual({
+      status: "found",
+      withdrawal: {
+        id: created.withdrawal.id,
+        walletId: funded.walletId,
+        assetCode: "BTC",
+        amount: "0.00000001",
+        method: "simulated",
+        status: "completed",
+        completedAt: created.withdrawal.completedAt,
+      },
+    });
+    await expect(
+      getWithdrawal.execute({ ownerId: otherOwnerId, withdrawalId: created.withdrawal.id }),
+    ).resolves.toEqual({ status: "not_found" });
+    await expect(getWithdrawal.execute({ ownerId, withdrawalId: randomUUID() })).resolves.toEqual({
+      status: "not_found",
     });
   });
 

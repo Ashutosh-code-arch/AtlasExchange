@@ -56,6 +56,11 @@ export {
   type GetSimulatedDepositCommand,
   type GetSimulatedDepositResult,
 } from "./application/get-simulated-deposit.js";
+export {
+  GetSimulatedWithdrawal,
+  type GetSimulatedWithdrawalCommand,
+  type GetSimulatedWithdrawalResult,
+} from "./application/get-simulated-withdrawal.js";
 export { ListAssets, type ListAssetsResult } from "./application/list-assets.js";
 export {
   ListWallets,

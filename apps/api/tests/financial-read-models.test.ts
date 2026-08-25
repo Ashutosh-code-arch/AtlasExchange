@@ -5,12 +5,17 @@ import type {
   AssetCatalogRecord,
 } from "../src/modules/financial/application/asset-catalog-reader.js";
 import { GetSimulatedDeposit } from "../src/modules/financial/application/get-simulated-deposit.js";
+import { GetSimulatedWithdrawal } from "../src/modules/financial/application/get-simulated-withdrawal.js";
 import { ListAssets } from "../src/modules/financial/application/list-assets.js";
 import { ListWallets } from "../src/modules/financial/application/list-wallets.js";
 import type {
   SimulatedDepositReader,
   SimulatedDepositReadRecord,
 } from "../src/modules/financial/application/simulated-deposit-reader.js";
+import type {
+  SimulatedWithdrawalReader,
+  SimulatedWithdrawalReadRecord,
+} from "../src/modules/financial/application/simulated-withdrawal-reader.js";
 import type {
   WalletBalanceListReader,
   WalletBalanceRecord,
@@ -21,6 +26,7 @@ import { parseAssetScale } from "../src/modules/financial/domain/asset-scale.js"
 import { FinancialInputValidationError } from "../src/modules/financial/domain/financial-input-validation-error.js";
 import { parseLedgerAccountId } from "../src/modules/financial/domain/ledger-account.js";
 import { parseSimulatedDepositId } from "../src/modules/financial/domain/simulated-deposit.js";
+import { parseSimulatedWithdrawalId } from "../src/modules/financial/domain/simulated-withdrawal.js";
 import { WalletBalanceSnapshot } from "../src/modules/financial/domain/wallet-balance-snapshot.js";
 import {
   Wallet,
@@ -33,7 +39,9 @@ const ownerId = "00000000-0000-4000-8000-000000000601";
 const otherOwnerId = "00000000-0000-4000-8000-000000000602";
 const walletId = "00000000-0000-4000-8000-000000000603";
 const depositId = "00000000-0000-4000-8000-000000000604";
+const withdrawalId = "00000000-0000-4000-8000-000000000607";
 const creditedAt = "2026-08-25T00:00:00.000Z";
+const completedAt = "2026-08-25T00:01:00.000Z";
 const usd = parseAssetCode("USD");
 const usdScale = parseAssetScale(2);
 
@@ -101,6 +109,26 @@ class FakeDepositReader implements SimulatedDepositReader {
   }
 }
 
+const withdrawalRecord: SimulatedWithdrawalReadRecord = {
+  id: parseSimulatedWithdrawalId(withdrawalId),
+  walletId: parseWalletId(walletId),
+  amount: AssetQuantity.fromAtomicUnits(usd, usdScale, 1_025n),
+  method: "simulated",
+  status: "completed",
+  completedAt,
+};
+
+class FakeWithdrawalReader implements SimulatedWithdrawalReader {
+  public calls = 0;
+
+  public findByOwnerAndId(
+    inputOwnerId: WalletOwnerId,
+  ): Promise<SimulatedWithdrawalReadRecord | undefined> {
+    this.calls += 1;
+    return Promise.resolve(inputOwnerId === ownerId ? withdrawalRecord : undefined);
+  }
+}
+
 describe("Financial read application models", () => {
   it("returns the complete public asset catalog without hiding disabled assets", async () => {
     await expect(new ListAssets(new FakeAssetCatalogReader()).execute()).resolves.toEqual({
@@ -161,6 +189,38 @@ describe("Financial read application models", () => {
     const reader = new FakeDepositReader();
 
     await expect(new GetSimulatedDeposit(reader).execute(command)).rejects.toBeInstanceOf(
+      FinancialInputValidationError,
+    );
+    expect(reader.calls).toBe(0);
+  });
+
+  it("returns an owner-scoped withdrawal without journal or idempotency internals", async () => {
+    const getWithdrawal = new GetSimulatedWithdrawal(new FakeWithdrawalReader());
+
+    await expect(getWithdrawal.execute({ ownerId, withdrawalId })).resolves.toEqual({
+      status: "found",
+      withdrawal: {
+        id: withdrawalId,
+        walletId,
+        assetCode: "USD",
+        amount: "10.25",
+        method: "simulated",
+        status: "completed",
+        completedAt,
+      },
+    });
+    await expect(getWithdrawal.execute({ ownerId: otherOwnerId, withdrawalId })).resolves.toEqual({
+      status: "not_found",
+    });
+  });
+
+  it.each([
+    { ownerId: "not-a-uuid", withdrawalId },
+    { ownerId, withdrawalId: "not-a-uuid" },
+  ])("rejects malformed withdrawal lookup identifiers before persistence", async (command) => {
+    const reader = new FakeWithdrawalReader();
+
+    await expect(new GetSimulatedWithdrawal(reader).execute(command)).rejects.toBeInstanceOf(
       FinancialInputValidationError,
     );
     expect(reader.calls).toBe(0);
