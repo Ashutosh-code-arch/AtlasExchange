@@ -16,7 +16,11 @@ export type FinancialInvariantIssue =
   | "POSTING_POSITION_INVALID"
   | "WALLET_ACCOUNT_IDS_NOT_DISTINCT"
   | "WALLET_BALANCE_DENOMINATION_MISMATCH"
-  | "WALLET_BALANCE_OVERFLOW";
+  | "WALLET_BALANCE_OVERFLOW"
+  | "WITHDRAWAL_AMOUNT_NOT_POSITIVE"
+  | "WITHDRAWAL_COMPLETED_AT_INVALID"
+  | "WITHDRAWAL_DENOMINATION_MISMATCH"
+  | "WITHDRAWAL_JOURNAL_ID_INVALID";
 
 export class FinancialInvariantError extends Error {
   public constructor(public readonly issue: FinancialInvariantIssue) {

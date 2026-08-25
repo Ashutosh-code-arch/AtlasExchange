@@ -22,6 +22,11 @@ export {
   type SimulatedDepositId,
 } from "./domain/simulated-deposit.js";
 export {
+  parseSimulatedWithdrawalId,
+  SimulatedWithdrawalRecord,
+  type SimulatedWithdrawalId,
+} from "./domain/simulated-withdrawal.js";
+export {
   FinancialInputValidationError,
   type FinancialInputField,
   type FinancialInputValidationIssue,
@@ -31,6 +36,11 @@ export {
   type CreateSimulatedDepositCommand,
   type CreateSimulatedDepositResult,
 } from "./application/create-simulated-deposit.js";
+export {
+  CreateSimulatedWithdrawal,
+  type CreateSimulatedWithdrawalCommand,
+  type CreateSimulatedWithdrawalResult,
+} from "./application/create-simulated-withdrawal.js";
 export {
   CreateWallet,
   type CreateWalletCommand,

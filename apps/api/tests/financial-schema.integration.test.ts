@@ -102,12 +102,13 @@ describe("Financial schema migrations", () => {
       "journal_transactions",
       "ledger_accounts",
       "wallets",
+      "withdrawals",
     ]);
 
     const version = await pool.query<{ value: string }>(
       "SELECT value FROM atlas_system_metadata WHERE key = 'schema_version'",
     );
-    expect(version.rows[0]?.value).toBe("6");
+    expect(version.rows[0]?.value).toBe("7");
   });
 
   it("enforces canonical asset codes, names, scales, and states", async () => {

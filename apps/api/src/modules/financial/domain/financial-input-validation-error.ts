@@ -10,7 +10,8 @@ export type FinancialInputField =
   | "postingDirection"
   | "quantity"
   | "walletId"
-  | "walletOwnerId";
+  | "walletOwnerId"
+  | "withdrawalId";
 
 export type FinancialInputValidationIssue =
   | "ASSET_CODE_INVALID"
@@ -28,7 +29,8 @@ export type FinancialInputValidationIssue =
   | "QUANTITY_DENOMINATION_MISMATCH"
   | "QUANTITY_UNDERFLOW"
   | "WALLET_ID_INVALID"
-  | "WALLET_OWNER_ID_INVALID";
+  | "WALLET_OWNER_ID_INVALID"
+  | "WITHDRAWAL_ID_INVALID";
 
 export class FinancialInputValidationError extends Error {
   public constructor(

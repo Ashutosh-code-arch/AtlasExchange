@@ -64,7 +64,12 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   error schemas, PostgreSQL-backed read models, public and authenticated endpoints, owner derivation,
   session-bound CSRF, retry-preserving rate limiting, and HTTP contract/integration tests are
   implemented.
-- Withdrawal behavior remains gated by a focused lifecycle decision.
+- [ADR-024 — Simulated Withdrawal Lifecycle and Custody Boundary](../architecture/decisions/ADR-024-simulated-withdrawal-lifecycle-and-custody-boundary.md)
+  defines the accepted withdrawal lifecycle, available-balance spending rule, zero-fee accounting,
+  retry ordering, concurrency boundary, and truthful simulation contract. Its immutable persistence
+  schema, journal-shape constraints, exact domain record, atomic application capability, retry
+  semantics, reserved-fund rejection, and concurrent-overdraft protection are implemented. Public
+  HTTP exposure remains gated by a focused withdrawal transport decision.
 
 ## Phase transition rule
 

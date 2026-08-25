@@ -67,6 +67,20 @@ interface DepositsTable {
   credited_at: GeneratedTimestamp;
 }
 
+interface WithdrawalsTable {
+  id: GeneratedUuid;
+  owner_id: string;
+  wallet_id: string;
+  asset_code: string;
+  amount: string;
+  method: "simulated";
+  status: "completed";
+  journal_id: string;
+  idempotency_key: string;
+  intent_hash: string;
+  completed_at: GeneratedTimestamp;
+}
+
 export interface FinancialDatabaseSchema {
   "financial.assets": AssetsTable;
   "financial.deposits": DepositsTable;
@@ -74,4 +88,5 @@ export interface FinancialDatabaseSchema {
   "financial.ledger_accounts": LedgerAccountsTable;
   "financial.journal_transactions": JournalTransactionsTable;
   "financial.journal_postings": JournalPostingsTable;
+  "financial.withdrawals": WithdrawalsTable;
 }
