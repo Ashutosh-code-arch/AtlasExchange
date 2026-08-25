@@ -60,7 +60,8 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   defines the deposit lifecycle; its persistence schema, cross-ledger invariants, atomic application
   capability, retry semantics, and concurrency controls are implemented.
 - [ADR-023 — Financial HTTP API and Error Contract](../architecture/decisions/ADR-023-financial-http-api-and-error-contract.md)
-  defines the next implementation increment for assets, wallets, balances, and simulated deposits.
+  defines the Financial transport boundary; shared asset, wallet, balance, deposit, idempotency, and
+  error schemas are implemented, with API readers and controllers as the next increment.
 - Withdrawal behavior remains gated by a focused lifecycle decision.
 
 ## Phase transition rule
