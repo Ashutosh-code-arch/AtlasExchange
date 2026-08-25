@@ -1,7 +1,7 @@
 # Atlas Exchange Phase Delivery
 
 **Status:** Active  
-**Last reviewed:** 2026-08-25
+**Last reviewed:** 2026-08-26
 
 This document translates the canonical product and sprint documents into small, demonstrable
 delivery increments. A phase is complete only after its acceptance checks pass.
@@ -10,8 +10,8 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 | ------------------------- | ---------------------------------------------------------------- | ----------- |
 | 1. Engineering foundation | Reproducible monorepo, web/API shells, PostgreSQL, quality gates | Implemented |
 | 2. Identity               | Registration, login, session rotation, roles, account profile    | Implemented |
-| 3. Financial foundation   | Assets, wallets, double-entry ledger, deposits, withdrawals      | Active      |
-| 4. Trading                | Orders, reservation, matching, trades, atomic settlement         | Planned     |
+| 3. Financial foundation   | Assets, wallets, double-entry ledger, deposits, withdrawals      | Implemented |
+| 4. Trading                | Orders, reservation, matching, trades, atomic settlement         | Active      |
 | 5. Market data            | Order-book views, tickers, candles, WebSocket streams            | Planned     |
 | 6. Product surfaces       | Portfolio, notifications, administration                         | Planned     |
 | 7. Production readiness   | Security hardening, metrics, rate limits, performance            | Planned     |
@@ -50,7 +50,25 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - The first implementation increment is the independently testable asset-quantity and accounting
   domain core; persistence follows only with its invariant-preserving migration and integration tests.
 
-## Phase 3 delivery state
+## Phase 3 acceptance criteria
+
+- Asset quantities are represented exactly at domain, persistence, and transport boundaries; no
+  authoritative Financial calculation depends on JavaScript floating-point numbers.
+- Wallet creation is owner-scoped and idempotent, provisions one available and one reserved account,
+  and enforces one wallet per owner and asset.
+- Every balance is derived from immutable, balanced journal postings rather than stored as a mutable
+  wallet field.
+- Simulated deposits and withdrawals are atomic, retry-safe, operationally controllable, and cannot
+  violate cross-ledger balance or available-funds invariants under concurrent execution.
+- Strict shared contracts and authenticated HTTP routes enforce owner derivation, CSRF, idempotency,
+  safe public errors, cache controls, and retry-preserving rate limits.
+- The authenticated web sandbox confirms server-authoritative wallet, deposit, withdrawal, and
+  balance behavior without implying external custody or optimistic financial success.
+- Unit, contract, real-PostgreSQL integration, HTTP, frontend, and isolated browser tests demonstrate
+  the Financial lifecycle, concurrency boundaries, ownership isolation, and exact final balances.
+- `pnpm verify`, `pnpm build`, and `pnpm test:e2e` pass at the phase boundary.
+
+## Phase 3 completion evidence
 
 - Exact asset quantities, wallet ownership, available/reserved accounts, append-only journals,
   idempotent posting, concurrency protection, and authoritative balance reads are implemented.

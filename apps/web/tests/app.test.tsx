@@ -55,6 +55,10 @@ describe("Atlas overview", () => {
 
     expect(screen.getByRole("heading", { name: /build trust/i })).toBeInTheDocument();
     expect(screen.getByText("Foundation")).toBeInTheDocument();
+    expect(screen.getByText("Financial core").closest("li")).toHaveTextContent(
+      /03\s*Financial core\s*Complete/i,
+    );
+    expect(screen.getByText("Trading").closest("li")).toHaveTextContent(/04\s*Trading\s*Current/i);
     expect(await screen.findByText("Operational")).toBeInTheDocument();
     expect(await screen.findByText(appUser.email)).toBeInTheDocument();
   });

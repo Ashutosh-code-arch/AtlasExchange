@@ -29,7 +29,10 @@ async function latestVerificationMessage(
   return message.To.some((recipient) => recipient.Address === email) ? message : undefined;
 }
 
-test("registers, verifies the captured email, and signs in", async ({ page, request }) => {
+test("registers, verifies email, signs in, and moves simulated funds", async ({
+  page,
+  request,
+}) => {
   const email = "browser-journey@atlas.test";
   const password = "Atlas E2E passphrase 2026!";
   const requestFailures: string[] = [];

@@ -8,8 +8,9 @@ interface OverviewPageProps {
 const phases = [
   { number: "01", label: "Foundation", state: "Complete" },
   { number: "02", label: "Identity", state: "Complete" },
-  { number: "03", label: "Financial core", state: "Current" },
-  { number: "04", label: "Trading", state: "Next" },
+  { number: "03", label: "Financial core", state: "Complete" },
+  { number: "04", label: "Trading", state: "Current" },
+  { number: "05", label: "Market data", state: "Next" },
 ];
 
 export function OverviewPage({ readiness, onRefresh }: OverviewPageProps): React.JSX.Element {
