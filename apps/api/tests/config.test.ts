@@ -14,6 +14,7 @@ describe("API configuration", () => {
 
     expect(config.http.port).toBe(3000);
     expect(config.database.expectedSchemaVersion).toBe("6");
+    expect(config.financial.simulatedFundingEnabled).toBe(true);
     expect(config.identity.passwordBlocklistPath).toMatch(
       /resources\/development-password-blocklist\.sha256$/,
     );
@@ -30,6 +31,7 @@ describe("API configuration", () => {
     ).toBeGreaterThanOrEqual(32);
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.database)).toBe(true);
+    expect(Object.isFrozen(config.financial)).toBe(true);
   });
 
   it("rejects a missing database URL without exposing values", () => {
@@ -40,6 +42,23 @@ describe("API configuration", () => {
 
   it("rejects invalid ports", () => {
     expect(() => parseApiConfig({ ...validEnvironment, API_PORT: "70000" })).toThrow(/API_PORT/);
+  });
+
+  it("defaults simulated funding off in managed environments and permits an explicit override", () => {
+    const managedEnvironment = {
+      ...validEnvironment,
+      ATLAS_ENV: "staging",
+      PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
+      SMTP_HOST: "smtp.example.com",
+      SMTP_FROM: "Atlas Exchange <no-reply@example.com>",
+      CSRF_HMAC_KEY: "a".repeat(43),
+    };
+
+    expect(parseApiConfig(managedEnvironment).financial.simulatedFundingEnabled).toBe(false);
+    expect(
+      parseApiConfig({ ...managedEnvironment, SIMULATED_FUNDING_ENABLED: "true" }).financial
+        .simulatedFundingEnabled,
+    ).toBe(true);
   });
 
   it("does not expose a rejected secret-bearing URL", () => {

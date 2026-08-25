@@ -12,10 +12,25 @@ export {
 } from "./domain/asset-scale.js";
 export { AssetQuantity, maximumAtomicDigits, maximumAtomicUnits } from "./domain/asset-quantity.js";
 export {
+  parseFinancialIdempotencyKey,
+  maximumIdempotencyKeyLength,
+  type FinancialIdempotencyKey,
+} from "./domain/idempotency-key.js";
+export {
+  parseSimulatedDepositId,
+  SimulatedDepositRecord,
+  type SimulatedDepositId,
+} from "./domain/simulated-deposit.js";
+export {
   FinancialInputValidationError,
   type FinancialInputField,
   type FinancialInputValidationIssue,
 } from "./domain/financial-input-validation-error.js";
+export {
+  CreateSimulatedDeposit,
+  type CreateSimulatedDepositCommand,
+  type CreateSimulatedDepositResult,
+} from "./application/create-simulated-deposit.js";
 export {
   CreateWallet,
   type CreateWalletCommand,

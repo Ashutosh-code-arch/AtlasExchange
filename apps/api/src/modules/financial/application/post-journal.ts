@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { AssetQuantity } from "../domain/asset-quantity.js";
 import { FinancialInputValidationError } from "../domain/financial-input-validation-error.js";
+import { parseFinancialIdempotencyKey } from "../domain/idempotency-key.js";
 import { JournalPosting } from "../domain/journal-posting.js";
 import { JournalTransaction } from "../domain/journal-transaction.js";
 import {
@@ -18,7 +19,6 @@ import type {
 } from "./journal-posting-transaction.js";
 
 const operationIdentifierPattern = /^[a-z][a-z0-9_.:-]{0,99}$/;
-const maximumIdempotencyKeyLength = 200;
 
 export interface PostJournalPostingCommand {
   readonly accountId: string;
@@ -56,13 +56,6 @@ function validateOperationIdentifier(
       field,
       field === "idempotencyScope" ? "IDEMPOTENCY_SCOPE_INVALID" : "JOURNAL_OPERATION_TYPE_INVALID",
     );
-  }
-  return value;
-}
-
-function validateIdempotencyKey(value: string): string {
-  if (value !== value.trim() || value.length < 1 || value.length > maximumIdempotencyKeyLength) {
-    throw new FinancialInputValidationError("idempotencyKey", "IDEMPOTENCY_KEY_INVALID");
   }
   return value;
 }
@@ -151,7 +144,7 @@ export class PostJournal {
       command.idempotencyScope,
       "idempotencyScope",
     );
-    const idempotencyKey = validateIdempotencyKey(command.idempotencyKey);
+    const idempotencyKey = parseFinancialIdempotencyKey(command.idempotencyKey);
     const businessReferences = canonicalizeBusinessReferences(command.businessReferences);
     const preparedPostings = preparePostingCommands(command.postings);
     const accountIds = [...new Set(preparedPostings.map(({ accountId }) => accountId))].sort();

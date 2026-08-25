@@ -27,6 +27,7 @@ const apiEnvironmentSchema = z.object({
   ATLAS_ENV: z.enum(["local", "test", "ci", "staging", "production"]).default("local"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
   EXPECTED_SCHEMA_VERSION: integerString.default("6"),
+  SIMULATED_FUNDING_ENABLED: z.enum(["true", "false"]).optional(),
   PASSWORD_BLOCKLIST_PATH: z.string().min(1).optional(),
   SMTP_HOST: z.string().min(1).optional(),
   SMTP_PORT: integerString
@@ -77,6 +78,9 @@ export interface ApiConfig {
       secureCookies: boolean;
       csrfHmacKey: string;
     }>;
+  }>;
+  readonly financial: Readonly<{
+    simulatedFundingEnabled: boolean;
   }>;
   readonly nodeEnvironment: "development" | "test" | "production";
 }
@@ -156,6 +160,12 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
         secureCookies: values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production",
         csrfHmacKey: values.CSRF_HMAC_KEY ?? localCsrfHmacKey,
       }),
+    }),
+    financial: Object.freeze({
+      simulatedFundingEnabled:
+        values.SIMULATED_FUNDING_ENABLED === undefined
+          ? values.ATLAS_ENV === "local" || values.ATLAS_ENV === "test" || values.ATLAS_ENV === "ci"
+          : values.SIMULATED_FUNDING_ENABLED === "true",
     }),
     nodeEnvironment: values.NODE_ENV,
   });
