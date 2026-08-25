@@ -8,8 +8,10 @@ import {
   CreateSimulatedDeposit,
   type CreateSimulatedDepositCommand,
 } from "../src/modules/financial/application/create-simulated-deposit.js";
+import { GetSimulatedDeposit } from "../src/modules/financial/application/get-simulated-deposit.js";
 import type { FinancialDatabaseSchema } from "../src/modules/financial/infrastructure/persistence/financial-database-schema.js";
 import { PostgresSimulatedDepositTransactionRunner } from "../src/modules/financial/infrastructure/persistence/postgres-simulated-deposit-transaction-runner.js";
+import { PostgresSimulatedDepositReader } from "../src/modules/financial/infrastructure/persistence/postgres-simulated-deposit-reader.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
 
 const baseDatabaseUrl =
@@ -31,6 +33,7 @@ const database = new Kysely<FinancialDatabaseSchema>({
 });
 const runner = new PostgresSimulatedDepositTransactionRunner(database);
 const createDeposit = new CreateSimulatedDeposit(runner, true);
+const getDeposit = new GetSimulatedDeposit(new PostgresSimulatedDepositReader(database));
 
 function command(
   ownerId: string,
@@ -130,6 +133,33 @@ describe("PostgreSQL simulated-deposit persistence", () => {
     });
     await expect(accountBalance(result.deposit.wallet.id, "user_reserved")).resolves.toEqual({
       balance: "0",
+    });
+  });
+
+  it("reads a deposit only through its owner and omits accounting internals", async () => {
+    const ownerId = randomUUID();
+    const result = await createDeposit.execute(command(ownerId, { amount: "0.00000001" }));
+    if (result.status !== "created") {
+      throw new Error("Expected a created simulated deposit");
+    }
+
+    await expect(getDeposit.execute({ ownerId, depositId: result.deposit.id })).resolves.toEqual({
+      status: "found",
+      deposit: {
+        id: result.deposit.id,
+        walletId: result.deposit.wallet.id,
+        assetCode: "BTC",
+        amount: "0.00000001",
+        method: "simulated",
+        status: "credited",
+        creditedAt: result.deposit.creditedAt,
+      },
+    });
+    await expect(
+      getDeposit.execute({ ownerId: randomUUID(), depositId: result.deposit.id }),
+    ).resolves.toEqual({ status: "not_found" });
+    await expect(getDeposit.execute({ ownerId, depositId: randomUUID() })).resolves.toEqual({
+      status: "not_found",
     });
   });
 

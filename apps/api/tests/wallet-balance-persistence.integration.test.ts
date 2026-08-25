@@ -5,6 +5,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { GetWalletBalance } from "../src/modules/financial/application/get-wallet-balance.js";
+import { ListWallets } from "../src/modules/financial/application/list-wallets.js";
 import {
   PostJournal,
   type PostJournalCommand,
@@ -32,9 +33,12 @@ const database = new Kysely<FinancialDatabaseSchema>({
   }),
 });
 const postJournal = new PostJournal(new PostgresJournalPostingTransactionRunner(database));
-const getWalletBalance = new GetWalletBalance(new PostgresWalletBalanceReader(database));
+const walletBalanceReader = new PostgresWalletBalanceReader(database);
+const getWalletBalance = new GetWalletBalance(walletBalanceReader);
+const listWallets = new ListWallets(walletBalanceReader);
 
 interface WalletFixture {
+  readonly walletId: string;
   readonly ownerId: string;
   readonly assetCode: string;
   readonly availableAccountId: string;
@@ -44,10 +48,9 @@ interface WalletFixture {
 
 let assetSequence = 0;
 
-async function createWalletFixture(): Promise<WalletFixture> {
+async function createWalletFixture(ownerId = randomUUID()): Promise<WalletFixture> {
   assetSequence += 1;
   const assetCode = `B${assetSequence}`;
-  const ownerId = randomUUID();
   await database
     .insertInto("financial.assets")
     .values({
@@ -84,6 +87,7 @@ async function createWalletFixture(): Promise<WalletFixture> {
       throw new Error("Balance test wallet accounts were not created");
     }
     return {
+      walletId: wallet.id,
       ownerId,
       assetCode,
       availableAccountId,
@@ -124,7 +128,6 @@ describe("PostgreSQL wallet balance reader", () => {
       getWalletBalance.execute({ ownerId: fixture.ownerId, assetCode: fixture.assetCode }),
     ).resolves.toMatchObject({
       status: "found",
-      ownerId: fixture.ownerId,
       assetCode: fixture.assetCode,
       available: "0",
       reserved: "0",
@@ -154,6 +157,38 @@ describe("PostgreSQL wallet balance reader", () => {
       available: "0.85",
       reserved: "0.4",
       total: "1.25",
+    });
+  });
+
+  it("lists only the owner's wallets in asset order with authoritative balances", async () => {
+    const ownerId = randomUUID();
+    const first = await createWalletFixture(ownerId);
+    const second = await createWalletFixture(ownerId);
+    await createWalletFixture();
+    await postJournal.execute(
+      journalCommand("test_list_deposit", [
+        { accountId: second.custodyAccountId, direction: "debit", amount: "3.5" },
+        { accountId: second.availableAccountId, direction: "credit", amount: "3.5" },
+      ]),
+    );
+
+    await expect(listWallets.execute({ ownerId })).resolves.toEqual({
+      wallets: [
+        {
+          walletId: first.walletId,
+          assetCode: first.assetCode,
+          available: "0",
+          reserved: "0",
+          total: "0",
+        },
+        {
+          walletId: second.walletId,
+          assetCode: second.assetCode,
+          available: "3.5",
+          reserved: "0",
+          total: "3.5",
+        },
+      ].sort((left, right) => left.assetCode.localeCompare(right.assetCode)),
     });
   });
 

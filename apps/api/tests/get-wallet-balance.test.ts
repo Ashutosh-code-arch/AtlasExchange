@@ -67,7 +67,6 @@ describe("GetWalletBalance", () => {
     await expect(getWalletBalance.execute({ ownerId, assetCode: "USD" })).resolves.toEqual({
       status: "found",
       walletId: "00000000-0000-4000-8000-000000000402",
-      ownerId,
       assetCode: "USD",
       available: "0.85",
       reserved: "0.4",

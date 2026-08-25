@@ -41,4 +41,16 @@ export {
   type GetWalletBalanceCommand,
   type GetWalletBalanceResult,
 } from "./application/get-wallet-balance.js";
+export {
+  GetSimulatedDeposit,
+  type GetSimulatedDepositCommand,
+  type GetSimulatedDepositResult,
+} from "./application/get-simulated-deposit.js";
+export { ListAssets, type ListAssetsResult } from "./application/list-assets.js";
+export {
+  ListWallets,
+  type ListWalletsCommand,
+  type ListWalletsResult,
+  type WalletBalanceView,
+} from "./application/list-wallets.js";
 export type { FinancialDatabaseSchema } from "./infrastructure/persistence/financial-database-schema.js";

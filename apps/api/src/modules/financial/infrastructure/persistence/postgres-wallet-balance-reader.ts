@@ -1,6 +1,7 @@
 import { sql, type Kysely } from "kysely";
 
 import type {
+  WalletBalanceListReader,
   WalletBalanceReader,
   WalletBalanceRecord,
 } from "../../application/wallet-balance-reader.js";
@@ -53,14 +54,26 @@ function mapWalletBalance(rows: readonly WalletBalanceRow[]): WalletBalanceRecor
   return { wallet, snapshot };
 }
 
-export class PostgresWalletBalanceReader implements WalletBalanceReader {
+export class PostgresWalletBalanceReader implements WalletBalanceReader, WalletBalanceListReader {
   public constructor(private readonly database: Kysely<FinancialDatabaseSchema>) {}
 
   public async findByOwnerAndAsset(
     ownerId: WalletOwnerId,
     assetCode: AssetCode,
   ): Promise<WalletBalanceRecord | undefined> {
-    const rows = await this.database
+    const records = await this.find(ownerId, assetCode);
+    return records[0];
+  }
+
+  public findAllByOwner(ownerId: WalletOwnerId): Promise<readonly WalletBalanceRecord[]> {
+    return this.find(ownerId);
+  }
+
+  private async find(
+    ownerId: WalletOwnerId,
+    assetCode?: AssetCode,
+  ): Promise<readonly WalletBalanceRecord[]> {
+    let query = this.database
       .selectFrom("financial.wallets as wallet")
       .innerJoin("financial.assets as asset", "asset.code", "wallet.asset_code")
       .innerJoin("financial.ledger_accounts as account", "account.wallet_id", "wallet.id")
@@ -80,7 +93,6 @@ export class PostgresWalletBalanceReader implements WalletBalanceReader {
         ), 0)::TEXT`.as("balanceAtomicUnits"),
       ])
       .where("wallet.owner_id", "=", ownerId)
-      .where("wallet.asset_code", "=", assetCode)
       .where("account.kind", "in", ["user_available", "user_reserved"])
       .groupBy([
         "wallet.id",
@@ -89,10 +101,21 @@ export class PostgresWalletBalanceReader implements WalletBalanceReader {
         "asset.ledger_scale",
         "account.id",
         "account.kind",
-      ])
+      ]);
+    if (assetCode !== undefined) {
+      query = query.where("wallet.asset_code", "=", assetCode);
+    }
+    const rows = (await query
+      .orderBy("wallet.asset_code")
       .orderBy("account.kind")
-      .execute();
+      .execute()) as readonly WalletBalanceRow[];
+    const grouped = new Map<string, WalletBalanceRow[]>();
+    for (const row of rows) {
+      const walletRows = grouped.get(row.walletId) ?? [];
+      walletRows.push(row);
+      grouped.set(row.walletId, walletRows);
+    }
 
-    return rows.length === 0 ? undefined : mapWalletBalance(rows as readonly WalletBalanceRow[]);
+    return [...grouped.values()].map(mapWalletBalance);
   }
 }

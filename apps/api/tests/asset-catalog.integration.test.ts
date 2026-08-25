@@ -1,8 +1,12 @@
 import { randomBytes } from "node:crypto";
 
+import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { ListAssets } from "../src/modules/financial/application/list-assets.js";
+import type { FinancialDatabaseSchema } from "../src/modules/financial/infrastructure/persistence/financial-database-schema.js";
+import { PostgresAssetCatalogReader } from "../src/modules/financial/infrastructure/persistence/postgres-asset-catalog-reader.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
 
 const baseDatabaseUrl =
@@ -18,6 +22,12 @@ function databaseUrlFor(name: string): string {
 const adminPool = new Pool({ connectionString: databaseUrlFor("postgres"), max: 1 });
 const integrationDatabaseUrl = databaseUrlFor(databaseName);
 const pool = new Pool({ connectionString: integrationDatabaseUrl, max: 2 });
+const database = new Kysely<FinancialDatabaseSchema>({
+  dialect: new PostgresDialect({
+    pool: new Pool({ connectionString: integrationDatabaseUrl, max: 2 }),
+  }),
+});
+const listAssets = new ListAssets(new PostgresAssetCatalogReader(database));
 
 describe("MVP asset catalog migration", () => {
   beforeAll(async () => {
@@ -26,6 +36,7 @@ describe("MVP asset catalog migration", () => {
   });
 
   afterAll(async () => {
+    await database.destroy();
     await pool.end();
     await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}" WITH (FORCE)`);
     await adminPool.end();
@@ -48,6 +59,18 @@ describe("MVP asset catalog migration", () => {
       { code: "ETH", display_name: "Ethereum", ledger_scale: 18, status: "active" },
       { code: "USD", display_name: "US Dollar", ledger_scale: 2, status: "active" },
     ]);
+  });
+
+  it("reads the public catalog in code order and includes disabled assets", async () => {
+    await pool.query("UPDATE financial.assets SET status = 'disabled' WHERE code = 'ETH'");
+
+    await expect(listAssets.execute()).resolves.toEqual({
+      assets: [
+        { code: "BTC", displayName: "Bitcoin", ledgerScale: 8, status: "active" },
+        { code: "ETH", displayName: "Ethereum", ledgerScale: 18, status: "disabled" },
+        { code: "USD", displayName: "US Dollar", ledgerScale: 2, status: "active" },
+      ],
+    });
   });
 
   it("provisions one custody and fee account per catalog asset", async () => {

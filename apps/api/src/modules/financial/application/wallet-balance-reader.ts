@@ -13,3 +13,7 @@ export interface WalletBalanceReader {
     assetCode: AssetCode,
   ): Promise<WalletBalanceRecord | undefined>;
 }
+
+export interface WalletBalanceListReader {
+  findAllByOwner(ownerId: WalletOwnerId): Promise<readonly WalletBalanceRecord[]>;
+}

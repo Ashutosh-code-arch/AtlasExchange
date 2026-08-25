@@ -12,7 +12,6 @@ export type GetWalletBalanceResult =
   | {
       readonly status: "found";
       readonly walletId: string;
-      readonly ownerId: string;
       readonly assetCode: string;
       readonly available: string;
       readonly reserved: string;
@@ -32,7 +31,6 @@ export class GetWalletBalance {
       : {
           status: "found",
           walletId: record.wallet.id,
-          ownerId: record.wallet.ownerId,
           assetCode: record.wallet.assetCode,
           available: record.snapshot.available.toCanonicalDecimal(),
           reserved: record.snapshot.reserved.toCanonicalDecimal(),
