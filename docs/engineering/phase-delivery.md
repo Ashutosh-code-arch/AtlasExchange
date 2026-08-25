@@ -59,8 +59,9 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - [ADR-022 — Simulated Deposit Lifecycle and Custody Boundary](../architecture/decisions/ADR-022-simulated-deposit-lifecycle-and-custody-boundary.md)
   defines the deposit lifecycle; its persistence schema, cross-ledger invariants, atomic application
   capability, retry semantics, and concurrency controls are implemented.
-- Withdrawal and public Financial HTTP behavior remain gated by focused lifecycle and transport
-  decisions.
+- [ADR-023 — Financial HTTP API and Error Contract](../architecture/decisions/ADR-023-financial-http-api-and-error-contract.md)
+  defines the next implementation increment for assets, wallets, balances, and simulated deposits.
+- Withdrawal behavior remains gated by a focused lifecycle decision.
 
 ## Phase transition rule
 
