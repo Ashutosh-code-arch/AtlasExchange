@@ -95,6 +95,18 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   real-PostgreSQL HTTP evidence, authenticated Financial web sandbox, and full-stack browser journey
   are implemented.
 
+## Phase 4 entry criteria
+
+- [ADR-026 — Trading Market, Order, and Matching Foundation](../architecture/decisions/ADR-026-trading-market-order-and-matching-foundation.md)
+  defines exact lots and ticks, limit-order scope, order lifecycle, price-time priority, maker-price
+  execution, self-trade prevention, reservation, atomic settlement, idempotency, and concurrency.
+- The first implementation increment is the independently testable market-value, order-lifecycle,
+  and deterministic-matching domain core.
+- Trading persistence remains gated by focused market-catalog, schema, and Financial-capability
+  decisions that preserve ADR-026's exact-settlement and module-boundary rules.
+- Public Trading routes, read models, Market Data projections, and browser workflows remain gated by
+  their own contracts and do not enter the matching authority implicitly.
+
 ## Phase transition rule
 
 Do not begin a later phase merely because folders can be scaffolded. Begin it when the preceding
