@@ -1,0 +1,30 @@
+export {
+  Market,
+  MarketLimitPrice,
+  MarketOrderQuantity,
+  parseMarketCode,
+  type CreateMarketInput,
+  type MarketCode,
+  type MarketStatus,
+} from "./domain/market.js";
+export {
+  Order,
+  parseOrderId,
+  parseOrderOwnerId,
+  type CreateOrderInput,
+  type OrderId,
+  type OrderOwnerId,
+  type OrderSide,
+  type OrderStatus,
+  type OrderTerminalReason,
+} from "./domain/order.js";
+export { matchIncomingOrder, type MatchExecution, type MatchResult } from "./domain/matcher.js";
+export {
+  TradingInputValidationError,
+  type TradingInputField,
+  type TradingInputValidationIssue,
+} from "./domain/trading-input-validation-error.js";
+export {
+  TradingInvariantError,
+  type TradingInvariantIssue,
+} from "./domain/trading-invariant-error.js";
