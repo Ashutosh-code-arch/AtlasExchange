@@ -111,7 +111,7 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   resource and movement history, exact journal shapes, price-improvement calculation, release
   behavior, idempotency, and deterministic cross-market account locking.
 - Trading persistence, Financial reservation persistence, and atomic placement and cancellation
-  orchestration may now be implemented. Public transport remains separately gated.
+  orchestration are implemented. Public transport remains separately gated.
 - Public Trading routes, read models, Market Data projections, and browser workflows remain gated by
   their own contracts and do not enter the matching authority implicitly.
 
@@ -139,9 +139,12 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - Kysely schema ownership and runtime compatibility advance through schema version 9. Focused
   real-PostgreSQL evidence covers catalog exactness, lifecycle constraints, matching order, market
   state, trade roles, reservation reconciliation, residual release, and price-improved settlement.
-- The transaction-bound Financial capability, Trading repositories, composite unit of work, and
-  atomic placement and cancellation application orchestration remain the next implementation
-  increment. Public Trading transport remains separately gated by its contract decision.
+- The transaction-bound Financial capability, Trading repositories, and composite unit of work are
+  implemented. Place-order orchestration now performs exact validation, durable retry resolution,
+  deterministic matching, trade persistence, and Financial reservation and settlement in one
+  transaction. Cancellation now locks market before order, releases the exact Financial residual,
+  supports identical retries, and serializes correctly against concurrent matching. Public Trading
+  transport remains separately gated by its contract decision.
 
 ## Phase transition rule
 

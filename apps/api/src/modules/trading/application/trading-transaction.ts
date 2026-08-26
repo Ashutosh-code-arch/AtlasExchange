@@ -97,6 +97,7 @@ export interface TradingPersistenceTransaction {
     idempotencyKey: string,
   ): Promise<PersistedTradingOrder | undefined>;
   lockMarket(marketCode: MarketCode): Promise<LockedTradingMarket | undefined>;
+  findOrder(orderId: OrderId): Promise<PersistedTradingOrder | undefined>;
   acceptOrder(input: AcceptTradingOrderInput): Promise<AcceptTradingOrderResult>;
   lockOrder(orderId: OrderId): Promise<PersistedTradingOrder | undefined>;
   lockMatchingOrders(input: LockMatchingOrdersInput): Promise<readonly PersistedTradingOrder[]>;

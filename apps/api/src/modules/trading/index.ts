@@ -47,6 +47,11 @@ export type {
   TradingTransactionContext,
   TradingTransactionRunner,
 } from "./application/trading-transaction.js";
+export {
+  CancelOrder,
+  type CancelOrderCommand,
+  type CancelOrderResult,
+} from "./application/cancel-order.js";
 export type { TradingDatabaseSchema } from "./infrastructure/persistence/trading-database-schema.js";
 export {
   PostgresTradingTransactionRunner,

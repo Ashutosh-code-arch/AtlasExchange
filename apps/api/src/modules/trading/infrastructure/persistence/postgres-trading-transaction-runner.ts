@@ -208,6 +208,15 @@ class PostgresTradingPersistenceTransaction implements TradingPersistenceTransac
     return { status: "existing", order: existing };
   }
 
+  public async findOrder(orderId: OrderId): Promise<PersistedTradingOrder | undefined> {
+    const row = await this.database
+      .selectFrom("trading.orders")
+      .select(orderSelections)
+      .where("id", "=", orderId)
+      .executeTakeFirst();
+    return row === undefined ? undefined : mapOrder(row);
+  }
+
   public async lockOrder(orderId: OrderId): Promise<PersistedTradingOrder | undefined> {
     const row = await this.database
       .selectFrom("trading.orders")
