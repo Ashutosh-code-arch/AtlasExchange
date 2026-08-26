@@ -64,7 +64,7 @@ export interface ReleaseTradingOrderReservationCommand {
 export type ReleaseTradingOrderReservationResult =
   { readonly status: "released" } | { readonly status: "existing" };
 
-export interface TradingFundsTransaction {
+export interface TradingFundsCapability {
   applyPlacementEffects(
     plan: ApplyTradingPlacementEffectsPlan,
   ): Promise<ApplyTradingPlacementEffectsResult>;
@@ -72,6 +72,8 @@ export interface TradingFundsTransaction {
     command: ReleaseTradingOrderReservationCommand,
   ): Promise<ReleaseTradingOrderReservationResult>;
 }
+
+export type TradingFundsTransaction = TradingFundsCapability;
 
 function invalidPlan(): never {
   throw new FinancialInvariantError("TRADING_FUNDS_PLAN_INVALID");
@@ -173,7 +175,7 @@ function assertReleaseCommand(command: ReleaseTradingOrderReservationCommand): v
   }
 }
 
-export class FinancialTradingFunds {
+export class FinancialTradingFunds implements TradingFundsCapability {
   public constructor(private readonly transaction: TradingFundsTransaction) {}
 
   public applyPlacementEffects(

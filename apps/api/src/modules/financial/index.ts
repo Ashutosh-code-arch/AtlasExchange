@@ -69,6 +69,7 @@ export {
   type ReleaseTradingOrderReservationCommand,
   type ReleaseTradingOrderReservationResult,
   type TradingExecutionIntent,
+  type TradingFundsCapability,
   type TradingFundsTransaction,
   type TradingIncomingReservationIntent,
   type TradingMarketReference,
@@ -82,6 +83,7 @@ export {
   type WalletBalanceView,
 } from "./application/list-wallets.js";
 export type { FinancialDatabaseSchema } from "./infrastructure/persistence/financial-database-schema.js";
+export { bindPostgresTradingFundsTransaction } from "./infrastructure/persistence/postgres-trading-funds-transaction.js";
 export {
   createFinancialModuleRouter,
   type CreateFinancialModuleRouterOptions,

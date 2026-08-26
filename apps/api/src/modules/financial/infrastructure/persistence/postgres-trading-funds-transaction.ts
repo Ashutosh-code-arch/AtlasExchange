@@ -945,3 +945,11 @@ export class PostgresTradingFundsTransaction implements TradingFundsTransaction 
     await this.persistReservationState(state);
   }
 }
+
+export function bindPostgresTradingFundsTransaction<Schema extends FinancialDatabaseSchema>(
+  database: Transaction<Schema>,
+): TradingFundsTransaction {
+  return new PostgresTradingFundsTransaction(
+    database as unknown as Transaction<FinancialDatabaseSchema>,
+  );
+}

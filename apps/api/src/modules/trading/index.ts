@@ -28,4 +28,21 @@ export {
   TradingInvariantError,
   type TradingInvariantIssue,
 } from "./domain/trading-invariant-error.js";
+export type {
+  AcceptTradingOrderInput,
+  AcceptTradingOrderResult,
+  LockedTradingMarket,
+  LockMatchingOrdersInput,
+  PersistedTradingOrder,
+  PersistedTradingTrade,
+  PersistTradingOrderStateInput,
+  PersistTradingTradeInput,
+  TradingPersistenceTransaction,
+  TradingTransactionContext,
+  TradingTransactionRunner,
+} from "./application/trading-transaction.js";
 export type { TradingDatabaseSchema } from "./infrastructure/persistence/trading-database-schema.js";
+export {
+  PostgresTradingTransactionRunner,
+  type TradingCompositeDatabaseSchema,
+} from "./infrastructure/persistence/postgres-trading-transaction-runner.js";
