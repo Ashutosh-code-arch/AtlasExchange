@@ -31,6 +31,7 @@ export {
   type FinancialInputField,
   type FinancialInputValidationIssue,
 } from "./domain/financial-input-validation-error.js";
+export type { AssetCatalogReader, AssetCatalogRecord } from "./application/asset-catalog-reader.js";
 export {
   CreateSimulatedDeposit,
   type CreateSimulatedDepositCommand,

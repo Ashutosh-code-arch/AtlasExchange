@@ -195,6 +195,24 @@ export class Market {
     return MarketLimitPrice.parse(this, input);
   }
 
+  public quantityForLots(lots: bigint): MarketOrderQuantity {
+    if (
+      typeof lots !== "bigint" ||
+      lots < this.minimumOrderLots ||
+      (this.maximumOrderLots !== undefined && lots > this.maximumOrderLots)
+    ) {
+      throw validationError("quantity", "QUANTITY_INVALID");
+    }
+    return MarketOrderQuantity.fromLots(this, lots);
+  }
+
+  public limitPriceForTicks(ticks: bigint): MarketLimitPrice {
+    if (typeof ticks !== "bigint" || ticks <= 0n) {
+      throw validationError("limitPrice", "LIMIT_PRICE_INVALID");
+    }
+    return MarketLimitPrice.fromTicks(this, ticks);
+  }
+
   public quoteNotional(quantity: MarketOrderQuantity, limitPrice: MarketLimitPrice): AssetQuantity {
     if (quantity.marketCode !== this.code || limitPrice.marketCode !== this.code) {
       throw validationError("market", "MARKET_DEFINITION_MISMATCH");
@@ -272,6 +290,17 @@ export class MarketOrderQuantity {
     return new MarketOrderQuantity(market.code, lots, value);
   }
 
+  public static fromLots(market: Market, lots: bigint): MarketOrderQuantity {
+    if (typeof lots !== "bigint" || lots < market.minimumOrderLots) {
+      throw validationError("quantity", "QUANTITY_BELOW_MINIMUM");
+    }
+    if (market.maximumOrderLots !== undefined && lots > market.maximumOrderLots) {
+      throw validationError("quantity", "QUANTITY_ABOVE_MAXIMUM");
+    }
+    const value = market.baseQuantityForLots(lots);
+    return new MarketOrderQuantity(market.code, lots, value);
+  }
+
   public toCanonicalDecimal(): string {
     return this.value.toCanonicalDecimal();
   }
@@ -307,6 +336,21 @@ export class MarketLimitPrice {
       market.code,
       value.atomicUnits / market.quoteAtomicUnitsPerPriceTick,
       value,
+    );
+  }
+
+  public static fromTicks(market: Market, ticks: bigint): MarketLimitPrice {
+    if (typeof ticks !== "bigint" || ticks <= 0n) {
+      throw validationError("limitPrice", "LIMIT_PRICE_NOT_POSITIVE");
+    }
+    const atomicUnits = ticks * market.quoteAtomicUnitsPerPriceTick;
+    if (atomicUnits > maximumAtomicUnits) {
+      throw validationError("limitPrice", "LIMIT_PRICE_OVERFLOW");
+    }
+    return new MarketLimitPrice(
+      market.code,
+      ticks,
+      AssetQuantity.fromAtomicUnits(market.quoteAssetCode, market.quoteAssetScale, atomicUnits),
     );
   }
 

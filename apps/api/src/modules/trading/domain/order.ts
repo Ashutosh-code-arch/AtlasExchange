@@ -43,6 +43,14 @@ export interface CreateOrderInput {
   readonly priority: bigint;
 }
 
+export interface RestoreOrderInput extends CreateOrderInput {
+  readonly filledLots: bigint;
+  readonly remainingLots: bigint;
+  readonly status: OrderStatus;
+  readonly terminalReason?: OrderTerminalReason;
+  readonly version: bigint;
+}
+
 function requireOrderSide(input: unknown): asserts input is OrderSide {
   if (input !== "buy" && input !== "sell") {
     throw new TradingInvariantError("ORDER_SIDE_INVALID");
@@ -98,6 +106,61 @@ export class Order {
       "open",
       undefined,
       0n,
+    );
+  }
+
+  public static restore(input: RestoreOrderInput): Order {
+    requireOrderSide(input.side);
+    if (
+      typeof input.priority !== "bigint" ||
+      input.priority <= 0n ||
+      input.quantity.marketCode !== input.limitPrice.marketCode ||
+      typeof input.filledLots !== "bigint" ||
+      typeof input.remainingLots !== "bigint" ||
+      typeof input.version !== "bigint" ||
+      input.filledLots < 0n ||
+      input.remainingLots < 0n ||
+      input.version < 0n ||
+      input.filledLots + input.remainingLots !== input.quantity.lots ||
+      (input.status === "open" ? input.version !== 0n : input.version === 0n)
+    ) {
+      throw new TradingInvariantError("ORDER_SNAPSHOT_INVALID");
+    }
+    const lifecycleIsValid =
+      (input.status === "open" &&
+        input.filledLots === 0n &&
+        input.remainingLots > 0n &&
+        input.terminalReason === undefined) ||
+      (input.status === "partially_filled" &&
+        input.filledLots > 0n &&
+        input.remainingLots > 0n &&
+        input.terminalReason === undefined) ||
+      (input.status === "filled" &&
+        input.filledLots === input.quantity.lots &&
+        input.remainingLots === 0n &&
+        input.terminalReason === undefined) ||
+      (input.status === "cancelled" &&
+        input.remainingLots > 0n &&
+        input.terminalReason !== undefined);
+    if (!lifecycleIsValid) {
+      throw new TradingInvariantError("ORDER_SNAPSHOT_INVALID");
+    }
+    if (input.terminalReason !== undefined) {
+      requireCancelReason(input.terminalReason);
+    }
+    return new Order(
+      input.id,
+      input.ownerId,
+      input.quantity.marketCode,
+      input.side,
+      input.quantity,
+      input.limitPrice,
+      input.priority,
+      input.filledLots,
+      input.remainingLots,
+      input.status,
+      input.terminalReason,
+      input.version,
     );
   }
 

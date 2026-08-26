@@ -1,7 +1,16 @@
 export type TradingInputField =
-  "limitPrice" | "market" | "marketCode" | "notional" | "orderId" | "orderOwnerId" | "quantity";
+  | "idempotencyKey"
+  | "limitPrice"
+  | "market"
+  | "marketCode"
+  | "notional"
+  | "orderId"
+  | "orderOwnerId"
+  | "quantity"
+  | "side";
 
 export type TradingInputValidationIssue =
+  | "IDEMPOTENCY_KEY_INVALID"
   | "LIMIT_PRICE_INCREMENT_INVALID"
   | "LIMIT_PRICE_INVALID"
   | "LIMIT_PRICE_NOT_POSITIVE"
@@ -18,6 +27,7 @@ export type TradingInputValidationIssue =
   | "NOTIONAL_OVERFLOW"
   | "ORDER_ID_INVALID"
   | "ORDER_OWNER_ID_INVALID"
+  | "ORDER_SIDE_INVALID"
   | "QUANTITY_ABOVE_MAXIMUM"
   | "QUANTITY_BELOW_MINIMUM"
   | "QUANTITY_INCREMENT_INVALID"

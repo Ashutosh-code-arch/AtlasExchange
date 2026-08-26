@@ -12,12 +12,18 @@ export {
   parseOrderId,
   parseOrderOwnerId,
   type CreateOrderInput,
+  type RestoreOrderInput,
   type OrderId,
   type OrderOwnerId,
   type OrderSide,
   type OrderStatus,
   type OrderTerminalReason,
 } from "./domain/order.js";
+export {
+  maximumPlacementIdempotencyKeyLength,
+  parsePlacementIdempotencyKey,
+  type PlacementIdempotencyKey,
+} from "./domain/placement-idempotency-key.js";
 export { matchIncomingOrder, type MatchExecution, type MatchResult } from "./domain/matcher.js";
 export {
   TradingInputValidationError,
@@ -46,3 +52,9 @@ export {
   PostgresTradingTransactionRunner,
   type TradingCompositeDatabaseSchema,
 } from "./infrastructure/persistence/postgres-trading-transaction-runner.js";
+export {
+  PlaceOrder,
+  type PlaceOrderCommand,
+  type PlaceOrderExpectedFailure,
+  type PlaceOrderResult,
+} from "./application/place-order.js";

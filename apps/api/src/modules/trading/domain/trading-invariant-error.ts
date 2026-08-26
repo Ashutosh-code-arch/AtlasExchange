@@ -6,7 +6,12 @@ export type TradingInvariantIssue =
   | "ORDER_MARKET_MISMATCH"
   | "ORDER_PRIORITY_INVALID"
   | "ORDER_SIDE_INVALID"
-  | "ORDER_TERMINAL";
+  | "ORDER_SNAPSHOT_INVALID"
+  | "ORDER_TERMINAL"
+  | "ORDER_VERSION_CONFLICT"
+  | "PLACEMENT_FINANCIAL_EFFECT_CONFLICT"
+  | "PLACEMENT_MARKET_ASSET_MISSING"
+  | "PLACEMENT_MATCH_STATE_INVALID";
 
 export class TradingInvariantError extends Error {
   public constructor(public readonly issue: TradingInvariantIssue) {

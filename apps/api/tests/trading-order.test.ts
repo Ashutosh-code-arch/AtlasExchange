@@ -6,8 +6,10 @@ import {
   Order,
   TradingInputValidationError,
   TradingInvariantError,
+  maximumPlacementIdempotencyKeyLength,
   parseOrderId,
   parseOrderOwnerId,
+  parsePlacementIdempotencyKey,
   type OrderId,
   type OrderOwnerId,
   type OrderSide,
@@ -133,9 +135,64 @@ describe("Trading order identity and creation", () => {
       "ORDER_MARKET_MISMATCH",
     );
   });
+
+  it("accepts bounded placement keys and rejects ambiguous keys", () => {
+    expect(parsePlacementIdempotencyKey("place-order-1")).toBe("place-order-1");
+    expect(
+      parsePlacementIdempotencyKey("x".repeat(maximumPlacementIdempotencyKeyLength)),
+    ).toHaveLength(maximumPlacementIdempotencyKeyLength);
+    for (const input of ["", " padded", "padded ", "x".repeat(201)]) {
+      expect(() => parsePlacementIdempotencyKey(input)).toThrow(
+        expect.objectContaining({ field: "idempotencyKey", issue: "IDEMPOTENCY_KEY_INVALID" }),
+      );
+    }
+  });
 });
 
 describe("Trading order lifecycle", () => {
+  it("restores a valid persisted lifecycle snapshot", () => {
+    const original = createOrder();
+    const restored = Order.restore({
+      id: original.id,
+      ownerId: original.ownerId,
+      side: original.side,
+      quantity: original.quantity,
+      limitPrice: original.limitPrice,
+      priority: original.priority,
+      filledLots: 1n,
+      remainingLots: 2n,
+      status: "partially_filled",
+      version: 1n,
+    });
+
+    expect(restored).toMatchObject({
+      filledLots: 1n,
+      remainingLots: 2n,
+      status: "partially_filled",
+      version: 1n,
+    });
+  });
+
+  it("rejects an internally inconsistent persisted snapshot", () => {
+    const original = createOrder();
+    expectInvariant(
+      () =>
+        Order.restore({
+          id: original.id,
+          ownerId: original.ownerId,
+          side: original.side,
+          quantity: original.quantity,
+          limitPrice: original.limitPrice,
+          priority: original.priority,
+          filledLots: 1n,
+          remainingLots: 2n,
+          status: "partially_filled",
+          version: 0n,
+        }),
+      "ORDER_SNAPSHOT_INVALID",
+    );
+  });
+
   it("returns new snapshots for partial and complete fills", () => {
     const original = createOrder();
     const partial = original.applyFill(1n);

@@ -147,6 +147,16 @@ describe("Trading market quantities and prices", () => {
     expect(Object.isFrozen(limitPrice)).toBe(true);
   });
 
+  it("reconstructs exact quantities and prices from persisted lots and ticks", () => {
+    const quantity = market.quantityForLots(1_250n);
+    const limitPrice = market.limitPriceForTicks(5_000n);
+
+    expect(quantity.toCanonicalDecimal()).toBe("1.25");
+    expect(limitPrice.toCanonicalDecimal()).toBe("50000");
+    expect(quantity.lots).toBe(1_250n);
+    expect(limitPrice.ticks).toBe(5_000n);
+  });
+
   it("derives an exact quote notional without rounding", () => {
     const notional = market.quoteNotional(
       market.parseQuantity("1.25"),
