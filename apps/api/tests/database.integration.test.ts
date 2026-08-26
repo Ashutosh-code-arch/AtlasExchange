@@ -46,10 +46,12 @@ describe("PostgreSQL foundation integration", () => {
       "0005_provision_mvp_asset_catalog.sql",
       "0006_create_simulated_deposit_schema.sql",
       "0007_create_simulated_withdrawal_schema.sql",
+      "0008_create_trading_schema.sql",
+      "0009_create_trading_reservation_schema.sql",
     ]);
     await expect(applyMigrations(integrationDatabaseUrl)).resolves.toEqual([]);
 
-    const compatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "7");
+    const compatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "9");
     const incompatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "999");
 
     await expect(compatibleDatabase.checkReadiness()).resolves.toBe(true);
@@ -64,6 +66,6 @@ describe("PostgreSQL foundation integration", () => {
     );
     await verificationPool.end();
 
-    expect(result.rows[0]?.count).toBe("7");
+    expect(result.rows[0]?.count).toBe("9");
   });
 });

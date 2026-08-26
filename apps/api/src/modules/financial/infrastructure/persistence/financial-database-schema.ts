@@ -81,6 +81,29 @@ interface WithdrawalsTable {
   completed_at: GeneratedTimestamp;
 }
 
+interface TradingReservationsTable {
+  order_id: string;
+  owner_id: string;
+  market_code: string;
+  side: "buy" | "sell";
+  asset_code: string;
+  original_amount: string;
+  remaining_amount: string;
+  status: "active" | "consumed" | "released";
+  reservation_journal_id: string;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+interface TradingReservationMovementsTable {
+  reservation_order_id: string;
+  journal_id: string;
+  movement_kind: "release" | "trade_settlement";
+  amount: string;
+  trade_id: string | null;
+  created_at: GeneratedTimestamp;
+}
+
 export interface FinancialDatabaseSchema {
   "financial.assets": AssetsTable;
   "financial.deposits": DepositsTable;
@@ -88,5 +111,7 @@ export interface FinancialDatabaseSchema {
   "financial.ledger_accounts": LedgerAccountsTable;
   "financial.journal_transactions": JournalTransactionsTable;
   "financial.journal_postings": JournalPostingsTable;
+  "financial.trading_reservations": TradingReservationsTable;
+  "financial.trading_reservation_movements": TradingReservationMovementsTable;
   "financial.withdrawals": WithdrawalsTable;
 }

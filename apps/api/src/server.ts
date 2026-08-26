@@ -16,6 +16,7 @@ import {
   createFinancialModuleRouter,
   type FinancialDatabaseSchema,
 } from "./modules/financial/index.js";
+import type { TradingDatabaseSchema } from "./modules/trading/index.js";
 import {
   createDatabaseResources,
   type DatabaseResources,
@@ -31,7 +32,10 @@ import {
 } from "./platform/lifecycle/process-lifecycle.js";
 import { createLogger } from "./platform/logging/logger.js";
 
-type AtlasDatabaseSchema = DatabaseSchema & IdentityDatabaseSchema & FinancialDatabaseSchema;
+type AtlasDatabaseSchema = DatabaseSchema &
+  IdentityDatabaseSchema &
+  FinancialDatabaseSchema &
+  TradingDatabaseSchema;
 
 interface RunningServer extends ManagedRuntime {
   readonly server: Server;

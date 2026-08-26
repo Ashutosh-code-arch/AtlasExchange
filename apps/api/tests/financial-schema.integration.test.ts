@@ -101,6 +101,8 @@ describe("Financial schema migrations", () => {
       "journal_postings",
       "journal_transactions",
       "ledger_accounts",
+      "trading_reservation_movements",
+      "trading_reservations",
       "wallets",
       "withdrawals",
     ]);
@@ -108,7 +110,7 @@ describe("Financial schema migrations", () => {
     const version = await pool.query<{ value: string }>(
       "SELECT value FROM atlas_system_metadata WHERE key = 'schema_version'",
     );
-    expect(version.rows[0]?.value).toBe("7");
+    expect(version.rows[0]?.value).toBe("9");
   });
 
   it("enforces canonical asset codes, names, scales, and states", async () => {

@@ -28,3 +28,4 @@ export {
   TradingInvariantError,
   type TradingInvariantIssue,
 } from "./domain/trading-invariant-error.js";
+export type { TradingDatabaseSchema } from "./infrastructure/persistence/trading-database-schema.js";

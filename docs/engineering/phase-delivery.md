@@ -132,9 +132,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - ADR-028 accepts the transaction-bound Trading funds capability, complete placement-effect plan,
   Financial-owned reservation resource and movement history, one settlement journal per trade,
   exact price-improvement posting, residual release, and deterministic account-lock protocol.
-- Market provisioning, Trading persistence, Financial reservation persistence, the composite unit
-  of work, and atomic placement and cancellation orchestration may now be implemented. Public
-  Trading transport remains separately gated by its contract decision.
+- Committed migrations provision the exact BTC-USD and ETH-USD catalog, durable markets, monotonic
+  orders, append-only trades, matching indexes, Financial-owned reservations, and immutable
+  reservation movements. Deferred PostgreSQL constraints reconcile market state, order and trade
+  roles, reservation lifecycles, and exact reservation, release, and settlement journal shapes.
+- Kysely schema ownership and runtime compatibility advance through schema version 9. Focused
+  real-PostgreSQL evidence covers catalog exactness, lifecycle constraints, matching order, market
+  state, trade roles, reservation reconciliation, residual release, and price-improved settlement.
+- The transaction-bound Financial capability, Trading repositories, composite unit of work, and
+  atomic placement and cancellation application orchestration remain the next implementation
+  increment. Public Trading transport remains separately gated by its contract decision.
 
 ## Phase transition rule
 
