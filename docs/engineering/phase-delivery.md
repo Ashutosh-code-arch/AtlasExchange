@@ -110,10 +110,14 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   defines the complete-placement Financial plan, transaction-bound module capability, reservation
   resource and movement history, exact journal shapes, price-improvement calculation, release
   behavior, idempotency, and deterministic cross-market account locking.
+- [ADR-029 — Public Trading HTTP API and Read Contract](../architecture/decisions/ADR-029-public-trading-http-api-and-read-contract.md)
+  defines the public market catalog, authenticated placement and cancellation commands,
+  owner-scoped order and trade reads, canonical decimal representations, bounded pagination,
+  transport idempotency, security controls, cache policy, rate limits, and public error taxonomy.
 - Trading persistence, Financial reservation persistence, and atomic placement and cancellation
-  orchestration are implemented. Public transport remains separately gated.
-- Public Trading routes, read models, Market Data projections, and browser workflows remain gated by
-  their own contracts and do not enter the matching authority implicitly.
+  orchestration are implemented. ADR-029 accepts the public transport and owner-read contract.
+- Public Trading routes and owner-scoped readers may now be implemented. Market Data projections and
+  browser workflows remain separately gated and do not enter the matching authority implicitly.
 
 ## Phase 4 delivery state
 
@@ -144,7 +148,8 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   deterministic matching, trade persistence, and Financial reservation and settlement in one
   transaction. Cancellation now locks market before order, releases the exact Financial residual,
   supports identical retries, and serializes correctly against concurrent matching. Public Trading
-  transport remains separately gated by its contract decision.
+  transport is accepted by ADR-029 and may now be implemented. Market Data projections and browser
+  workflows remain separately gated.
 
 ## Phase transition rule
 
