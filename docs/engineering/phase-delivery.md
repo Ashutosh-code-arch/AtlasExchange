@@ -106,9 +106,12 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   defines the initial BTC-USD and ETH-USD catalog, exact settlement-compatible increments, Trading
   schema ownership, durable lifecycle constraints, immutable executions, indexes, idempotency, and
   locking protocol.
-- Trading and market-catalog persistence may now begin. Cross-module reservation, release,
-  settlement, and price-improvement orchestration remains gated by the focused Financial-capability
-  decision that follows.
+- [ADR-028 — Financial Reservation, Release, and Trade Settlement Capabilities](../architecture/decisions/ADR-028-financial-reservation-release-and-trade-settlement-capabilities.md)
+  defines the complete-placement Financial plan, transaction-bound module capability, reservation
+  resource and movement history, exact journal shapes, price-improvement calculation, release
+  behavior, idempotency, and deterministic cross-market account locking.
+- Trading persistence, Financial reservation persistence, and atomic placement and cancellation
+  orchestration may now be implemented. Public transport remains separately gated.
 - Public Trading routes, read models, Market Data projections, and browser workflows remain gated by
   their own contracts and do not enter the matching authority implicitly.
 
@@ -126,9 +129,12 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   ordering, buy and sell execution roles, terminal behavior, market isolation, and self-trade cases.
 - ADR-027 accepts the initial BTC-USD and ETH-USD market catalog and the durable markets, orders,
   trades, priority, lifecycle, idempotency, indexing, immutability, and per-market locking model.
-- Market provisioning and Trading persistence may now be implemented. Financial reservation,
-  release, settlement, and price-improvement capabilities remain the next focused decision before
-  atomic order orchestration; public transport remains separately gated.
+- ADR-028 accepts the transaction-bound Trading funds capability, complete placement-effect plan,
+  Financial-owned reservation resource and movement history, one settlement journal per trade,
+  exact price-improvement posting, residual release, and deterministic account-lock protocol.
+- Market provisioning, Trading persistence, Financial reservation persistence, the composite unit
+  of work, and atomic placement and cancellation orchestration may now be implemented. Public
+  Trading transport remains separately gated by its contract decision.
 
 ## Phase transition rule
 
