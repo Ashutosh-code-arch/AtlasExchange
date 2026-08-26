@@ -102,10 +102,33 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   execution, self-trade prevention, reservation, atomic settlement, idempotency, and concurrency.
 - The first implementation increment is the independently testable market-value, order-lifecycle,
   and deterministic-matching domain core.
-- Trading persistence remains gated by focused market-catalog, schema, and Financial-capability
-  decisions that preserve ADR-026's exact-settlement and module-boundary rules.
+- [ADR-027 — MVP Trading Market Catalog and Persistence Strategy](../architecture/decisions/ADR-027-mvp-trading-market-catalog-and-persistence-strategy.md)
+  defines the initial BTC-USD and ETH-USD catalog, exact settlement-compatible increments, Trading
+  schema ownership, durable lifecycle constraints, immutable executions, indexes, idempotency, and
+  locking protocol.
+- Trading and market-catalog persistence may now begin. Cross-module reservation, release,
+  settlement, and price-improvement orchestration remains gated by the focused Financial-capability
+  decision that follows.
 - Public Trading routes, read models, Market Data projections, and browser workflows remain gated by
   their own contracts and do not enter the matching authority implicitly.
+
+## Phase 4 delivery state
+
+- Exact market-code, lot, price-tick, quantity, and quote-notional primitives are implemented using
+  Financial's public asset and atomic-value boundaries without floating-point arithmetic or hidden
+  settlement rounding.
+- Immutable order snapshots enforce the accepted open, partially filled, filled, and cancelled
+  lifecycle while preserving original intent, residual quantity, terminal reason, and version.
+- The database-independent matcher implements crossing rules, maker-price execution, best-price then
+  acceptance-priority ordering, deterministic ID tie-breaking, partial fills, and cancel-taker
+  self-trade prevention without mutating caller state.
+- Focused domain tests cover exact conversion, bounds, overflow, lifecycle transitions, price-time
+  ordering, buy and sell execution roles, terminal behavior, market isolation, and self-trade cases.
+- ADR-027 accepts the initial BTC-USD and ETH-USD market catalog and the durable markets, orders,
+  trades, priority, lifecycle, idempotency, indexing, immutability, and per-market locking model.
+- Market provisioning and Trading persistence may now be implemented. Financial reservation,
+  release, settlement, and price-improvement capabilities remain the next focused decision before
+  atomic order orchestration; public transport remains separately gated.
 
 ## Phase transition rule
 
