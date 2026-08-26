@@ -148,8 +148,12 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   deterministic matching, trade persistence, and Financial reservation and settlement in one
   transaction. Cancellation now locks market before order, releases the exact Financial residual,
   supports identical retries, and serializes correctly against concurrent matching. Public Trading
-  transport is accepted by ADR-029 and may now be implemented. Market Data projections and browser
-  workflows remain separately gated.
+  transport is accepted by ADR-029. Shared Trading contracts now enforce strict market, placement,
+  order, cancellation, trade-history, pagination, and public-error shapes; canonical decimals;
+  coherent lifecycle and quantity state; deterministic collection ordering; and omission of owner,
+  counterparty, reservation, settlement, and persistence internals. Owner-scoped readers and HTTP
+  routes may now be implemented. Market Data projections and browser workflows remain separately
+  gated.
 
 ## Phase transition rule
 
