@@ -63,6 +63,19 @@ export {
 } from "./application/get-simulated-withdrawal.js";
 export { ListAssets, type ListAssetsResult } from "./application/list-assets.js";
 export {
+  FinancialTradingFunds,
+  type ApplyTradingPlacementEffectsPlan,
+  type ApplyTradingPlacementEffectsResult,
+  type ReleaseTradingOrderReservationCommand,
+  type ReleaseTradingOrderReservationResult,
+  type TradingExecutionIntent,
+  type TradingFundsTransaction,
+  type TradingIncomingReservationIntent,
+  type TradingMarketReference,
+  type TradingOrderSide,
+  type TradingReservationReleaseReason,
+} from "./application/trading-funds.js";
+export {
   ListWallets,
   type ListWalletsCommand,
   type ListWalletsResult,
