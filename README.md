@@ -3,9 +3,9 @@
 Atlas Exchange is a production-inspired centralized-exchange learning platform. The repository is
 being delivered incrementally so every phase leaves behind a runnable, tested system.
 
-## Current phase: Trading
+## Current phase: Market Data
 
-The implemented foundation, Identity, and Financial phases provide:
+The implemented foundation, Identity, Financial, and Trading phases provide:
 
 - a pnpm TypeScript monorepo;
 - a React/Vite operations console;
@@ -19,18 +19,14 @@ The implemented foundation, Identity, and Financial phases provide:
   balances, and retry-safe simulated deposits and withdrawals;
 - an authenticated Financial web sandbox that makes no external-custody claims;
 - isolated Identity, Financial, and Trading browser journeys through the web, API, PostgreSQL, and
-  Mailpit.
+  Mailpit;
+- exact spot limit orders, durable reservation, deterministic price-time matching, immutable trades,
+  atomic four-wallet settlement, owner-scoped history, and a responsive exchange-style Trading desk.
 
-The active phase introduces orders, balance reservation, deterministic matching, trades, atomic
-settlement, owner-scoped reads, and the public Trading HTTP surface. Core Trading persistence,
-commands, shared contracts, authoritative readers, and the complete public market, private
-order/trade read, placement, and cancellation HTTP surface are implemented; Trading browser
-delivery now includes contract-validating API functions and authenticated market, order, trade,
-pagination, placement, cancellation, retry, and refresh state. A responsive exchange desk now
-exposes public market rules, authenticated limit-order entry, open-order management, execution
-history, and truthful Market Data deferral without inventing live prices or liquidity.
-The isolated two-user Trading journey proves maker-price execution, exact wallet settlement,
-persisted balances, and residual-order cancellation through the complete stack.
+The active phase derives truthful Market Data from committed Atlas Trading facts. It will introduce
+sequence-aware level-two order-book views, trade-derived tickers and candles, durable projection
+checkpoints, snapshot recovery, and later WebSocket delivery without making Market Data part of the
+matching or settlement authority. External prices and fabricated liquidity remain out of scope.
 
 ## Prerequisites
 

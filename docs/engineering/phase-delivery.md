@@ -11,8 +11,8 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 | 1. Engineering foundation | Reproducible monorepo, web/API shells, PostgreSQL, quality gates | Implemented |
 | 2. Identity               | Registration, login, session rotation, roles, account profile    | Implemented |
 | 3. Financial foundation   | Assets, wallets, double-entry ledger, deposits, withdrawals      | Implemented |
-| 4. Trading                | Orders, reservation, matching, trades, atomic settlement         | Active      |
-| 5. Market data            | Order-book views, tickers, candles, WebSocket streams            | Planned     |
+| 4. Trading                | Orders, reservation, matching, trades, atomic settlement         | Implemented |
+| 5. Market data            | Order-book views, tickers, candles, WebSocket streams            | Active      |
 | 6. Product surfaces       | Portfolio, notifications, administration                         | Planned     |
 | 7. Production readiness   | Security hardening, metrics, rate limits, performance            | Planned     |
 | 8. Deployment             | Deployment, runbooks, monitoring, interview evidence             | Planned     |
@@ -183,6 +183,33 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   wallet provisioning and funding, maker-price matching, taker/maker execution visibility, exact
   four-wallet settlement, residual cancellation and release, and persisted balances through the
   real web, API, PostgreSQL, and Mailpit stack.
+
+## Phase 4 acceptance criteria
+
+- Exact market values, order lifecycle, price-time matching, maker-price execution, and cancel-taker
+  self-trade prevention are enforced independently of transport and process memory.
+- Order placement, reservation, matching, trades, four-wallet settlement, price-improvement release,
+  and command idempotency commit or roll back atomically.
+- Cancellation releases the exact residual reservation and remains safe across retries, ownership
+  boundaries, terminal states, and concurrent matching.
+- Shared contracts and the public HTTP surface enforce canonical decimals, trusted ownership, CSRF,
+  idempotency, rate limits, safe errors, bounded pagination, and public/private data separation.
+- The responsive Trading workspace provides market selection, exact limit-order entry, open-order
+  cancellation, execution history, retry guidance, and honest Market Data deferral.
+- Domain, contract, real-PostgreSQL integration, HTTP, component, and isolated browser tests prove
+  matching priority, concurrency, rollback, settlement, ownership, retry, persistence, and the
+  complete two-user Trading lifecycle.
+- `pnpm verify`, `pnpm build`, and `pnpm test:e2e` pass at the phase boundary.
+
+## Phase 5 entry criteria
+
+- [ADR-030 — Market Data Projection and Sequencing Foundation](../architecture/decisions/ADR-030-market-data-projection-and-sequencing-foundation.md)
+  defines the rebuildable projection boundary, durable committed Trading facts, per-market sequence,
+  idempotent checkpoints, initial book/ticker/candle concepts, freshness semantics, recovery, and
+  deterministic testing requirements.
+- The first implementation increment is the independently testable versioned Trading fact contract,
+  per-market publication sequence, durable fact persistence, and Market Data checkpoint boundary.
+- Public REST snapshots and WebSocket delivery remain gated by focused contracts.
 
 ## Phase transition rule
 
