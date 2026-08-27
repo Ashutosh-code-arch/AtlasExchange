@@ -2,9 +2,10 @@ import { randomBytes, randomUUID } from "node:crypto";
 
 import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  MarketDataProjectionWorker,
   PostgresLevelTwoOrderBookReader,
   PostgresMarketDataProjectionCheckpointReader,
   PostgresMarketDataProjectionTransactionRunner,
@@ -14,6 +15,7 @@ import {
 import {
   PostgresTradingPublicationFactReader,
   parseMarketCode,
+  type Market,
   type TradingDatabaseSchema,
   type TradingOrderStateFact,
   type TradingPublicationFact,
@@ -21,6 +23,7 @@ import {
   type TradingPublicationFactReader,
 } from "../src/modules/trading/index.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
+import { createLogger } from "../src/platform/logging/logger.js";
 
 const baseDatabaseUrl =
   process.env.DATABASE_URL ?? "postgresql://atlas:atlas_local_only@127.0.0.1:5432/atlas";
@@ -283,6 +286,85 @@ describe("Market Data level-two PostgreSQL projection", () => {
       "SELECT COUNT(*)::TEXT AS count FROM market_data.projection_checkpoints WHERE market_code = 'ETH-USD'",
     );
     expect(rows.rows[0]?.count).toBe("0");
+  });
+
+  it("polls committed facts, exposes exact lag, and resumes after later publication", async () => {
+    const orderId = randomUUID();
+    await insertOrderFact(1, {
+      orderId,
+      side: "buy",
+      priceTicks: "100",
+      remainingLots: "5",
+    });
+    await pool.query(
+      "UPDATE trading.market_publication_sequences SET last_sequence = 1 WHERE market_code = 'BTC-USD'",
+    );
+    const worker = new MarketDataProjectionWorker(
+      { list: () => Promise.resolve([{ code: btcUsd } as Market]) },
+      {
+        execute: (input) =>
+          new ProjectLevelTwoOrderBook(
+            tradingFactReader,
+            checkpointReader,
+            transactionRunner,
+          ).execute(input),
+      },
+      tradingFactReader,
+      createLogger({ level: "info", environment: "test", applicationVersion: "test" }),
+      {
+        batchSize: 1,
+        maximumBatchesPerCycle: 2,
+        pollIntervalMs: 25,
+        retryInitialDelayMs: 25,
+        retryMaximumDelayMs: 100,
+      },
+    );
+
+    await worker.start();
+    try {
+      await vi.waitFor(
+        async () => {
+          await expect(snapshotReader.getSnapshot(btcUsd)).resolves.toMatchObject({
+            sequence: 1n,
+            bids: [{ priceTicks: 100n, aggregateRemainingLots: 5n, orderCount: 1n }],
+          });
+          expect(worker.getStatus().markets[0]).toMatchObject({
+            state: "caught_up",
+            projectedSequence: 1n,
+            publishedSequence: 1n,
+            lag: 0n,
+          });
+        },
+        { timeout: 2_000, interval: 20 },
+      );
+
+      await insertOrderFact(2, {
+        orderId,
+        side: "buy",
+        priceTicks: "100",
+        remainingLots: "5",
+        status: "cancelled",
+      });
+      await pool.query(
+        "UPDATE trading.market_publication_sequences SET last_sequence = 2 WHERE market_code = 'BTC-USD'",
+      );
+      await vi.waitFor(
+        async () => {
+          await expect(snapshotReader.getSnapshot(btcUsd)).resolves.toMatchObject({
+            sequence: 2n,
+            bids: [],
+            asks: [],
+          });
+        },
+        { timeout: 2_000, interval: 20 },
+      );
+    } finally {
+      await worker.stop();
+    }
+    expect(worker.getStatus()).toMatchObject({
+      running: false,
+      markets: [{ state: "stopped", projectedSequence: 2n, lag: 0n }],
+    });
   });
 
   it("enforces one active generation and exact positive projection values", async () => {

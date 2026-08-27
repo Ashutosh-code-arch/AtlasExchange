@@ -16,6 +16,10 @@ import {
   createFinancialModuleRouter,
   type FinancialDatabaseSchema,
 } from "./modules/financial/index.js";
+import {
+  createMarketDataProjectionWorker,
+  type MarketDataDatabaseSchema,
+} from "./modules/market-data/index.js";
 import { createTradingModuleRouter, type TradingDatabaseSchema } from "./modules/trading/index.js";
 import {
   createDatabaseResources,
@@ -35,7 +39,8 @@ import { createLogger } from "./platform/logging/logger.js";
 type AtlasDatabaseSchema = DatabaseSchema &
   IdentityDatabaseSchema &
   FinancialDatabaseSchema &
-  TradingDatabaseSchema;
+  TradingDatabaseSchema &
+  MarketDataDatabaseSchema;
 
 interface RunningServer extends ManagedRuntime {
   readonly server: Server;
@@ -136,6 +141,19 @@ async function start(): Promise<RunningServer> {
       secureCookies: config.identity.sessionSecurity.secureCookies,
       webOrigin: config.http.webOrigin,
     });
+    const marketDataWorker = config.marketData.projection.enabled
+      ? createMarketDataProjectionWorker({
+          database: database.database,
+          logger,
+          worker: config.marketData.projection,
+        })
+      : undefined;
+    if (marketDataWorker === undefined) {
+      logger.info(
+        { event: "market_data.projection_worker.disabled" },
+        "Market Data projection worker disabled",
+      );
+    }
     const app = createApp({
       lifecycle,
       logger,
@@ -150,6 +168,7 @@ async function start(): Promise<RunningServer> {
       server,
       lifecycle,
       database,
+      workers: marketDataWorker === undefined ? [] : [marketDataWorker],
       logger,
       shutdownTimeoutMs: config.http.shutdownTimeoutMs,
       startListening: () => listen(server, config.http.port),

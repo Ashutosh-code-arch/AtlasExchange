@@ -140,8 +140,9 @@ Projection failure does not roll back an already committed Trading command. It l
 Market Data generation and checkpoint readable and stops progress for the affected market until the
 cause is corrected or the projection is rebuilt.
 
-This slice provides sequence and authoritative `asOf` state. It does not yet define maximum lag,
-readiness impact, structured worker retry, public stale-state behavior, or operational alerts.
+This slice provides sequence and authoritative `asOf` state. ADR-033 defines exact lag diagnostics,
+readiness separation, and structured worker retry. Public stale-state behavior, freshness
+objectives, and operational alert thresholds remain deferred.
 
 ## 7. Deterministic evidence
 
@@ -193,13 +194,14 @@ transaction-scoped advisory lock fits the existing deployment without new infras
 - A hot market has one serialized projector transaction at a time.
 - PostgreSQL advisory-lock identity must remain stable across projector versions.
 - Generation activation and cleanup require a later operational workflow.
-- Market Data remains eventually consistent and is not yet updated by a running worker.
+- Market Data remains eventually consistent even when the managed worker is running.
 
 # Deferred Decisions
 
 This ADR does not decide:
 
-1. projector polling, retry/backoff, lifecycle shutdown, and observability configuration;
+1. projector polling, retry/backoff, lifecycle shutdown, and observability configuration, resolved
+   by ADR-033;
 2. offline or online rebuild commands and generation activation protocol;
 3. public level-two REST schema, depth limits, caching, freshness, or errors;
 4. ticker and candle projection persistence;
@@ -226,5 +228,5 @@ necessary, or Market Data moves to a separately deployed service or storage engi
 **Accepted**
 
 Migration 0011, the generation-aware projection schema, atomic level-two projector, durable
-checkpoint, and private snapshot reader may be implemented. Worker lifecycle and public adapters
-remain separately gated.
+checkpoint, and private snapshot reader may be implemented. ADR-033 resolves worker lifecycle,
+retry, and lag diagnostics; public adapters remain separately gated.

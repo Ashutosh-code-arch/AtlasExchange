@@ -16,6 +16,14 @@ describe("API configuration", () => {
     expect(config.database.expectedSchemaVersion).toBe("11");
     expect(config.financial.simulatedFundingEnabled).toBe(true);
     expect(config.financial.simulatedWithdrawalsEnabled).toBe(true);
+    expect(config.marketData.projection).toEqual({
+      enabled: true,
+      pollIntervalMs: 250,
+      batchSize: 250,
+      maximumBatchesPerCycle: 8,
+      retryInitialDelayMs: 500,
+      retryMaximumDelayMs: 30_000,
+    });
     expect(config.identity.passwordBlocklistPath).toMatch(
       /resources\/development-password-blocklist\.sha256$/,
     );
@@ -33,6 +41,7 @@ describe("API configuration", () => {
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.database)).toBe(true);
     expect(Object.isFrozen(config.financial)).toBe(true);
+    expect(Object.isFrozen(config.marketData.projection)).toBe(true);
   });
 
   it("rejects a missing database URL without exposing values", () => {
@@ -43,6 +52,41 @@ describe("API configuration", () => {
 
   it("rejects invalid ports", () => {
     expect(() => parseApiConfig({ ...validEnvironment, API_PORT: "70000" })).toThrow(/API_PORT/);
+  });
+
+  it("validates explicit Market Data projection worker boundaries", () => {
+    const config = parseApiConfig({
+      ...validEnvironment,
+      MARKET_DATA_PROJECTION_ENABLED: "false",
+      MARKET_DATA_PROJECTION_POLL_INTERVAL_MS: "50",
+      MARKET_DATA_PROJECTION_BATCH_SIZE: "1000",
+      MARKET_DATA_PROJECTION_MAX_BATCHES_PER_CYCLE: "25",
+      MARKET_DATA_PROJECTION_RETRY_INITIAL_DELAY_MS: "100",
+      MARKET_DATA_PROJECTION_RETRY_MAXIMUM_DELAY_MS: "5000",
+    });
+    expect(config.marketData.projection).toEqual({
+      enabled: false,
+      pollIntervalMs: 50,
+      batchSize: 1_000,
+      maximumBatchesPerCycle: 25,
+      retryInitialDelayMs: 100,
+      retryMaximumDelayMs: 5_000,
+    });
+    expect(() =>
+      parseApiConfig({ ...validEnvironment, MARKET_DATA_PROJECTION_BATCH_SIZE: "1001" }),
+    ).toThrowError(new ConfigurationError(["MARKET_DATA_PROJECTION_BATCH_SIZE"]));
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        MARKET_DATA_PROJECTION_RETRY_INITIAL_DELAY_MS: "1000",
+        MARKET_DATA_PROJECTION_RETRY_MAXIMUM_DELAY_MS: "500",
+      }),
+    ).toThrowError(
+      new ConfigurationError([
+        "MARKET_DATA_PROJECTION_RETRY_INITIAL_DELAY_MS",
+        "MARKET_DATA_PROJECTION_RETRY_MAXIMUM_DELAY_MS",
+      ]),
+    );
   });
 
   it("defaults simulated Financial operations off in managed environments and permits explicit overrides", () => {

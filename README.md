@@ -29,7 +29,9 @@ checkpoints, snapshot recovery, and later WebSocket delivery without making Mark
 matching or settlement authority. External prices and fabricated liquidity remain out of scope.
 The Trading boundary publishes private-safe, versioned final-state facts under a durable per-market
 sequence. Market Data now consumes that boundary into generation-aware checkpoints, private active
-order state, and exact deterministic level-two aggregates with replay and gap protection.
+order state, and exact deterministic level-two aggregates with replay and gap protection. A managed
+per-market worker continuously advances those projections with bounded polling, retry/backoff,
+graceful shutdown, and structured sequence-lag diagnostics.
 
 ## Prerequisites
 

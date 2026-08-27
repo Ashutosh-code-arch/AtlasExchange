@@ -6,8 +6,9 @@ import {
   type TradingPublicationFact,
   type TradingPublicationFactPageInput,
   type TradingPublicationFactReader,
+  type TradingPublicationSequenceReader,
 } from "../../application/trading-publication-facts.js";
-import { parseMarketCode } from "../../domain/market.js";
+import { parseMarketCode, type MarketCode } from "../../domain/market.js";
 import type { TradingDatabaseSchema } from "./trading-database-schema.js";
 
 interface PublicationFactRow {
@@ -43,7 +44,9 @@ function mapFact(row: PublicationFactRow): TradingPublicationFact {
       };
 }
 
-export class PostgresTradingPublicationFactReader implements TradingPublicationFactReader {
+export class PostgresTradingPublicationFactReader
+  implements TradingPublicationFactReader, TradingPublicationSequenceReader
+{
   public constructor(private readonly database: Kysely<TradingDatabaseSchema>) {}
 
   public async listAfter(
@@ -75,5 +78,14 @@ export class PostgresTradingPublicationFactReader implements TradingPublicationF
       .limit(input.limit)
       .execute();
     return (rows as readonly PublicationFactRow[]).map(mapFact);
+  }
+
+  public async getLastPublishedSequence(marketCode: MarketCode): Promise<bigint> {
+    const row = await this.database
+      .selectFrom("trading.market_publication_sequences")
+      .select("last_sequence as lastSequence")
+      .where("market_code", "=", marketCode)
+      .executeTakeFirstOrThrow();
+    return BigInt(row.lastSequence);
   }
 }

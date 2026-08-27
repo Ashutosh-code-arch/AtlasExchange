@@ -245,6 +245,18 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   replacement, cancellation and fill removal, deterministic bid/ask ordering, trade-only checkpoint
   advancement, restart, replay idempotency, concurrent projectors, sequence gaps, transaction
   rollback, generation uniqueness, and positive-value constraints.
+- [ADR-033 — Market Data Projection Worker Lifecycle and Lag Observability](../architecture/decisions/ADR-033-market-data-projection-worker-lifecycle-and-lag-observability.md)
+  defines the in-process per-market loops, bounded polling budget, validated configuration,
+  independent exponential retry, exact high-watermark lag, structured diagnostics, readiness
+  separation, and managed startup/shutdown order.
+- The API now discovers the Trading market catalog after database readiness and continuously runs
+  the level-two projector for each market. It limits work per cycle, exposes process-local projected
+  and published sequences plus lag and failure state, logs failures and recovery without fact
+  payloads, and waits for in-flight projection work before closing PostgreSQL.
+- Deterministic worker tests cover discovery, immediate projection, exact lag, bounded catch-up,
+  retry, recovery, graceful stop, invalid configuration, and lifecycle cleanup. Real-PostgreSQL
+  evidence proves automatic consumption of committed facts and later cancellation while the worker
+  is running.
 
 ## Phase transition rule
 

@@ -297,7 +297,8 @@ This ADR does not decide:
 3. supported book depths, candle intervals, retention, and historical pagination;
 4. WebSocket protocol, authentication, subscriptions, deltas, and backpressure;
 5. exact freshness service objectives and alert thresholds;
-6. worker polling interval, batch size, lease mechanism, and shutdown timeout;
+6. worker polling interval, batch size, coordination mechanism, and shutdown behavior, resolved by
+   ADR-033;
 7. percentage-change precision and presentation;
 8. external reference data, index prices, mark prices, or provider reconciliation;
 9. cross-region delivery, Kafka, separate services, or dedicated analytical storage.
@@ -319,6 +320,7 @@ product enters scope.
 - [ADR-026 — Trading Market, Order, and Matching Foundation](ADR-026-trading-market-order-and-matching-foundation.md)
 - [ADR-027 — MVP Trading Market Catalog and Persistence Strategy](ADR-027-mvp-trading-market-catalog-and-persistence-strategy.md)
 - [ADR-029 — Public Trading HTTP API and Read Contract](ADR-029-public-trading-http-api-and-read-contract.md)
+- [ADR-033 — Market Data Projection Worker Lifecycle and Lag Observability](ADR-033-market-data-projection-worker-lifecycle-and-lag-observability.md)
 - [Atlas Testing Strategy](../../engineering/testing-strategy.md)
 - [Atlas Exchange Phase Delivery](../../engineering/phase-delivery.md)
 

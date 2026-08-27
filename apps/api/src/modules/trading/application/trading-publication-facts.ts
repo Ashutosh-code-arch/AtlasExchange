@@ -82,6 +82,10 @@ export interface TradingPublicationFactReader {
   listAfter(input: TradingPublicationFactPageInput): Promise<readonly TradingPublicationFact[]>;
 }
 
+export interface TradingPublicationSequenceReader {
+  getLastPublishedSequence(marketCode: MarketCode): Promise<bigint>;
+}
+
 export function parseTradingPublicationFactPayload(
   kind: "order_state",
   schemaVersion: number,

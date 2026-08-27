@@ -68,6 +68,7 @@ export {
   type TradingPublicationFactKind,
   type TradingPublicationFactPageInput,
   type TradingPublicationFactReader,
+  type TradingPublicationSequenceReader,
   type TradingTradeExecutedFact,
   type TradingTradeExecutedFactPayload,
 } from "./application/trading-publication-facts.js";

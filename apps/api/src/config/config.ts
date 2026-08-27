@@ -7,6 +7,7 @@ const developmentPasswordBlocklistPath = fileURLToPath(
 );
 
 const integerString = z.string().regex(/^\d+$/, "must be a positive integer");
+const booleanString = z.enum(["true", "false"]).transform((value) => value === "true");
 const localCsrfHmacKey = Buffer.from(
   "atlas-local-only-csrf-signing-key-do-not-use-in-production",
   "utf8",
@@ -27,6 +28,27 @@ const apiEnvironmentSchema = z.object({
   ATLAS_ENV: z.enum(["local", "test", "ci", "staging", "production"]).default("local"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
   EXPECTED_SCHEMA_VERSION: integerString.default("11"),
+  MARKET_DATA_PROJECTION_ENABLED: booleanString.default(true),
+  MARKET_DATA_PROJECTION_POLL_INTERVAL_MS: integerString
+    .default("250")
+    .transform(Number)
+    .pipe(z.number().int().min(25).max(60_000)),
+  MARKET_DATA_PROJECTION_BATCH_SIZE: integerString
+    .default("250")
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(1_000)),
+  MARKET_DATA_PROJECTION_MAX_BATCHES_PER_CYCLE: integerString
+    .default("8")
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(100)),
+  MARKET_DATA_PROJECTION_RETRY_INITIAL_DELAY_MS: integerString
+    .default("500")
+    .transform(Number)
+    .pipe(z.number().int().min(25).max(60_000)),
+  MARKET_DATA_PROJECTION_RETRY_MAXIMUM_DELAY_MS: integerString
+    .default("30000")
+    .transform(Number)
+    .pipe(z.number().int().min(25).max(300_000)),
   SIMULATED_FUNDING_ENABLED: z.enum(["true", "false"]).optional(),
   SIMULATED_WITHDRAWALS_ENABLED: z.enum(["true", "false"]).optional(),
   PASSWORD_BLOCKLIST_PATH: z.string().min(1).optional(),
@@ -84,6 +106,16 @@ export interface ApiConfig {
     simulatedFundingEnabled: boolean;
     simulatedWithdrawalsEnabled: boolean;
   }>;
+  readonly marketData: Readonly<{
+    projection: Readonly<{
+      enabled: boolean;
+      pollIntervalMs: number;
+      batchSize: number;
+      maximumBatchesPerCycle: number;
+      retryInitialDelayMs: number;
+      retryMaximumDelayMs: number;
+    }>;
+  }>;
   readonly nodeEnvironment: "development" | "test" | "production";
 }
 
@@ -117,6 +149,15 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   }
   if ((values.SMTP_USERNAME === undefined) !== (values.SMTP_PASSWORD === undefined)) {
     throw new ConfigurationError(["SMTP_USERNAME", "SMTP_PASSWORD"]);
+  }
+  if (
+    values.MARKET_DATA_PROJECTION_RETRY_MAXIMUM_DELAY_MS <
+    values.MARKET_DATA_PROJECTION_RETRY_INITIAL_DELAY_MS
+  ) {
+    throw new ConfigurationError([
+      "MARKET_DATA_PROJECTION_RETRY_INITIAL_DELAY_MS",
+      "MARKET_DATA_PROJECTION_RETRY_MAXIMUM_DELAY_MS",
+    ]);
   }
   if (
     (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
@@ -172,6 +213,16 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
         values.SIMULATED_WITHDRAWALS_ENABLED === undefined
           ? values.ATLAS_ENV === "local" || values.ATLAS_ENV === "test" || values.ATLAS_ENV === "ci"
           : values.SIMULATED_WITHDRAWALS_ENABLED === "true",
+    }),
+    marketData: Object.freeze({
+      projection: Object.freeze({
+        enabled: values.MARKET_DATA_PROJECTION_ENABLED,
+        pollIntervalMs: values.MARKET_DATA_PROJECTION_POLL_INTERVAL_MS,
+        batchSize: values.MARKET_DATA_PROJECTION_BATCH_SIZE,
+        maximumBatchesPerCycle: values.MARKET_DATA_PROJECTION_MAX_BATCHES_PER_CYCLE,
+        retryInitialDelayMs: values.MARKET_DATA_PROJECTION_RETRY_INITIAL_DELAY_MS,
+        retryMaximumDelayMs: values.MARKET_DATA_PROJECTION_RETRY_MAXIMUM_DELAY_MS,
+      }),
     }),
     nodeEnvironment: values.NODE_ENV,
   });
