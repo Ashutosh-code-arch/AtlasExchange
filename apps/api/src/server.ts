@@ -132,7 +132,9 @@ async function start(): Promise<RunningServer> {
     const tradingRouter = createTradingModuleRouter({
       database: database.database,
       authenticateAccess,
+      sessionCsrfTokenService,
       secureCookies: config.identity.sessionSecurity.secureCookies,
+      webOrigin: config.http.webOrigin,
     });
     const app = createApp({
       lifecycle,

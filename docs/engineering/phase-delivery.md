@@ -116,9 +116,10 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   transport idempotency, security controls, cache policy, rate limits, and public error taxonomy.
 - Trading persistence, Financial reservation persistence, and atomic placement and cancellation
   orchestration are implemented. ADR-029 accepts the public transport and owner-read contract.
-- Public cached market routes and authenticated owner-scoped order/trade reads are implemented.
-  Trading command routes may now be implemented. Market Data projections and browser workflows
-  remain separately gated and do not enter the matching authority implicitly.
+- Public cached market routes, authenticated owner-scoped order/trade reads, and authenticated
+  placement and cancellation commands are implemented. Trading browser workflows may now be
+  implemented. Market Data projections remain separately gated and do not enter the matching
+  authority implicitly.
 
 ## Phase 4 delivery state
 
@@ -158,8 +159,13 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   execution sequence. Public cached market catalog routes and authenticated no-store order and trade
   routes now enforce strict path, query, and GET-body validation, derive ownership exclusively from
   trusted authentication context, preserve identical missing and cross-owner order responses, and
-  emit only the accepted shared contracts. Placement and cancellation HTTP routes may now be
-  implemented. Market Data projections and browser workflows remain separately gated.
+  emit only the accepted shared contracts. Placement and cancellation routes now enforce exact
+  origin and session-bound CSRF, JSON and idempotency contracts, owner derivation, retry-preserving
+  independent rate limits, stable public failure mapping, and authoritative post-commit resource
+  projection. Real-PostgreSQL HTTP evidence covers placement replay, maker-price matching, exact
+  four-wallet settlement, idempotency conflict, reservation, cancellation replay, exact release,
+  cross-owner concealment, and non-cancellable terminal orders. Trading browser workflows may now
+  be implemented. Market Data projections remain separately gated.
 
 ## Phase transition rule
 

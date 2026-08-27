@@ -22,8 +22,9 @@ The implemented foundation, Identity, and Financial phases provide:
 
 The active phase introduces orders, balance reservation, deterministic matching, trades, atomic
 settlement, owner-scoped reads, and the public Trading HTTP surface. Core Trading persistence,
-commands, shared contracts, authoritative readers, and the public market plus private order/trade
-read routes are implemented; Trading command routes and browser delivery continue incrementally.
+commands, shared contracts, authoritative readers, and the complete public market, private
+order/trade read, placement, and cancellation HTTP surface are implemented; Trading browser
+delivery continues incrementally.
 
 ## Prerequisites
 

@@ -22,6 +22,7 @@ export {
 } from "./domain/order.js";
 export { GetMarket, type GetMarketQuery, type GetMarketResult } from "./application/get-market.js";
 export { GetOrder, type GetOrderQuery, type GetOrderResult } from "./application/get-order.js";
+export { GetTrade, type GetTradeQuery, type GetTradeResult } from "./application/get-trade.js";
 export { ListMarkets, type ListMarketsResult } from "./application/list-markets.js";
 export {
   ListOrders,
@@ -37,6 +38,10 @@ export {
   defaultTradingReadPageLimit,
   maximumTradingReadPageLimit,
 } from "./application/trading-read-pagination.js";
+export type {
+  TradingCommandRateLimitDecision,
+  TradingCommandRateLimiter,
+} from "./application/trading-command-rate-limiter.js";
 export type {
   TradingMarketView,
   TradingOrderView,
@@ -97,6 +102,12 @@ export {
   PostgresTradingTradeReader,
   type TradingReadDatabaseSchema,
 } from "./infrastructure/persistence/postgres-trading-readers.js";
+export {
+  InMemoryTradingCommandRateLimiter,
+  tradingCommandRateLimitMaximumIntents,
+  tradingCommandRateLimitWindowMilliseconds,
+  type InMemoryTradingCommandRateLimiterOptions,
+} from "./infrastructure/security/in-memory-trading-command-rate-limiter.js";
 export {
   createTradingModuleRouter,
   type CreateTradingModuleRouterOptions,

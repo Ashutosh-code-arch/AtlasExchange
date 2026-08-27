@@ -84,6 +84,7 @@ export {
   type WalletBalanceView,
 } from "./application/list-wallets.js";
 export type { FinancialDatabaseSchema } from "./infrastructure/persistence/financial-database-schema.js";
+export { PostgresAssetCatalogReader } from "./infrastructure/persistence/postgres-asset-catalog-reader.js";
 export { bindPostgresTradingFundsTransaction } from "./infrastructure/persistence/postgres-trading-funds-transaction.js";
 export {
   createFinancialModuleRouter,
