@@ -116,8 +116,9 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   transport idempotency, security controls, cache policy, rate limits, and public error taxonomy.
 - Trading persistence, Financial reservation persistence, and atomic placement and cancellation
   orchestration are implemented. ADR-029 accepts the public transport and owner-read contract.
-- Public Trading routes and owner-scoped readers may now be implemented. Market Data projections and
-  browser workflows remain separately gated and do not enter the matching authority implicitly.
+- Public cached market routes and authenticated owner-scoped order/trade reads are implemented.
+  Trading command routes may now be implemented. Market Data projections and browser workflows
+  remain separately gated and do not enter the matching authority implicitly.
 
 ## Phase 4 delivery state
 
@@ -154,8 +155,11 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   counterparty, reservation, settlement, and persistence internals. Authoritative PostgreSQL market,
   owner-order, and owner-trade readers now reconstruct exact public decimals and enforce owner-safe,
   filter-bound keyset pagination across concurrent inserts without exposing matching priority or
-  execution sequence. Public Trading HTTP routes may now be implemented. Market Data projections
-  and browser workflows remain separately gated.
+  execution sequence. Public cached market catalog routes and authenticated no-store order and trade
+  routes now enforce strict path, query, and GET-body validation, derive ownership exclusively from
+  trusted authentication context, preserve identical missing and cross-owner order responses, and
+  emit only the accepted shared contracts. Placement and cancellation HTTP routes may now be
+  implemented. Market Data projections and browser workflows remain separately gated.
 
 ## Phase transition rule
 

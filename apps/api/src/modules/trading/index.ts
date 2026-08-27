@@ -98,6 +98,11 @@ export {
   type TradingReadDatabaseSchema,
 } from "./infrastructure/persistence/postgres-trading-readers.js";
 export {
+  createTradingModuleRouter,
+  type CreateTradingModuleRouterOptions,
+} from "./trading-module.js";
+export { createTradingRouter, type TradingRouterOptions } from "./http/trading-router.js";
+export {
   PlaceOrder,
   type PlaceOrderCommand,
   type PlaceOrderExpectedFailure,

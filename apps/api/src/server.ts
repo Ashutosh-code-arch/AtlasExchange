@@ -16,7 +16,7 @@ import {
   createFinancialModuleRouter,
   type FinancialDatabaseSchema,
 } from "./modules/financial/index.js";
-import type { TradingDatabaseSchema } from "./modules/trading/index.js";
+import { createTradingModuleRouter, type TradingDatabaseSchema } from "./modules/trading/index.js";
 import {
   createDatabaseResources,
   type DatabaseResources,
@@ -129,12 +129,18 @@ async function start(): Promise<RunningServer> {
       simulatedFundingEnabled: config.financial.simulatedFundingEnabled,
       simulatedWithdrawalsEnabled: config.financial.simulatedWithdrawalsEnabled,
     });
+    const tradingRouter = createTradingModuleRouter({
+      database: database.database,
+      authenticateAccess,
+      secureCookies: config.identity.sessionSecurity.secureCookies,
+    });
     const app = createApp({
       lifecycle,
       logger,
       webOrigin: config.http.webOrigin,
       identityRouter,
       financialRouter,
+      tradingRouter,
       applicationVersion: config.logging.applicationVersion,
     });
     const server = createServer(app);

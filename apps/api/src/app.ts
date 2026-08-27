@@ -21,6 +21,7 @@ export interface CreateAppOptions {
   readonly webOrigin: string;
   readonly identityRouter?: Router;
   readonly financialRouter?: Router;
+  readonly tradingRouter?: Router;
   readonly applicationVersion?: string;
 }
 
@@ -100,6 +101,9 @@ export function createApp(options: CreateAppOptions): Express {
   }
   if (options.financialRouter !== undefined) {
     app.use("/api/v1", options.financialRouter);
+  }
+  if (options.tradingRouter !== undefined) {
+    app.use("/api/v1", options.tradingRouter);
   }
 
   app.get("/health/live", (_request, response) => {
