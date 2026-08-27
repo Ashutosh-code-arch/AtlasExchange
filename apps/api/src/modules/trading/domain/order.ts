@@ -34,6 +34,18 @@ export function parseOrderOwnerId(input: string): OrderOwnerId {
   return input as OrderOwnerId;
 }
 
+export function parseOrderStatus(input: string): OrderStatus {
+  if (
+    input !== "open" &&
+    input !== "partially_filled" &&
+    input !== "filled" &&
+    input !== "cancelled"
+  ) {
+    throw new TradingInputValidationError("status", "ORDER_STATUS_INVALID");
+  }
+  return input;
+}
+
 export interface CreateOrderInput {
   readonly id: OrderId;
   readonly ownerId: OrderOwnerId;

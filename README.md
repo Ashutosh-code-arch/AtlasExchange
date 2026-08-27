@@ -20,8 +20,10 @@ The implemented foundation, Identity, and Financial phases provide:
 - an authenticated Financial web sandbox that makes no external-custody claims;
 - an isolated browser journey through the web, API, PostgreSQL, and Mailpit.
 
-The active phase introduces orders, balance reservation, deterministic matching, trades, and atomic
-settlement. Trading rules and contracts will be decided before implementation begins.
+The active phase introduces orders, balance reservation, deterministic matching, trades, atomic
+settlement, owner-scoped reads, and the public Trading HTTP surface. Core Trading persistence,
+commands, shared contracts, and authoritative readers are implemented; HTTP and browser delivery
+continue incrementally.
 
 ## Prerequisites
 

@@ -151,9 +151,11 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   transport is accepted by ADR-029. Shared Trading contracts now enforce strict market, placement,
   order, cancellation, trade-history, pagination, and public-error shapes; canonical decimals;
   coherent lifecycle and quantity state; deterministic collection ordering; and omission of owner,
-  counterparty, reservation, settlement, and persistence internals. Owner-scoped readers and HTTP
-  routes may now be implemented. Market Data projections and browser workflows remain separately
-  gated.
+  counterparty, reservation, settlement, and persistence internals. Authoritative PostgreSQL market,
+  owner-order, and owner-trade readers now reconstruct exact public decimals and enforce owner-safe,
+  filter-bound keyset pagination across concurrent inserts without exposing matching priority or
+  execution sequence. Public Trading HTTP routes may now be implemented. Market Data projections
+  and browser workflows remain separately gated.
 
 ## Phase transition rule
 

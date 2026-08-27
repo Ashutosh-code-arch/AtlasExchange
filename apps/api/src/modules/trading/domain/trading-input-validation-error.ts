@@ -1,5 +1,7 @@
 export type TradingInputField =
+  | "cursor"
   | "idempotencyKey"
+  | "limit"
   | "limitPrice"
   | "market"
   | "marketCode"
@@ -7,10 +9,13 @@ export type TradingInputField =
   | "orderId"
   | "orderOwnerId"
   | "quantity"
-  | "side";
+  | "side"
+  | "status";
 
 export type TradingInputValidationIssue =
+  | "CURSOR_INVALID"
   | "IDEMPOTENCY_KEY_INVALID"
+  | "LIMIT_INVALID"
   | "LIMIT_PRICE_INCREMENT_INVALID"
   | "LIMIT_PRICE_INVALID"
   | "LIMIT_PRICE_NOT_POSITIVE"
@@ -28,6 +33,7 @@ export type TradingInputValidationIssue =
   | "ORDER_ID_INVALID"
   | "ORDER_OWNER_ID_INVALID"
   | "ORDER_SIDE_INVALID"
+  | "ORDER_STATUS_INVALID"
   | "QUANTITY_ABOVE_MAXIMUM"
   | "QUANTITY_BELOW_MINIMUM"
   | "QUANTITY_INCREMENT_INVALID"
