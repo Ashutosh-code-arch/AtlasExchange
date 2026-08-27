@@ -1,7 +1,7 @@
 # Atlas Exchange Phase Delivery
 
 **Status:** Active  
-**Last reviewed:** 2026-08-26
+**Last reviewed:** 2026-08-27
 
 This document translates the canonical product and sprint documents into small, demonstrable
 delivery increments. A phase is complete only after its acceptance checks pass.
@@ -117,9 +117,10 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - Trading persistence, Financial reservation persistence, and atomic placement and cancellation
   orchestration are implemented. ADR-029 accepts the public transport and owner-read contract.
 - Public cached market routes, authenticated owner-scoped order/trade reads, and authenticated
-  placement and cancellation commands are implemented. Trading browser workflows may now be
-  implemented. Market Data projections remain separately gated and do not enter the matching
-  authority implicitly.
+  placement and cancellation commands are implemented. Contract-validating browser API functions
+  and authenticated Trading query/mutation state are implemented; the visual Trading workspace may
+  now be composed from that foundation. Market Data projections remain separately gated and do not
+  enter the matching authority implicitly.
 
 ## Phase 4 delivery state
 
@@ -164,8 +165,15 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   independent rate limits, stable public failure mapping, and authoritative post-commit resource
   projection. Real-PostgreSQL HTTP evidence covers placement replay, maker-price matching, exact
   four-wallet settlement, idempotency conflict, reservation, cancellation replay, exact release,
-  cross-owner concealment, and non-cancellable terminal orders. Trading browser workflows may now
-  be implemented. Market Data projections remain separately gated.
+  cross-owner concealment, and non-cancellable terminal orders. The web client now validates every
+  Trading command, filter, path parameter, and response against shared contracts before crossing
+  the React boundary. Authenticated workspace state owns market selection, private order/trade
+  loading, bounded cursor pagination with duplicate suppression, mutation serialization,
+  ambiguous-outcome idempotency reuse, and authoritative refresh after placement and cancellation;
+  logout clears all private Trading state. Focused frontend tests cover request construction,
+  response rejection, authentication transitions, pagination, retries, invalidation, and command
+  coalescing. The visual Trading workspace may now be implemented. Market Data projections remain
+  separately gated.
 
 ## Phase transition rule
 

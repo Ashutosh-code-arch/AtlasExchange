@@ -24,7 +24,9 @@ The active phase introduces orders, balance reservation, deterministic matching,
 settlement, owner-scoped reads, and the public Trading HTTP surface. Core Trading persistence,
 commands, shared contracts, authoritative readers, and the complete public market, private
 order/trade read, placement, and cancellation HTTP surface are implemented; Trading browser
-delivery continues incrementally.
+delivery now includes contract-validating API functions and authenticated market, order, trade,
+pagination, placement, cancellation, retry, and refresh state. The visual exchange workspace
+continues incrementally on top of this foundation.
 
 ## Prerequisites
 
