@@ -91,6 +91,12 @@ export interface PersistTradingTradeInput {
   readonly priceTicks: bigint;
 }
 
+export interface PublishTradingMarketDataFactsInput {
+  readonly marketCode: MarketCode;
+  readonly orderIds: readonly OrderId[];
+  readonly tradeIds: readonly string[];
+}
+
 export interface TradingPersistenceTransaction {
   findPlacement(
     ownerId: OrderOwnerId,
@@ -104,6 +110,7 @@ export interface TradingPersistenceTransaction {
   persistOrderState(input: PersistTradingOrderStateInput): Promise<boolean>;
   persistTrade(input: PersistTradingTradeInput): Promise<PersistedTradingTrade>;
   listTradesForTaker(takerOrderId: OrderId): Promise<readonly PersistedTradingTrade[]>;
+  publishMarketDataFacts(input: PublishTradingMarketDataFactsInput): Promise<void>;
 }
 
 export interface TradingTransactionContext {

@@ -1,4 +1,9 @@
-import type { ColumnType } from "kysely";
+import type { ColumnType, JSONColumnType } from "kysely";
+
+import type {
+  TradingOrderStateFactPayload,
+  TradingTradeExecutedFactPayload,
+} from "../../application/trading-publication-facts.js";
 
 type GeneratedUuid = ColumnType<string, string | undefined, never>;
 type GeneratedBigint = ColumnType<string, string | undefined, never>;
@@ -51,7 +56,29 @@ interface TradesTable {
   executed_at: GeneratedTimestamp;
 }
 
+interface MarketPublicationSequencesTable {
+  market_code: string;
+  last_sequence: ColumnType<string, string | undefined, string>;
+}
+
+interface MarketDataFactsTable {
+  id: GeneratedUuid;
+  market_code: string;
+  market_sequence: string;
+  fact_kind: "order_state" | "trade_executed";
+  schema_version: 1;
+  payload: JSONColumnType<
+    TradingOrderStateFactPayload | TradingTradeExecutedFactPayload,
+    TradingOrderStateFactPayload | TradingTradeExecutedFactPayload,
+    never
+  >;
+  occurred_at: Date | string;
+  created_at: GeneratedTimestamp;
+}
+
 export interface TradingDatabaseSchema {
+  "trading.market_data_facts": MarketDataFactsTable;
+  "trading.market_publication_sequences": MarketPublicationSequencesTable;
   "trading.markets": MarketsTable;
   "trading.orders": OrdersTable;
   "trading.trades": TradesTable;

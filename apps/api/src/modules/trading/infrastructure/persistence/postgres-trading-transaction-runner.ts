@@ -1,4 +1,4 @@
-import type { Kysely, Transaction } from "kysely";
+import { sql, type Kysely, type Transaction } from "kysely";
 
 import {
   bindPostgresTradingFundsTransaction,
@@ -15,10 +15,15 @@ import type {
   PersistedTradingTrade,
   PersistTradingOrderStateInput,
   PersistTradingTradeInput,
+  PublishTradingMarketDataFactsInput,
   TradingPersistenceTransaction,
   TradingTransactionContext,
   TradingTransactionRunner,
 } from "../../application/trading-transaction.js";
+import type {
+  TradingOrderStateFactPayload,
+  TradingTradeExecutedFactPayload,
+} from "../../application/trading-publication-facts.js";
 import { parseMarketCode } from "../../domain/market.js";
 import {
   parseOrderId,
@@ -92,6 +97,15 @@ interface TradeRow {
   readonly priceTicks: string;
   readonly executionSequence: string;
   readonly executedAt: Date;
+}
+
+interface MarketDataFactInsert {
+  readonly market_code: string;
+  readonly market_sequence: string;
+  readonly fact_kind: "order_state" | "trade_executed";
+  readonly schema_version: 1;
+  readonly payload: TradingOrderStateFactPayload | TradingTradeExecutedFactPayload;
+  readonly occurred_at: Date;
 }
 
 function mapOrder(row: OrderRow): PersistedTradingOrder {
@@ -293,6 +307,86 @@ class PostgresTradingPersistenceTransaction implements TradingPersistenceTransac
       .orderBy("execution_sequence", "asc")
       .execute();
     return (rows as readonly TradeRow[]).map(mapTrade);
+  }
+
+  public async publishMarketDataFacts(input: PublishTradingMarketDataFactsInput): Promise<void> {
+    const orderIds = [...new Set(input.orderIds)];
+    const tradeIds = [...new Set(input.tradeIds)];
+    const orderRows =
+      orderIds.length === 0
+        ? []
+        : await this.database
+            .selectFrom("trading.orders")
+            .select(orderSelections)
+            .where("market_code", "=", input.marketCode)
+            .where("id", "in", orderIds)
+            .orderBy("priority", "asc")
+            .execute();
+    const tradeRows =
+      tradeIds.length === 0
+        ? []
+        : await this.database
+            .selectFrom("trading.trades")
+            .select(tradeSelections)
+            .where("market_code", "=", input.marketCode)
+            .where("id", "in", tradeIds)
+            .orderBy("execution_sequence", "asc")
+            .execute();
+    if (orderRows.length !== orderIds.length || tradeRows.length !== tradeIds.length) {
+      throw new Error("Trading publication state could not be reconstructed");
+    }
+
+    const orders = (orderRows as readonly OrderRow[]).map(mapOrder);
+    const trades = (tradeRows as readonly TradeRow[]).map(mapTrade);
+    const factCount = orders.length + trades.length;
+    if (factCount === 0) return;
+
+    const sequence = await this.database
+      .updateTable("trading.market_publication_sequences")
+      .set({ last_sequence: sql<string>`last_sequence + ${factCount}` })
+      .where("market_code", "=", input.marketCode)
+      .returning("last_sequence")
+      .executeTakeFirst();
+    if (sequence === undefined) {
+      throw new Error("Trading market publication sequence is missing");
+    }
+    let marketSequence = BigInt(sequence.last_sequence) - BigInt(factCount) + 1n;
+    const facts: MarketDataFactInsert[] = [];
+    for (const order of orders) {
+      facts.push({
+        market_code: input.marketCode,
+        market_sequence: marketSequence.toString(),
+        fact_kind: "order_state",
+        schema_version: 1,
+        payload: {
+          orderId: order.id,
+          side: order.side,
+          limitPriceTicks: order.limitPriceTicks.toString(),
+          remainingLots: order.remainingLots.toString(),
+          status: order.status,
+          terminalReason: order.terminalReason ?? null,
+        },
+        occurred_at: order.updatedAt,
+      });
+      marketSequence += 1n;
+    }
+    for (const trade of trades) {
+      facts.push({
+        market_code: input.marketCode,
+        market_sequence: marketSequence.toString(),
+        fact_kind: "trade_executed",
+        schema_version: 1,
+        payload: {
+          tradeId: trade.id,
+          quantityLots: trade.quantityLots.toString(),
+          priceTicks: trade.priceTicks.toString(),
+          executionSequence: trade.executionSequence.toString(),
+        },
+        occurred_at: trade.executedAt,
+      });
+      marketSequence += 1n;
+    }
+    await this.database.insertInto("trading.market_data_facts").values(facts).execute();
   }
 }
 

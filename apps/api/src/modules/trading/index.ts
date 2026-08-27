@@ -59,6 +59,19 @@ export type {
   TradingTradeReader,
 } from "./application/trading-readers.js";
 export {
+  maximumTradingPublicationFactPageSize,
+  parseTradingPublicationFactPayload,
+  tradingPublicationFactSchemaVersion,
+  type TradingOrderStateFact,
+  type TradingOrderStateFactPayload,
+  type TradingPublicationFact,
+  type TradingPublicationFactKind,
+  type TradingPublicationFactPageInput,
+  type TradingPublicationFactReader,
+  type TradingTradeExecutedFact,
+  type TradingTradeExecutedFactPayload,
+} from "./application/trading-publication-facts.js";
+export {
   maximumPlacementIdempotencyKeyLength,
   parsePlacementIdempotencyKey,
   type PlacementIdempotencyKey,
@@ -82,6 +95,7 @@ export type {
   PersistedTradingTrade,
   PersistTradingOrderStateInput,
   PersistTradingTradeInput,
+  PublishTradingMarketDataFactsInput,
   TradingPersistenceTransaction,
   TradingTransactionContext,
   TradingTransactionRunner,
@@ -102,6 +116,7 @@ export {
   PostgresTradingTradeReader,
   type TradingReadDatabaseSchema,
 } from "./infrastructure/persistence/postgres-trading-readers.js";
+export { PostgresTradingPublicationFactReader } from "./infrastructure/persistence/postgres-trading-publication-fact-reader.js";
 export {
   InMemoryTradingCommandRateLimiter,
   tradingCommandRateLimitMaximumIntents,

@@ -144,7 +144,7 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   orders, append-only trades, matching indexes, Financial-owned reservations, and immutable
   reservation movements. Deferred PostgreSQL constraints reconcile market state, order and trade
   roles, reservation lifecycles, and exact reservation, release, and settlement journal shapes.
-- Kysely schema ownership and runtime compatibility advance through schema version 9. Focused
+- Kysely schema ownership and runtime compatibility advance through schema version 10. Focused
   real-PostgreSQL evidence covers catalog exactness, lifecycle constraints, matching order, market
   state, trade roles, reservation reconciliation, residual release, and price-improved settlement.
 - The transaction-bound Financial capability, Trading repositories, and composite unit of work are
@@ -207,9 +207,28 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   defines the rebuildable projection boundary, durable committed Trading facts, per-market sequence,
   idempotent checkpoints, initial book/ticker/candle concepts, freshness semantics, recovery, and
   deterministic testing requirements.
+- [ADR-031 — Trading Market Data Fact Persistence and Publication Contract](../architecture/decisions/ADR-031-trading-market-data-fact-persistence-and-publication-contract.md)
+  defines the per-market sequence rows, immutable version-one fact envelopes, minimal private-safe
+  order/trade payloads, final-state publication rules, retry and rollback behavior, and bounded
+  ascending Trading fact reader.
 - The first implementation increment is the independently testable versioned Trading fact contract,
   per-market publication sequence, durable fact persistence, and Market Data checkpoint boundary.
 - Public REST snapshots and WebSocket delivery remain gated by focused contracts.
+
+## Phase 5 delivery state
+
+- Migration 0010 advances schema compatibility and provisions Trading-owned per-market publication
+  sequences plus immutable, versioned Market Data facts with exact payload, privacy, uniqueness, and
+  lifecycle constraints.
+- Successful placement and cancellation commands allocate contiguous market sequences and publish
+  only final changed-order states and immutable executions inside the authoritative transaction.
+  Failed commands roll publication back, while identical retries append nothing.
+- Trading exposes a bounded ascending fact reader through its public interface. Strict runtime
+  parsing rejects unknown versions, malformed canonical values, lifecycle contradictions, and extra
+  fields before facts can cross into Market Data.
+- Unit and real-PostgreSQL integration tests cover payload versions, privacy, immutability, rollback,
+  retry idempotency, maker-price execution ordering, self-trade prevention, cancellation, and paged
+  sequence reads.
 
 ## Phase transition rule
 

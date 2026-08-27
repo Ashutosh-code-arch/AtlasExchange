@@ -8,7 +8,9 @@ import { PostgresAssetCatalogReader } from "../src/modules/financial/infrastruct
 import {
   CancelOrder,
   PlaceOrder,
+  PostgresTradingPublicationFactReader,
   PostgresTradingTransactionRunner,
+  parseMarketCode,
   type PlaceOrderCommand,
   type PersistedTradingOrder,
   type TradingCompositeDatabaseSchema,
@@ -35,6 +37,8 @@ const database = new Kysely<TradingCompositeDatabaseSchema>({
 const transactionRunner = new PostgresTradingTransactionRunner(database);
 const placeOrder = new PlaceOrder(transactionRunner, new PostgresAssetCatalogReader(database));
 const cancelOrder = new CancelOrder(transactionRunner);
+const publicationFactReader = new PostgresTradingPublicationFactReader(database);
+const btcUsd = parseMarketCode("BTC-USD");
 
 async function createOwnerWallets(ownerId: string): Promise<void> {
   for (const assetCode of ["BTC", "USD"] as const) {
@@ -177,7 +181,11 @@ describe("CancelOrder PostgreSQL application flow", () => {
   });
 
   beforeEach(async () => {
-    await sql`TRUNCATE TABLE trading.orders CASCADE`.execute(database);
+    await sql`TRUNCATE TABLE trading.market_data_facts, trading.orders CASCADE`.execute(database);
+    await database
+      .updateTable("trading.market_publication_sequences")
+      .set({ last_sequence: "0" })
+      .execute();
     await database.updateTable("financial.assets").set({ status: "active" }).execute();
     await database
       .updateTable("trading.markets")
@@ -227,6 +235,25 @@ describe("CancelOrder PostgreSQL application flow", () => {
     const retry = await cancelOrder.execute({ ownerId, orderId: order.id });
     expect(retry.status).toBe("existing");
     await expect(releaseJournalCount(order.id)).resolves.toBe("1");
+
+    const facts = await publicationFactReader.listAfter({
+      marketCode: btcUsd,
+      afterSequence: 0n,
+      limit: 10,
+    });
+    expect(facts).toHaveLength(2);
+    expect(facts[1]).toMatchObject({
+      marketSequence: 2n,
+      kind: "order_state",
+      payload: {
+        orderId: order.id,
+        side: "buy",
+        limitPriceTicks: "5000",
+        remainingLots: "1",
+        status: "cancelled",
+        terminalReason: "owner_cancelled",
+      },
+    });
   });
 
   it("returns one cancellation and one existing result for concurrent duplicate requests", async () => {

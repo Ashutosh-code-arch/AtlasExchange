@@ -104,6 +104,11 @@ export class CancelOrder {
       if (release.status !== "released") {
         throw new TradingInvariantError("CANCELLATION_RELEASE_CONFLICT");
       }
+      await trading.publishMarketDataFacts({
+        marketCode: cancelled.marketCode,
+        orderIds: [cancelled.id],
+        tradeIds: [],
+      });
       return { status: "cancelled", order: cancelled };
     });
   }

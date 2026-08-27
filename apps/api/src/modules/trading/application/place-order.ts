@@ -340,6 +340,11 @@ export class PlaceOrder {
         if (persistedOrder === undefined) {
           throw new TradingInvariantError("PLACEMENT_MATCH_STATE_INVALID");
         }
+        await trading.publishMarketDataFacts({
+          marketCode,
+          orderIds: [...match.updatedMakers.map(({ id }) => id), persistedOrder.id],
+          tradeIds: persistedTrades.map(({ id }) => id),
+        });
         return { status: "placed", order: persistedOrder, trades: persistedTrades };
       });
     } catch (error) {

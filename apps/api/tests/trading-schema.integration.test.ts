@@ -293,6 +293,66 @@ describe("Trading schema migration", () => {
     ).rejects.toMatchObject({ code: "23514" });
   });
 
+  it("provisions private, versioned, immutable, per-market publication facts", async () => {
+    const order = await createOrder({ side: "buy" });
+    const payload = {
+      orderId: order.id,
+      side: "buy",
+      limitPriceTicks: "5000",
+      remainingLots: "2",
+      status: "open",
+      terminalReason: null,
+    };
+    const fact = await pool.query<{ id: string; version: number }>(
+      `INSERT INTO trading.market_data_facts (
+         market_code, market_sequence, fact_kind, schema_version, payload, occurred_at
+       ) VALUES ('BTC-USD', 1, 'order_state', 1, $1::JSONB, NOW())
+       RETURNING id, uuid_extract_version(id) AS version`,
+      [JSON.stringify(payload)],
+    );
+    expect(fact.rows[0]?.version).toBe(7);
+
+    const sequences = await pool.query<{ last_sequence: string; market_code: string }>(
+      `SELECT market_code, last_sequence::TEXT
+       FROM trading.market_publication_sequences
+       ORDER BY market_code`,
+    );
+    expect(sequences.rows.map(({ market_code }) => market_code)).toEqual(["BTC-USD", "ETH-USD"]);
+
+    await expect(
+      pool.query(
+        `INSERT INTO trading.market_data_facts (
+           market_code, market_sequence, fact_kind, schema_version, payload, occurred_at
+         ) VALUES ('BTC-USD', 1, 'order_state', 1, $1::JSONB, NOW())`,
+        [JSON.stringify(payload)],
+      ),
+    ).rejects.toMatchObject({ code: "23505" });
+    await expect(
+      pool.query(
+        `INSERT INTO trading.market_data_facts (
+           market_code, market_sequence, fact_kind, schema_version, payload, occurred_at
+         ) VALUES ('BTC-USD', 2, 'order_state', 1, $1::JSONB, NOW())`,
+        [JSON.stringify({ ...payload, ownerId: randomUUID() })],
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+    await expect(
+      pool.query(
+        `INSERT INTO trading.market_data_facts (
+           market_code, market_sequence, fact_kind, schema_version, payload, occurred_at
+         ) VALUES ('BTC-USD', 2, 'order_state', 2, $1::JSONB, NOW())`,
+        [JSON.stringify(payload)],
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+    await expect(
+      pool.query("UPDATE trading.market_data_facts SET payload = payload WHERE id = $1", [
+        fact.rows[0]?.id,
+      ]),
+    ).rejects.toMatchObject({ code: "23514" });
+    await expect(
+      pool.query("DELETE FROM trading.market_data_facts WHERE id = $1", [fact.rows[0]?.id]),
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+
   it("allows cancellation but rejects new activity on non-active markets", async () => {
     await createReverseMarket();
     const resting = await createOrder({ marketCode: "USD-BTC", side: "sell" });

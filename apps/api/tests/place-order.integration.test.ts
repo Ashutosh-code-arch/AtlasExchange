@@ -7,7 +7,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PostgresAssetCatalogReader } from "../src/modules/financial/infrastructure/persistence/postgres-asset-catalog-reader.js";
 import {
   PlaceOrder,
+  PostgresTradingPublicationFactReader,
   PostgresTradingTransactionRunner,
+  parseMarketCode,
   type PlaceOrderCommand,
   type TradingCompositeDatabaseSchema,
 } from "../src/modules/trading/index.js";
@@ -34,6 +36,8 @@ const placeOrder = new PlaceOrder(
   new PostgresTradingTransactionRunner(database),
   new PostgresAssetCatalogReader(database),
 );
+const publicationFactReader = new PostgresTradingPublicationFactReader(database);
+const btcUsd = parseMarketCode("BTC-USD");
 
 async function createOwnerWallets(ownerId: string): Promise<void> {
   for (const assetCode of ["BTC", "USD"] as const) {
@@ -159,7 +163,11 @@ describe("PlaceOrder PostgreSQL application flow", () => {
   });
 
   beforeEach(async () => {
-    await sql`TRUNCATE TABLE trading.orders CASCADE`.execute(database);
+    await sql`TRUNCATE TABLE trading.market_data_facts, trading.orders CASCADE`.execute(database);
+    await database
+      .updateTable("trading.market_publication_sequences")
+      .set({ last_sequence: "0" })
+      .execute();
     await database
       .updateTable("trading.markets")
       .set({ status: "active" })
@@ -206,6 +214,28 @@ describe("PlaceOrder PostgreSQL application flow", () => {
 
     const conflict = await placeOrder.execute({ ...input, limitPrice: "49990" });
     expect(conflict).toEqual({ status: "idempotency_conflict", orderId: placed.order.id });
+
+    const facts = await publicationFactReader.listAfter({
+      marketCode: btcUsd,
+      afterSequence: 0n,
+      limit: 10,
+    });
+    expect(facts).toHaveLength(1);
+    expect(facts[0]).toMatchObject({
+      marketCode: btcUsd,
+      marketSequence: 1n,
+      schemaVersion: 1,
+      kind: "order_state",
+      payload: {
+        orderId: placed.order.id,
+        side: "buy",
+        limitPriceTicks: "5000",
+        remainingLots: "1",
+        status: "open",
+        terminalReason: null,
+      },
+    });
+    expect(facts[0]?.payload).not.toHaveProperty("ownerId");
   });
 
   it("rolls back the accepted Trading order when Financial rejects its reservation", async () => {
@@ -226,6 +256,35 @@ describe("PlaceOrder PostgreSQL application flow", () => {
       .where("idempotency_key", "=", input.idempotencyKey)
       .executeTakeFirst();
     expect(persisted).toBeUndefined();
+    await expect(
+      publicationFactReader.listAfter({ marketCode: btcUsd, afterSequence: 0n, limit: 10 }),
+    ).resolves.toEqual([]);
+  });
+
+  it("allocates one contiguous per-market sequence under concurrent placements", async () => {
+    const firstOwnerId = randomUUID();
+    const secondOwnerId = randomUUID();
+    await createOwnerWallets(firstOwnerId);
+    await createOwnerWallets(secondOwnerId);
+    await fund(firstOwnerId, "USD", 5_000n);
+    await fund(secondOwnerId, "USD", 5_000n);
+
+    const results = await Promise.all([
+      placeOrder.execute(command(firstOwnerId, "buy", "0.001", "50000")),
+      placeOrder.execute(command(secondOwnerId, "buy", "0.001", "50000")),
+    ]);
+    expect(results.map(({ status }) => status)).toEqual(["placed", "placed"]);
+
+    const facts = await publicationFactReader.listAfter({
+      marketCode: btcUsd,
+      afterSequence: 0n,
+      limit: 10,
+    });
+    expect(facts.map(({ marketSequence }) => marketSequence)).toEqual([1n, 2n]);
+    expect(facts.every(({ kind }) => kind === "order_state")).toBe(true);
+    expect(
+      new Set(facts.map((fact) => (fact.kind === "order_state" ? fact.payload.orderId : ""))).size,
+    ).toBe(2);
   });
 
   it("matches at the maker price and settles exact buyer price improvement", async () => {
@@ -238,6 +297,7 @@ describe("PlaceOrder PostgreSQL application flow", () => {
 
     const maker = await placeOrder.execute(command(sellerId, "sell", "0.002", "49000"));
     expect(maker.status).toBe("placed");
+    if (maker.status !== "placed") throw new Error(`Expected placed, received ${maker.status}`);
     const taker = await placeOrder.execute(command(buyerId, "buy", "0.001", "50000"));
     expect(taker.status).toBe("placed");
     if (taker.status !== "placed") throw new Error(`Expected placed, received ${taker.status}`);
@@ -260,6 +320,65 @@ describe("PlaceOrder PostgreSQL application flow", () => {
       available: "4900",
       reserved: "0",
     });
+
+    const facts = await publicationFactReader.listAfter({
+      marketCode: btcUsd,
+      afterSequence: 0n,
+      limit: 10,
+    });
+    expect(
+      facts.map(({ kind, marketSequence, payload }) => ({ kind, marketSequence, payload })),
+    ).toEqual([
+      {
+        kind: "order_state",
+        marketSequence: 1n,
+        payload: {
+          orderId: maker.order.id,
+          side: "sell",
+          limitPriceTicks: "4900",
+          remainingLots: "2",
+          status: "open",
+          terminalReason: null,
+        },
+      },
+      {
+        kind: "order_state",
+        marketSequence: 2n,
+        payload: {
+          orderId: maker.order.id,
+          side: "sell",
+          limitPriceTicks: "4900",
+          remainingLots: "1",
+          status: "partially_filled",
+          terminalReason: null,
+        },
+      },
+      {
+        kind: "order_state",
+        marketSequence: 3n,
+        payload: {
+          orderId: taker.order.id,
+          side: "buy",
+          limitPriceTicks: "5000",
+          remainingLots: "0",
+          status: "filled",
+          terminalReason: null,
+        },
+      },
+      {
+        kind: "trade_executed",
+        marketSequence: 4n,
+        payload: {
+          tradeId: taker.trades[0]?.id,
+          quantityLots: "1",
+          priceTicks: "4900",
+          executionSequence: taker.trades[0]?.executionSequence.toString(),
+        },
+      },
+    ]);
+    await expect(
+      publicationFactReader.listAfter({ marketCode: btcUsd, afterSequence: 2n, limit: 1 }),
+    ).resolves.toEqual([facts[2]]);
   });
 
   it("cancels an incoming self-trade residual and releases its reservation", async () => {
@@ -287,6 +406,23 @@ describe("PlaceOrder PostgreSQL application flow", () => {
     await expect(walletBalances(ownerId, "BTC")).resolves.toEqual({
       available: "0",
       reserved: "100000",
+    });
+    const facts = await publicationFactReader.listAfter({
+      marketCode: btcUsd,
+      afterSequence: 0n,
+      limit: 10,
+    });
+    expect(facts.map(({ kind, marketSequence }) => ({ kind, marketSequence }))).toEqual([
+      { kind: "order_state", marketSequence: 1n },
+      { kind: "order_state", marketSequence: 2n },
+    ]);
+    expect(facts[1]).toMatchObject({
+      payload: {
+        orderId: taker.order.id,
+        remainingLots: "1",
+        status: "cancelled",
+        terminalReason: "self_trade_prevention",
+      },
     });
   });
 });
