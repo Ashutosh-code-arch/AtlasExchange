@@ -13,6 +13,7 @@ export {
   type TradingTradeListInput,
   type TradingTradePage,
 } from "./api/trading-api";
+export { TradingWorkspace, type TradingWorkspaceProps } from "./components/trading-workspace";
 export {
   useTradingWorkspaceState,
   type TradingCatalogStatus,

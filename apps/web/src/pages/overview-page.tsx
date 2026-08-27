@@ -26,14 +26,14 @@ export function OverviewPage({ readiness, onRefresh }: OverviewPageProps): React
           </h1>
           <p className="hero__summary">
             Atlas is a production-inspired exchange built one dependable boundary at a time. The
-            current release exposes exact wallet balances and a truthful simulated money-movement
-            sandbox without claiming external custody.
+            current release combines exact wallet balances with a server-authoritative limit-order
+            desk, deterministic matching, and atomic simulated settlement.
           </p>
           <div className="hero__actions">
             <a className="primary-button" href="#roadmap">
               Explore the build
             </a>
-            <span className="release-tag">v0.3 · Financial core</span>
+            <span className="release-tag">v0.4 · Trading desk</span>
           </div>
         </div>
         <div className="hero__visual" aria-label="Atlas foundation architecture">

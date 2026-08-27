@@ -417,7 +417,11 @@ export function FinancialWorkspace({
   const { state, request } = useAuthenticationSession();
 
   return (
-    <section className="financial-workspace" aria-labelledby="financial-workspace-title">
+    <section
+      className="financial-workspace"
+      id="financial"
+      aria-labelledby="financial-workspace-title"
+    >
       <div className="financial-workspace__heading">
         <div>
           <p className="eyebrow">Financial sandbox</p>

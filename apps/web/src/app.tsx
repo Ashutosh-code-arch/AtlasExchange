@@ -12,6 +12,11 @@ const FinancialWorkspace = lazy(async () => {
   return { default: financial.FinancialWorkspace };
 });
 
+const TradingWorkspace = lazy(async () => {
+  const trading = await import("./features/trading");
+  return { default: trading.TradingWorkspace };
+});
+
 interface AppProps {
   readonly apiBaseUrl: string;
   readonly readinessClient?: (apiBaseUrl: string) => ReturnType<typeof getReadiness>;
@@ -58,6 +63,15 @@ function OverviewRoute({
       <AuthenticationPanel />
       <Suspense
         fallback={
+          <section className="trading-workspace" aria-label="Trading desk">
+            <p className="trading-workspace__catalog-state">Loading the Trading desk…</p>
+          </section>
+        }
+      >
+        <TradingWorkspace />
+      </Suspense>
+      <Suspense
+        fallback={
           <section className="financial-workspace" aria-label="Financial sandbox">
             <p className="financial-workspace__gate">Loading the Financial sandbox…</p>
           </section>
@@ -85,9 +99,9 @@ export function App({
           <span>ATLAS / EXCHANGE</span>
         </a>
         <nav aria-label="Primary navigation">
-          <a href={initialRoute.name === "overview" ? "#roadmap" : "/"}>
-            {initialRoute.name === "overview" ? "Roadmap" : "Home"}
-          </a>
+          {initialRoute.name === "overview" ? <a href="#trading">Trade</a> : <a href="/">Home</a>}
+          {initialRoute.name === "overview" ? <a href="#financial">Funds</a> : null}
+          {initialRoute.name === "overview" ? <a href="#roadmap">Roadmap</a> : null}
           <a
             href="https://github.com/Ashutosh-code-arch/AtlasExchange"
             target="_blank"

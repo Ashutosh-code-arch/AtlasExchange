@@ -25,8 +25,9 @@ settlement, owner-scoped reads, and the public Trading HTTP surface. Core Tradin
 commands, shared contracts, authoritative readers, and the complete public market, private
 order/trade read, placement, and cancellation HTTP surface are implemented; Trading browser
 delivery now includes contract-validating API functions and authenticated market, order, trade,
-pagination, placement, cancellation, retry, and refresh state. The visual exchange workspace
-continues incrementally on top of this foundation.
+pagination, placement, cancellation, retry, and refresh state. A responsive exchange desk now
+exposes public market rules, authenticated limit-order entry, open-order management, execution
+history, and truthful Market Data deferral without inventing live prices or liquidity.
 
 ## Prerequisites
 

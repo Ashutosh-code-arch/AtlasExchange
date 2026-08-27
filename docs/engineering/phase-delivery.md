@@ -118,9 +118,10 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   orchestration are implemented. ADR-029 accepts the public transport and owner-read contract.
 - Public cached market routes, authenticated owner-scoped order/trade reads, and authenticated
   placement and cancellation commands are implemented. Contract-validating browser API functions
-  and authenticated Trading query/mutation state are implemented; the visual Trading workspace may
-  now be composed from that foundation. Market Data projections remain separately gated and do not
-  enter the matching authority implicitly.
+  and authenticated Trading query/mutation state are implemented. The responsive Trading desk
+  composes market selection, exact market rules, limit-order entry, order cancellation, cursor-based
+  private history, retry guidance, and safe state transitions from that foundation. Market Data
+  projections remain separately gated and do not enter the matching authority implicitly.
 
 ## Phase 4 delivery state
 
@@ -172,8 +173,12 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   ambiguous-outcome idempotency reuse, and authoritative refresh after placement and cancellation;
   logout clears all private Trading state. Focused frontend tests cover request construction,
   response rejection, authentication transitions, pagination, retries, invalidation, and command
-  coalescing. The visual Trading workspace may now be implemented. Market Data projections remain
-  separately gated.
+  coalescing. The responsive visual workspace now provides a compact exchange-style market rail,
+  buy/sell limit-order ticket, open-order cancellation, execution tabs, loading/error/empty states,
+  and mobile reflow. It deliberately labels simulated execution and the Phase 5 price-feed boundary
+  instead of fabricating live prices, charts, spreads, or depth. Component tests exercise anonymous
+  privacy gates, server-confirmed placement, ambiguous-outcome retry, activity switching, and
+  cancellation. Market Data projections remain separately gated.
 
 ## Phase transition rule
 
