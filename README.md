@@ -27,8 +27,9 @@ The active phase derives truthful Market Data from committed Atlas Trading facts
 sequence-aware level-two order-book views, trade-derived tickers and candles, durable projection
 checkpoints, snapshot recovery, and later WebSocket delivery without making Market Data part of the
 matching or settlement authority. External prices and fabricated liquidity remain out of scope.
-The Trading boundary now publishes private-safe, versioned final-state facts under a durable
-per-market sequence for deterministic projection and recovery.
+The Trading boundary publishes private-safe, versioned final-state facts under a durable per-market
+sequence. Market Data now consumes that boundary into generation-aware checkpoints, private active
+order state, and exact deterministic level-two aggregates with replay and gap protection.
 
 ## Prerequisites
 

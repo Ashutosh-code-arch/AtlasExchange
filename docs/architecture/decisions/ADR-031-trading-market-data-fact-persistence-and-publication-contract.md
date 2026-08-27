@@ -195,7 +195,7 @@ They may later act only as a wake-up optimization over durable facts.
 
 This ADR does not decide:
 
-1. Market Data projection and checkpoint table schemas;
+1. Market Data projection and checkpoint table schemas, resolved by ADR-032;
 2. worker leadership, polling batch, retry, and lifecycle configuration;
 3. book-level, ticker, or candle persistence details;
 4. public REST and WebSocket contracts;
@@ -223,5 +223,6 @@ or multiple writers can no longer share the PostgreSQL market lock and sequence 
 **Accepted**
 
 Migration 0010, the version-one fact contract, final-state command publication, and bounded Trading
-fact reader may be implemented. Market Data-owned checkpoints and projections remain separately
+fact reader may be implemented. ADR-032 resolves the first Market Data-owned checkpoint and
+level-two projection persistence boundary; worker lifecycle and public delivery remain separately
 gated.

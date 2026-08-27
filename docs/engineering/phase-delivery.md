@@ -229,6 +229,22 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - Unit and real-PostgreSQL integration tests cover payload versions, privacy, immutability, rollback,
   retry idempotency, maker-price execution ordering, self-trade prevention, cancellation, and paged
   sequence reads.
+- [ADR-032 — Market Data Checkpoint and Level-Two Projection Persistence](../architecture/decisions/ADR-032-market-data-checkpoint-and-level-two-projection-persistence.md)
+  defines the generation-aware Market Data schema, private projected-order state, exact aggregate
+  levels, atomic checkpoint protocol, single-writer lock, replay behavior, and gap failure contract.
+- Migration 0011 advances schema compatibility to version 11 and provisions one active level-two
+  generation plus Market Data-owned checkpoints, active projected orders, and aggregate book levels.
+  Projection rows deliberately contain no owner, priority, reservation, idempotency, or settlement
+  fields and do not query Trading tables.
+- The application projector consumes Trading's public fact reader in bounded batches. Competing
+  projectors serialize per market, already applied sequences are harmless, the next sequence is
+  mandatory, order replacement updates exact lots and counts, terminal states remove liquidity,
+  trades advance freshness without changing book depth, and projection writes commit with the
+  durable checkpoint or roll back together.
+- Database-independent and real-PostgreSQL tests cover exact same-price aggregation, partial-fill
+  replacement, cancellation and fill removal, deterministic bid/ask ordering, trade-only checkpoint
+  advancement, restart, replay idempotency, concurrent projectors, sequence gaps, transaction
+  rollback, generation uniqueness, and positive-value constraints.
 
 ## Phase transition rule
 
