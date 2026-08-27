@@ -257,6 +257,15 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   retry, recovery, graceful stop, invalid configuration, and lifecycle cleanup. Real-PostgreSQL
   evidence proves automatic consumption of committed facts and later cancellation while the worker
   is running.
+- [ADR-034 — Public Level-Two Order-Book HTTP Contract](../architecture/decisions/ADR-034-public-level-two-order-book-http-contract.md)
+  defines the anonymous depth-bounded snapshot route, exact decimal and integer-string values,
+  point-in-time sequence and lag semantics, short public caching, process-local client limiting,
+  strict validation, privacy, and safe errors.
+- The composed API now serves top 1–100 bid and ask levels from Market Data's active generation,
+  bounds the underlying PostgreSQL reads, converts ticks and lots through the public Trading market
+  definition, and distinguishes `current` from `behind` without exposing orders or projection
+  internals. Shared-contract, application, limiter, HTTP, and real-PostgreSQL tests prove the public
+  boundary.
 
 ## Phase transition rule
 

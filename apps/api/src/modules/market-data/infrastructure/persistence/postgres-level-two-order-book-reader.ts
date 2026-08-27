@@ -32,41 +32,61 @@ function mapLevel(row: LevelRow): LevelTwoOrderBookLevel {
 export class PostgresLevelTwoOrderBookReader implements LevelTwoOrderBookReader {
   public constructor(private readonly database: Kysely<MarketDataDatabaseSchema>) {}
 
-  public async getSnapshot(marketCode: MarketCode): Promise<LevelTwoOrderBookSnapshot> {
-    const generation = await this.database
-      .selectFrom("market_data.projection_generations")
-      .select("id")
-      .where("projection_name", "=", levelTwoOrderBookProjectionName)
-      .where("status", "=", "active")
-      .executeTakeFirstOrThrow();
-    const checkpoint = await this.database
-      .selectFrom("market_data.projection_checkpoints")
-      .select(["last_sequence as lastSequence", "last_occurred_at as lastOccurredAt"])
-      .where("generation_id", "=", generation.id)
-      .where("market_code", "=", marketCode)
-      .executeTakeFirst();
-    const rows = await this.database
-      .selectFrom("market_data.level_two_order_book_levels")
-      .select([
-        "side",
-        "price_ticks as priceTicks",
-        "aggregate_remaining_lots as aggregateRemainingLots",
-        "order_count as orderCount",
-        "last_sequence as lastSequence",
-        "updated_at as updatedAt",
-      ])
-      .where("generation_id", "=", generation.id)
-      .where("market_code", "=", marketCode)
-      .orderBy("side", "asc")
-      .orderBy("price_ticks", "asc")
-      .execute();
-    const levels = (rows as readonly LevelRow[]).map(mapLevel);
-    return {
-      marketCode,
-      sequence: checkpoint === undefined ? 0n : BigInt(checkpoint.lastSequence),
-      asOf: checkpoint?.lastOccurredAt ?? null,
-      bids: levels.filter(({ side }) => side === "buy").toReversed(),
-      asks: levels.filter(({ side }) => side === "sell"),
-    };
+  public async getSnapshot(
+    marketCode: MarketCode,
+    depth?: number,
+  ): Promise<LevelTwoOrderBookSnapshot> {
+    if (depth !== undefined && (!Number.isInteger(depth) || depth < 1 || depth > 100)) {
+      throw new RangeError("Level-two order-book read depth is invalid.");
+    }
+    return this.database
+      .transaction()
+      .setIsolationLevel("repeatable read")
+      .execute(async (transaction) => {
+        const generation = await transaction
+          .selectFrom("market_data.projection_generations")
+          .select("id")
+          .where("projection_name", "=", levelTwoOrderBookProjectionName)
+          .where("status", "=", "active")
+          .executeTakeFirstOrThrow();
+        const readSide = async (
+          side: "buy" | "sell",
+          direction: "asc" | "desc",
+        ): Promise<readonly LevelRow[]> => {
+          let query = transaction
+            .selectFrom("market_data.level_two_order_book_levels")
+            .select([
+              "side",
+              "price_ticks as priceTicks",
+              "aggregate_remaining_lots as aggregateRemainingLots",
+              "order_count as orderCount",
+              "last_sequence as lastSequence",
+              "updated_at as updatedAt",
+            ])
+            .where("generation_id", "=", generation.id)
+            .where("market_code", "=", marketCode)
+            .where("side", "=", side)
+            .orderBy("price_ticks", direction);
+          if (depth !== undefined) query = query.limit(depth);
+          return query.execute();
+        };
+        const [checkpoint, bidRows, askRows] = await Promise.all([
+          transaction
+            .selectFrom("market_data.projection_checkpoints")
+            .select(["last_sequence as lastSequence", "last_occurred_at as lastOccurredAt"])
+            .where("generation_id", "=", generation.id)
+            .where("market_code", "=", marketCode)
+            .executeTakeFirst(),
+          readSide("buy", "desc"),
+          readSide("sell", "asc"),
+        ]);
+        return {
+          marketCode,
+          sequence: checkpoint === undefined ? 0n : BigInt(checkpoint.lastSequence),
+          asOf: checkpoint?.lastOccurredAt ?? null,
+          bids: bidRows.map(mapLevel),
+          asks: askRows.map(mapLevel),
+        };
+      });
   }
 }

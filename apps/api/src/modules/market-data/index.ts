@@ -1,4 +1,17 @@
 export {
+  defaultPublicOrderBookDepth,
+  GetLevelTwoOrderBook,
+  maximumPublicOrderBookDepth,
+  type GetLevelTwoOrderBookQuery,
+  type GetLevelTwoOrderBookResult,
+  type PublicLevelTwoOrderBook,
+  type PublicOrderBookLevel,
+} from "./application/get-level-two-order-book.js";
+export type {
+  MarketDataSnapshotRateLimitDecision,
+  MarketDataSnapshotRateLimiter,
+} from "./application/market-data-snapshot-rate-limiter.js";
+export {
   defaultMarketDataProjectionBatchSize,
   levelTwoOrderBookProjectionName,
   maximumMarketDataProjectionBatchSize,
@@ -31,7 +44,16 @@ export { PostgresLevelTwoOrderBookReader } from "./infrastructure/persistence/po
 export { PostgresMarketDataProjectionCheckpointReader } from "./infrastructure/persistence/postgres-market-data-projection-checkpoint-reader.js";
 export { PostgresMarketDataProjectionTransactionRunner } from "./infrastructure/persistence/postgres-market-data-projection-transaction-runner.js";
 export {
+  InMemoryMarketDataSnapshotRateLimiter,
+  marketDataSnapshotRateLimitMaximumRequests,
+  marketDataSnapshotRateLimitWindowMilliseconds,
+  type InMemoryMarketDataSnapshotRateLimiterOptions,
+} from "./infrastructure/security/in-memory-market-data-snapshot-rate-limiter.js";
+export {
+  createMarketDataModuleRouter,
   createMarketDataProjectionWorker,
+  type CreateMarketDataModuleRouterOptions,
   type CreateMarketDataProjectionWorkerOptions,
   type MarketDataCompositeDatabaseSchema,
 } from "./market-data-module.js";
+export { createMarketDataRouter, type MarketDataRouterOptions } from "./http/market-data-router.js";

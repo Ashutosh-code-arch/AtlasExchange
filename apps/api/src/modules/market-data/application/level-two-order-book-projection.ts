@@ -47,7 +47,7 @@ export interface MarketDataProjectionCheckpointReader {
 }
 
 export interface LevelTwoOrderBookReader {
-  getSnapshot(marketCode: MarketCode): Promise<LevelTwoOrderBookSnapshot>;
+  getSnapshot(marketCode: MarketCode, depth?: number): Promise<LevelTwoOrderBookSnapshot>;
 }
 
 export interface LevelTwoProjectionTransaction {

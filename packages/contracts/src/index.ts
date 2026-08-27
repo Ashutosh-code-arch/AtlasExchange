@@ -1,4 +1,23 @@
 export {
+  defaultMarketDataOrderBookDepth,
+  marketDataApiErrorCodeSchema,
+  marketDataApiErrorResponseSchema,
+  marketDataOrderBookFreshnessSchema,
+  marketDataOrderBookLevelSchema,
+  marketDataOrderBookParamsSchema,
+  marketDataOrderBookQuerySchema,
+  marketDataOrderBookResponseSchema,
+  maximumMarketDataOrderBookDepth,
+  type MarketDataApiErrorCode,
+  type MarketDataApiErrorResponse,
+  type MarketDataOrderBookFreshness,
+  type MarketDataOrderBookLevel,
+  type MarketDataOrderBookParams,
+  type MarketDataOrderBookQuery,
+  type MarketDataOrderBookResponse,
+} from "./market-data.js";
+
+export {
   assetCatalogResponseSchema,
   financialApiErrorCodeSchema,
   financialApiErrorResponseSchema,

@@ -17,6 +17,7 @@ import {
   type FinancialDatabaseSchema,
 } from "./modules/financial/index.js";
 import {
+  createMarketDataModuleRouter,
   createMarketDataProjectionWorker,
   type MarketDataDatabaseSchema,
 } from "./modules/market-data/index.js";
@@ -148,6 +149,7 @@ async function start(): Promise<RunningServer> {
           worker: config.marketData.projection,
         })
       : undefined;
+    const marketDataRouter = createMarketDataModuleRouter({ database: database.database });
     if (marketDataWorker === undefined) {
       logger.info(
         { event: "market_data.projection_worker.disabled" },
@@ -161,6 +163,7 @@ async function start(): Promise<RunningServer> {
       identityRouter,
       financialRouter,
       tradingRouter,
+      marketDataRouter,
       applicationVersion: config.logging.applicationVersion,
     });
     const server = createServer(app);
