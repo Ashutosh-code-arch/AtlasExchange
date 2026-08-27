@@ -18,7 +18,8 @@ The implemented foundation, Identity, and Financial phases provide:
 - exact asset quantities, owner-scoped wallets, append-only double-entry journals, authoritative
   balances, and retry-safe simulated deposits and withdrawals;
 - an authenticated Financial web sandbox that makes no external-custody claims;
-- an isolated browser journey through the web, API, PostgreSQL, and Mailpit.
+- isolated Identity, Financial, and Trading browser journeys through the web, API, PostgreSQL, and
+  Mailpit.
 
 The active phase introduces orders, balance reservation, deterministic matching, trades, atomic
 settlement, owner-scoped reads, and the public Trading HTTP surface. Core Trading persistence,
@@ -28,6 +29,8 @@ delivery now includes contract-validating API functions and authenticated market
 pagination, placement, cancellation, retry, and refresh state. A responsive exchange desk now
 exposes public market rules, authenticated limit-order entry, open-order management, execution
 history, and truthful Market Data deferral without inventing live prices or liquidity.
+The isolated two-user Trading journey proves maker-price execution, exact wallet settlement,
+persisted balances, and residual-order cancellation through the complete stack.
 
 ## Prerequisites
 
@@ -61,7 +64,7 @@ pnpm db:up          # start the local PostgreSQL container
 pnpm mail:up        # start the local SMTP capture inbox
 pnpm db:migrate     # apply committed migrations
 pnpm verify         # typecheck, lint, format-check, and test
-pnpm test:e2e       # run the isolated full-stack browser journey
+pnpm test:e2e       # run the isolated full-stack browser journeys
 pnpm build          # create production artifacts
 ```
 

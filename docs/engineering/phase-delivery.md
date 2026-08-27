@@ -1,7 +1,7 @@
 # Atlas Exchange Phase Delivery
 
 **Status:** Active  
-**Last reviewed:** 2026-08-27
+**Last reviewed:** 2026-08-28
 
 This document translates the canonical product and sprint documents into small, demonstrable
 delivery increments. A phase is complete only after its acceptance checks pass.
@@ -179,6 +179,10 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   instead of fabricating live prices, charts, spreads, or depth. Component tests exercise anonymous
   privacy gates, server-confirmed placement, ambiguous-outcome retry, activity switching, and
   cancellation. Market Data projections remain separately gated.
+- The isolated two-user browser journey proves registration and captured-email verification,
+  wallet provisioning and funding, maker-price matching, taker/maker execution visibility, exact
+  four-wallet settlement, residual cancellation and release, and persisted balances through the
+  real web, API, PostgreSQL, and Mailpit stack.
 
 ## Phase transition rule
 
