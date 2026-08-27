@@ -266,6 +266,12 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   definition, and distinguishes `current` from `behind` without exposing orders or projection
   internals. Shared-contract, application, limiter, HTTP, and real-PostgreSQL tests prove the public
   boundary.
+- The web application now consumes that public contract through a separate Market Data feature. The
+  Trading workspace renders responsive depth with exact price, aggregate quantity, order count,
+  best bid/ask, sequence time, and honest current/behind state. Non-overlapping two-second polling
+  pauses in hidden tabs, ignores late market-switch responses, retains the last valid snapshot on a
+  refresh failure, and offers explicit recovery. API, hook, component, anonymous-access, and real
+  browser tests cover the boundary from PostgreSQL projection through visible order-book updates.
 
 ## Phase transition rule
 

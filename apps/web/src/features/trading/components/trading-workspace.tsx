@@ -10,6 +10,11 @@ import type {
 import { ApiHttpError, ApiTransportError } from "../../../shared/api/http-client";
 import { useAuthenticationSession } from "../../authentication";
 import {
+  LevelTwoOrderBook,
+  getLevelTwoOrderBook,
+  type LevelTwoOrderBookLoader,
+} from "../../market-data";
+import {
   cancelTradingOrder,
   listTradingMarkets,
   listTradingOrders,
@@ -22,7 +27,7 @@ import {
   type UseTradingWorkspaceStateOptions,
 } from "../state/use-trading-workspace-state";
 
-export type TradingWorkspaceProps = Pick<
+type TradingStateProps = Pick<
   UseTradingWorkspaceStateOptions,
   | "marketLoader"
   | "orderLoader"
@@ -32,6 +37,12 @@ export type TradingWorkspaceProps = Pick<
   | "pageSize"
   | "idempotencyKeyFactory"
 >;
+
+export interface TradingWorkspaceProps extends TradingStateProps {
+  readonly orderBookLoader?: LevelTwoOrderBookLoader;
+  readonly orderBookDepth?: number;
+  readonly orderBookPollIntervalMs?: number;
+}
 
 interface Feedback {
   readonly tone: "error" | "notice" | "success";
@@ -515,6 +526,9 @@ export function TradingWorkspace({
   tradeLoader = listTradingTrades,
   orderPlacer = placeTradingOrder,
   orderCanceller = cancelTradingOrder,
+  orderBookLoader = getLevelTwoOrderBook,
+  orderBookDepth = 15,
+  orderBookPollIntervalMs = 2_000,
   pageSize = 25,
   idempotencyKeyFactory,
 }: TradingWorkspaceProps): React.JSX.Element {
@@ -679,21 +693,18 @@ export function TradingWorkspace({
               </div>
               <div>
                 <dt>Price feed</dt>
-                <dd className="trading-market-header__deferred">Phase 5</dd>
+                <dd className="trading-market-header__live">Level 2 · REST</dd>
               </div>
             </dl>
           </header>
 
-          <div className="trading-market-data-boundary">
-            <span aria-hidden="true">⌁</span>
-            <div>
-              <strong>Market data intentionally deferred</strong>
-              <p>
-                Atlas will add authoritative order-book, ticker, candle, and streaming projections
-                in Phase 5. No synthetic live price is shown.
-              </p>
-            </div>
-          </div>
+          <LevelTwoOrderBook
+            request={request}
+            loader={orderBookLoader}
+            depth={orderBookDepth}
+            pollIntervalMs={orderBookPollIntervalMs}
+            {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
+          />
 
           <TradingActivity
             controller={controller}

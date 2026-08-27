@@ -133,6 +133,10 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   const sellerOrders = page.getByRole("table", { name: "Orders for the selected Trading market" });
   await expect(sellerOrders).toContainText("50000");
   await expect(sellerOrders).toContainText("open");
+  const sellerBook = page.getByRole("table", { name: "BTC-USD level-two order book" });
+  await expect(sellerBook).toContainText("50000");
+  await expect(sellerBook).toContainText("0.5");
+  await expect(page.getByText("Current snapshot")).toBeVisible();
   await signOut(page);
 
   await registerVerifyAndSignIn(page, request, buyerEmail);
@@ -142,6 +146,7 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
 
   await placeLimitOrder(page, { side: "Buy", quantity: "0.5", price: "51000" });
   await expect(page.locator(".trading-feedback")).toContainText(/executed 1 fill/);
+  await expect(page.getByText("No open liquidity is projected for BTC-USD.")).toBeVisible();
   const buyerExecutions = page.getByRole("table", {
     name: "Executions for the selected Trading market",
   });
@@ -152,9 +157,13 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
 
   await placeLimitOrder(page, { side: "Buy", quantity: "0.1", price: "40000" });
   await expect(page.locator(".trading-feedback")).toContainText(/is open on BTC-USD/);
+  await expect(page.getByRole("table", { name: "BTC-USD level-two order book" })).toContainText(
+    "40000",
+  );
   await page.getByRole("button", { name: /Cancel BTC-USD buy order/ }).click();
   await expect(page.locator(".trading-feedback")).toContainText(/was cancelled/);
   await expect(page.getByRole("button", { name: /Cancel BTC-USD buy order/ })).toHaveCount(0);
+  await expect(page.getByText("No open liquidity is projected for BTC-USD.")).toBeVisible();
 
   await page.reload();
   await expect(page.getByText(buyerEmail)).toBeVisible();
