@@ -23,6 +23,7 @@ import {
   type MarketDataDatabaseSchema,
 } from "./modules/market-data/index.js";
 import { createPortfolioModuleRouter } from "./modules/portfolio/index.js";
+import type { NotificationsDatabaseSchema } from "./modules/notifications/index.js";
 import { createTradingModuleRouter, type TradingDatabaseSchema } from "./modules/trading/index.js";
 import {
   createDatabaseResources,
@@ -43,7 +44,8 @@ type AtlasDatabaseSchema = DatabaseSchema &
   IdentityDatabaseSchema &
   FinancialDatabaseSchema &
   TradingDatabaseSchema &
-  MarketDataDatabaseSchema;
+  MarketDataDatabaseSchema &
+  NotificationsDatabaseSchema;
 
 interface RunningServer extends ManagedRuntime {
   readonly server: Server;

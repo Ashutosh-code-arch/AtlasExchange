@@ -50,6 +50,10 @@ validates exact totals, bounds reads per account, and reports incomplete valuati
 responsive Portfolio workspace now presents exact balances, committed-price references, complete
 totals or explicitly incomplete subtotals, manual refresh, and honest last-valid stale recovery
 without browser valuation arithmetic. Notifications and administration follow later in the phase.
+The next Product Surfaces foundation now adds a durable owner-scoped Notification inbox. Its first
+typed facts cover completed simulated deposits and withdrawals, preserve exact amounts, participate
+in caller transactions, reject changed retries, and keep immutable content separate from monotonic
+read receipts. Source integration and authenticated inbox delivery follow as focused increments.
 
 ## Prerequisites
 

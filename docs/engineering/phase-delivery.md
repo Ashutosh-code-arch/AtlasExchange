@@ -428,6 +428,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   resets on user change, and retains a visibly stale last-valid snapshot after refresh failure.
   Strict API parsing, focused component state tests, app-composition coverage, and isolated browser
   journeys prove complete and incomplete snapshots through the real stack.
+- [ADR-047 — Durable Notification Inbox and Event-Capture Foundation](../architecture/decisions/ADR-047-durable-notification-inbox-and-event-capture-foundation.md)
+  defines an owner-scoped in-app inbox, typed versioned source facts, atomic transaction-bound
+  capture, tuple idempotency, immutable content, monotonic read receipts, and the initial exclusion
+  of external and realtime delivery.
+- Migration 0014 advances schema compatibility to version 14 and provisions the Notifications inbox,
+  owner timeline index, exact Financial completion payload constraints, source uniqueness, and
+  separate immutable read receipts. The Notifications domain and PostgreSQL writer reject invalid
+  facts and changed retries, return existing records for identical retries, isolate identical source
+  IDs across owners, serialize concurrency, and roll back with the caller transaction. Financial
+  source integration and public delivery remain the next increments.
 
 ## Phase transition rule
 
