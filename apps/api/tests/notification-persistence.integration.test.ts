@@ -6,6 +6,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   CreateNotification,
+  ListNotifications,
+  MarkNotificationRead,
+  PostgresNotificationInboxReader,
+  PostgresNotificationReadMarker,
   PostgresNotificationWriter,
   bindPostgresNotificationWriter,
   type CreateNotificationInput,
@@ -32,6 +36,7 @@ const database = new Kysely<NotificationsDatabaseSchema>({
   }),
 });
 const createNotification = new CreateNotification(new PostgresNotificationWriter(database));
+const listNotifications = new ListNotifications(new PostgresNotificationInboxReader(database));
 
 function input(overrides: Partial<CreateNotificationInput> = {}): CreateNotificationInput {
   return {
@@ -169,6 +174,76 @@ describe("PostgreSQL Notification persistence", () => {
         database,
       ),
     ).rejects.toMatchObject({ code: "P0001" });
+  });
+
+  it("pages one owner's inbox by occurrence tuple with an exact unread count", async () => {
+    const ownerId = randomUUID();
+    const otherOwnerId = randomUUID();
+    const sameTime = "2026-08-29T15:00:00.000Z";
+    const records = await Promise.all([
+      createNotification.execute(input({ ownerId, occurredAt: sameTime })),
+      createNotification.execute(
+        input({
+          ownerId,
+          kind: "financial.withdrawal_completed",
+          occurredAt: sameTime,
+        }),
+      ),
+      createNotification.execute(input({ ownerId, occurredAt: "2026-08-29T14:59:59.000Z" })),
+      createNotification.execute(input({ ownerId: otherOwnerId, occurredAt: sameTime })),
+    ]);
+    const expectedIds = records
+      .slice(0, 2)
+      .map(({ notification }) => notification.id)
+      .sort((left, right) => right.localeCompare(left));
+    expectedIds.push(records[2].notification.id);
+
+    const first = await listNotifications.execute({ ownerId, limit: 2 });
+    expect(first.notifications.map(({ id }) => id)).toEqual(expectedIds.slice(0, 2));
+    expect(first.notifications.every((notification) => !("ownerId" in notification))).toBe(true);
+    expect(first.unreadCount).toBe("3");
+    expect(first.nextCursor).not.toBeNull();
+
+    const second = await listNotifications.execute({
+      ownerId,
+      limit: 2,
+      cursor: first.nextCursor!,
+    });
+    expect(second.notifications.map(({ id }) => id)).toEqual(expectedIds.slice(2));
+    expect(second.unreadCount).toBe("3");
+    expect(second.nextCursor).toBeNull();
+    expect(await listNotifications.execute({ ownerId: randomUUID() })).toEqual({
+      notifications: [],
+      unreadCount: "0",
+      nextCursor: null,
+    });
+  });
+
+  it("marks an owned notification read once without disclosing another owner's record", async () => {
+    const ownerId = randomUUID();
+    const otherOwnerId = randomUUID();
+    const created = await createNotification.execute(input({ ownerId }));
+    const readAt = "2026-08-29T16:00:00.000Z";
+    const marker = new PostgresNotificationReadMarker(database);
+    const first = new MarkNotificationRead(marker, { now: () => new Date(readAt) });
+    const retry = new MarkNotificationRead(marker, {
+      now: () => new Date("2026-08-29T17:00:00.000Z"),
+    });
+
+    await expect(
+      first.execute({ ownerId: otherOwnerId, notificationId: created.notification.id }),
+    ).resolves.toEqual({ status: "not_found" });
+    await expect(
+      first.execute({ ownerId, notificationId: created.notification.id }),
+    ).resolves.toEqual({ status: "created", readAt });
+    await expect(
+      retry.execute({ ownerId, notificationId: created.notification.id }),
+    ).resolves.toEqual({ status: "existing", readAt });
+
+    const inbox = await listNotifications.execute({ ownerId });
+    expect(inbox.unreadCount).toBe("0");
+    expect(inbox.notifications).toHaveLength(1);
+    expect(inbox.notifications[0]?.readAt).toBe(readAt);
   });
 
   it("rejects unknown kinds, schema versions, and noncanonical payloads in PostgreSQL", async () => {

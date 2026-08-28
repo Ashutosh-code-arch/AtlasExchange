@@ -449,6 +449,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   prove exact persisted facts, one notification across retries, concurrent source idempotency, and
   complete source rollback when capture fails. The composed authenticated Financial HTTP lifecycle
   proves both kinds are captured from real commands.
+- [ADR-049 — Private Notification Inbox Read Model](../architecture/decisions/ADR-049-private-notification-inbox-read-model.md)
+  defines owner-scoped newest-first tuple pagination, opaque exclusive cursors, exact string unread
+  counts, coherent repeatable-read snapshots, and monotonic non-disclosing acknowledgement.
+- Notifications now exposes framework-neutral list and mark-read application capabilities. The
+  PostgreSQL reader joins immutable receipts under the owner predicate and returns a bounded page
+  plus exact unread count from one read-only repeatable-read transaction. The marker creates one
+  first-read timestamp, preserves it on retries, and returns the same not-found result for absent and
+  foreign records. Unit and real-PostgreSQL tests prove validation, lookahead cursors, equal-time
+  ordering, page continuity, isolation, unread transitions, and retry stability. HTTP and browser
+  delivery remain the next increments; no schema migration was required.
 
 ## Phase transition rule
 
