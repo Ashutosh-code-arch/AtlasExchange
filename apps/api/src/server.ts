@@ -19,6 +19,7 @@ import {
 import {
   createMarketDataModuleRouter,
   createMarketDataProjectionWorker,
+  createMarketDataStreamGateway,
   type MarketDataDatabaseSchema,
 } from "./modules/market-data/index.js";
 import { createTradingModuleRouter, type TradingDatabaseSchema } from "./modules/trading/index.js";
@@ -167,6 +168,18 @@ async function start(): Promise<RunningServer> {
       applicationVersion: config.logging.applicationVersion,
     });
     const server = createServer(app);
+    const marketDataStream = config.marketData.stream.enabled
+      ? createMarketDataStreamGateway({
+          database: database.database,
+          server,
+          logger,
+          webOrigin: config.http.webOrigin,
+          stream: config.marketData.stream,
+        })
+      : undefined;
+    if (marketDataStream === undefined) {
+      logger.info({ event: "market_data.stream.disabled" }, "Market Data stream disabled");
+    }
     runtime = {
       server,
       lifecycle,
@@ -174,9 +187,18 @@ async function start(): Promise<RunningServer> {
       workers: marketDataWorker === undefined ? [] : [marketDataWorker],
       logger,
       shutdownTimeoutMs: config.http.shutdownTimeoutMs,
-      startListening: () => listen(server, config.http.port),
-      stopListening: () => closeServer(server),
-      forceCloseConnections: () => server.closeAllConnections(),
+      startListening: async () => {
+        marketDataStream?.start();
+        await listen(server, config.http.port);
+      },
+      stopListening: async () => {
+        await marketDataStream?.stop();
+        await closeServer(server);
+      },
+      forceCloseConnections: () => {
+        marketDataStream?.forceCloseConnections();
+        server.closeAllConnections();
+      },
     };
   } catch (error) {
     await runWithDeadline("startup database cleanup", config.http.shutdownTimeoutMs, () =>

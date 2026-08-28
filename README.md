@@ -29,8 +29,10 @@ depth, ticker, and candlestick panels. An independently checkpointed candle proj
 sparse UTC OHLCV for six accepted intervals and runs under the managed projection worker with a
 coherent cursor-based internal history reader and anonymous bounded REST history. Its responsive SVG
 chart preserves real time gaps, distinguishes open candles, exposes freshness, and safely refreshes
-the active market and interval. Snapshot recovery and later WebSocket delivery remain incremental
-work. Market Data is never part of
+the active market and interval. A strict versioned WebSocket gateway now delivers bounded full
+replacement snapshots for book, ticker, and candles with grouped refreshes, heartbeat detection,
+backpressure, and graceful shutdown. Browser subscription and reconnect recovery remain the final
+Phase 5 increment. Market Data is never part of
 matching or settlement authority, and external prices and fabricated liquidity remain out of scope.
 The Trading boundary publishes private-safe, versioned final-state facts under a durable per-market
 sequence. Market Data now consumes that boundary into generation-aware checkpoints, private active

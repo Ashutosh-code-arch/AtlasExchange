@@ -349,6 +349,17 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   history with manual recovery. API, hook, model, component, workspace, and full-stack browser tests
   cover validation, polling lifecycle, sparse positioning, open state, interval switching, freshness,
   anonymous access, and real projected history.
+- [ADR-042 — Realtime Market Data WebSocket Protocol and Server Delivery](../architecture/decisions/ADR-042-realtime-market-data-websocket-protocol-and-server-delivery.md)
+  defines the anonymous origin-restricted upgrade, strict version-one subscription protocol, full
+  replacement recovery model, grouped unique-channel refresh, bounded connection and message limits,
+  heartbeat/pong detection, backpressure, safe errors, and upgraded-socket shutdown order.
+- The API now serves order-book, ticker, and candle subscriptions through one WebSocket endpoint.
+  A subscription receives an acknowledgement plus an exact initial snapshot, identical channels
+  share one refresh read before fan-out, malformed clients are bounded, and reconnect requires no
+  retained server session because every snapshot is complete. Shared-contract and real-socket tests
+  cover protocol validation, negotiation, snapshots, fan-out, limits, origin isolation, heartbeat,
+  and graceful shutdown. Browser subscription, reconnect, stale recovery, and removal of redundant
+  foreground polling remain the final Phase 5 increment.
 
 ## Phase transition rule
 

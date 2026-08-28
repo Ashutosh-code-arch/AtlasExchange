@@ -123,10 +123,19 @@ export {
   type InMemoryMarketDataSnapshotRateLimiterOptions,
 } from "./infrastructure/security/in-memory-market-data-snapshot-rate-limiter.js";
 export {
+  MarketDataStreamGateway,
+  type MarketDataStreamGatewayOptions,
+  type MarketDataStreamQueries,
+} from "./infrastructure/websocket/market-data-stream-gateway.js";
+export {
   createMarketDataModuleRouter,
+  createMarketDataPublicQueries,
   createMarketDataProjectionWorker,
+  createMarketDataStreamGateway,
   type CreateMarketDataModuleRouterOptions,
   type CreateMarketDataProjectionWorkerOptions,
+  type CreateMarketDataStreamGatewayOptions,
   type MarketDataCompositeDatabaseSchema,
+  type MarketDataPublicQueries,
 } from "./market-data-module.js";
 export { createMarketDataRouter, type MarketDataRouterOptions } from "./http/market-data-router.js";

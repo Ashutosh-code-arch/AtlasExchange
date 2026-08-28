@@ -2,7 +2,7 @@
 
 **Classification:** Canonical
 **Status:** Active
-**Last reviewed:** 2026-08-24
+**Last reviewed:** 2026-08-28
 **Canonical architecture:** ADR-004
 <!-- **Owner scope:** Operational testing policy -->
 
@@ -82,6 +82,7 @@ Examples:
 | Pure calculation                | Unit                   |
 | Schema acceptance/rejection     | Schema test            |
 | HTTP behavior                   | API                    |
+| WebSocket upgrade/protocol      | API with real sockets  |
 | PostgreSQL transaction          | Integration            |
 | Migration correctness           | Migration/integration  |
 | Concurrent balance update       | PostgreSQL concurrency |
@@ -466,6 +467,14 @@ Use a mock, fake, stub, or deterministic fixture when the dependency itself is n
 * failure simulation.
 
 A mock should represent an intentional testing boundary rather than compensate for inconvenient architecture.
+
+## WebSocket transport tests
+
+When WebSocket behavior is introduced, schema tests alone are insufficient. Focused API tests should
+use a real ephemeral HTTP server and real WebSocket clients to prove applicable handshake,
+subprotocol, origin, framing, subscription, heartbeat, close-code, backpressure, and shutdown
+behavior. Application-query collaborators may remain deterministic mocks when PostgreSQL semantics
+are not the risk under test. Cross-application browser behavior remains E2E.
 
 ---
 

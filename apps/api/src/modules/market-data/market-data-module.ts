@@ -1,3 +1,5 @@
+import type { Server } from "node:http";
+
 import type { Router } from "express";
 import type { Kysely } from "kysely";
 import type { Logger } from "pino";
@@ -32,6 +34,10 @@ import { PostgresTradeTickerProjectionCheckpointReader } from "./infrastructure/
 import { PostgresTradeTickerProjectionTransactionRunner } from "./infrastructure/persistence/postgres-trade-ticker-projection-transaction-runner.js";
 import { PostgresTradeTickerReader } from "./infrastructure/persistence/postgres-trade-ticker-reader.js";
 import { InMemoryMarketDataSnapshotRateLimiter } from "./infrastructure/security/in-memory-market-data-snapshot-rate-limiter.js";
+import {
+  MarketDataStreamGateway,
+  type MarketDataStreamGatewayOptions,
+} from "./infrastructure/websocket/market-data-stream-gateway.js";
 import { createMarketDataRouter } from "./http/market-data-router.js";
 
 export type MarketDataCompositeDatabaseSchema = MarketDataDatabaseSchema &
@@ -49,10 +55,38 @@ export interface CreateMarketDataModuleRouterOptions {
   readonly now?: () => Date;
 }
 
-export function createMarketDataModuleRouter(options: CreateMarketDataModuleRouterOptions): Router {
+export interface MarketDataPublicQueries {
+  readonly getCandles: GetPublicCandles;
+  readonly getLevelTwoOrderBook: GetLevelTwoOrderBook;
+  readonly getTradeTicker: GetPublicTradeTicker;
+}
+
+export interface CreateMarketDataStreamGatewayOptions {
+  readonly database: Kysely<MarketDataCompositeDatabaseSchema>;
+  readonly server: Server;
+  readonly logger: Logger;
+  readonly webOrigin: string;
+  readonly stream: Readonly<
+    Pick<
+      MarketDataStreamGatewayOptions,
+      | "refreshIntervalMs"
+      | "heartbeatIntervalMs"
+      | "maximumConnections"
+      | "maximumConnectionsPerClient"
+      | "maximumSubscriptionsPerConnection"
+      | "maximumMessageBytes"
+      | "maximumBufferedBytes"
+    >
+  >;
+  readonly now?: () => Date;
+}
+
+export function createMarketDataPublicQueries(
+  options: Pick<CreateMarketDataModuleRouterOptions, "database" | "now">,
+): MarketDataPublicQueries {
   const markets = new PostgresTradingMarketReader(options.database);
   const publications = new PostgresTradingPublicationFactReader(options.database);
-  return createMarketDataRouter({
+  return {
     getCandles: new GetPublicCandles(
       markets,
       new GetCandles(new PostgresCandleHistoryReader(options.database), options.now),
@@ -69,7 +103,33 @@ export function createMarketDataModuleRouter(options: CreateMarketDataModuleRout
       new GetTradeTicker(new PostgresTradeTickerReader(options.database), options.now),
       publications,
     ),
+  };
+}
+
+export function createMarketDataModuleRouter(options: CreateMarketDataModuleRouterOptions): Router {
+  const queries = createMarketDataPublicQueries(options);
+  return createMarketDataRouter({
+    ...queries,
     snapshotRateLimiter: options.snapshotRateLimiter ?? new InMemoryMarketDataSnapshotRateLimiter(),
+  });
+}
+
+export function createMarketDataStreamGateway(
+  options: CreateMarketDataStreamGatewayOptions,
+): MarketDataStreamGateway {
+  return new MarketDataStreamGateway({
+    ...createMarketDataPublicQueries(options),
+    server: options.server,
+    logger: options.logger,
+    webOrigin: options.webOrigin,
+    refreshIntervalMs: options.stream.refreshIntervalMs,
+    heartbeatIntervalMs: options.stream.heartbeatIntervalMs,
+    maximumConnections: options.stream.maximumConnections,
+    maximumConnectionsPerClient: options.stream.maximumConnectionsPerClient,
+    maximumSubscriptionsPerConnection: options.stream.maximumSubscriptionsPerConnection,
+    maximumMessageBytes: options.stream.maximumMessageBytes,
+    maximumBufferedBytes: options.stream.maximumBufferedBytes,
+    ...(options.now === undefined ? {} : { now: options.now }),
   });
 }
 

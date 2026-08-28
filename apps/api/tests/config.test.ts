@@ -24,6 +24,16 @@ describe("API configuration", () => {
       retryInitialDelayMs: 500,
       retryMaximumDelayMs: 30_000,
     });
+    expect(config.marketData.stream).toEqual({
+      enabled: true,
+      refreshIntervalMs: 1_000,
+      heartbeatIntervalMs: 15_000,
+      maximumConnections: 1_000,
+      maximumConnectionsPerClient: 5,
+      maximumSubscriptionsPerConnection: 12,
+      maximumMessageBytes: 8_192,
+      maximumBufferedBytes: 1_048_576,
+    });
     expect(config.identity.passwordBlocklistPath).toMatch(
       /resources\/development-password-blocklist\.sha256$/,
     );
@@ -42,6 +52,7 @@ describe("API configuration", () => {
     expect(Object.isFrozen(config.database)).toBe(true);
     expect(Object.isFrozen(config.financial)).toBe(true);
     expect(Object.isFrozen(config.marketData.projection)).toBe(true);
+    expect(Object.isFrozen(config.marketData.stream)).toBe(true);
   });
 
   it("rejects a missing database URL without exposing values", () => {
@@ -87,6 +98,36 @@ describe("API configuration", () => {
         "MARKET_DATA_PROJECTION_RETRY_MAXIMUM_DELAY_MS",
       ]),
     );
+  });
+
+  it("validates explicit Market Data stream operational boundaries", () => {
+    const config = parseApiConfig({
+      ...validEnvironment,
+      MARKET_DATA_STREAM_ENABLED: "false",
+      MARKET_DATA_STREAM_REFRESH_INTERVAL_MS: "250",
+      MARKET_DATA_STREAM_HEARTBEAT_INTERVAL_MS: "30000",
+      MARKET_DATA_STREAM_MAX_CONNECTIONS: "2500",
+      MARKET_DATA_STREAM_MAX_CONNECTIONS_PER_CLIENT: "8",
+      MARKET_DATA_STREAM_MAX_SUBSCRIPTIONS_PER_CONNECTION: "10",
+      MARKET_DATA_STREAM_MAX_MESSAGE_BYTES: "16384",
+      MARKET_DATA_STREAM_MAX_BUFFERED_BYTES: "2097152",
+    });
+    expect(config.marketData.stream).toEqual({
+      enabled: false,
+      refreshIntervalMs: 250,
+      heartbeatIntervalMs: 30_000,
+      maximumConnections: 2_500,
+      maximumConnectionsPerClient: 8,
+      maximumSubscriptionsPerConnection: 10,
+      maximumMessageBytes: 16_384,
+      maximumBufferedBytes: 2_097_152,
+    });
+    expect(() =>
+      parseApiConfig({ ...validEnvironment, MARKET_DATA_STREAM_REFRESH_INTERVAL_MS: "99" }),
+    ).toThrowError(new ConfigurationError(["MARKET_DATA_STREAM_REFRESH_INTERVAL_MS"]));
+    expect(() =>
+      parseApiConfig({ ...validEnvironment, MARKET_DATA_STREAM_MAX_MESSAGE_BYTES: "512" }),
+    ).toThrowError(new ConfigurationError(["MARKET_DATA_STREAM_MAX_MESSAGE_BYTES"]));
   });
 
   it("defaults simulated Financial operations off in managed environments and permits explicit overrides", () => {

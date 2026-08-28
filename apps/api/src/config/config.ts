@@ -49,6 +49,35 @@ const apiEnvironmentSchema = z.object({
     .default("30000")
     .transform(Number)
     .pipe(z.number().int().min(25).max(300_000)),
+  MARKET_DATA_STREAM_ENABLED: booleanString.default(true),
+  MARKET_DATA_STREAM_REFRESH_INTERVAL_MS: integerString
+    .default("1000")
+    .transform(Number)
+    .pipe(z.number().int().min(100).max(60_000)),
+  MARKET_DATA_STREAM_HEARTBEAT_INTERVAL_MS: integerString
+    .default("15000")
+    .transform(Number)
+    .pipe(z.number().int().min(1_000).max(120_000)),
+  MARKET_DATA_STREAM_MAX_CONNECTIONS: integerString
+    .default("1000")
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(10_000)),
+  MARKET_DATA_STREAM_MAX_CONNECTIONS_PER_CLIENT: integerString
+    .default("5")
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(100)),
+  MARKET_DATA_STREAM_MAX_SUBSCRIPTIONS_PER_CONNECTION: integerString
+    .default("12")
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(50)),
+  MARKET_DATA_STREAM_MAX_MESSAGE_BYTES: integerString
+    .default("8192")
+    .transform(Number)
+    .pipe(z.number().int().min(1_024).max(65_536)),
+  MARKET_DATA_STREAM_MAX_BUFFERED_BYTES: integerString
+    .default("1048576")
+    .transform(Number)
+    .pipe(z.number().int().min(65_536).max(16_777_216)),
   SIMULATED_FUNDING_ENABLED: z.enum(["true", "false"]).optional(),
   SIMULATED_WITHDRAWALS_ENABLED: z.enum(["true", "false"]).optional(),
   PASSWORD_BLOCKLIST_PATH: z.string().min(1).optional(),
@@ -114,6 +143,16 @@ export interface ApiConfig {
       maximumBatchesPerCycle: number;
       retryInitialDelayMs: number;
       retryMaximumDelayMs: number;
+    }>;
+    stream: Readonly<{
+      enabled: boolean;
+      refreshIntervalMs: number;
+      heartbeatIntervalMs: number;
+      maximumConnections: number;
+      maximumConnectionsPerClient: number;
+      maximumSubscriptionsPerConnection: number;
+      maximumMessageBytes: number;
+      maximumBufferedBytes: number;
     }>;
   }>;
   readonly nodeEnvironment: "development" | "test" | "production";
@@ -222,6 +261,17 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
         maximumBatchesPerCycle: values.MARKET_DATA_PROJECTION_MAX_BATCHES_PER_CYCLE,
         retryInitialDelayMs: values.MARKET_DATA_PROJECTION_RETRY_INITIAL_DELAY_MS,
         retryMaximumDelayMs: values.MARKET_DATA_PROJECTION_RETRY_MAXIMUM_DELAY_MS,
+      }),
+      stream: Object.freeze({
+        enabled: values.MARKET_DATA_STREAM_ENABLED,
+        refreshIntervalMs: values.MARKET_DATA_STREAM_REFRESH_INTERVAL_MS,
+        heartbeatIntervalMs: values.MARKET_DATA_STREAM_HEARTBEAT_INTERVAL_MS,
+        maximumConnections: values.MARKET_DATA_STREAM_MAX_CONNECTIONS,
+        maximumConnectionsPerClient: values.MARKET_DATA_STREAM_MAX_CONNECTIONS_PER_CLIENT,
+        maximumSubscriptionsPerConnection:
+          values.MARKET_DATA_STREAM_MAX_SUBSCRIPTIONS_PER_CONNECTION,
+        maximumMessageBytes: values.MARKET_DATA_STREAM_MAX_MESSAGE_BYTES,
+        maximumBufferedBytes: values.MARKET_DATA_STREAM_MAX_BUFFERED_BYTES,
       }),
     }),
     nodeEnvironment: values.NODE_ENV,
