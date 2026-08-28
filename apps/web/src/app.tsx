@@ -22,6 +22,11 @@ const TradingWorkspace = lazy(async () => {
   return { default: trading.TradingWorkspace };
 });
 
+const NotificationCenter = lazy(async () => {
+  const notifications = await import("./features/notifications");
+  return { default: notifications.NotificationCenter };
+});
+
 interface AppProps {
   readonly apiBaseUrl: string;
   readonly readinessClient?: (apiBaseUrl: string) => ReturnType<typeof getReadiness>;
@@ -112,23 +117,30 @@ export function App({
           </span>
           <span>ATLAS / EXCHANGE</span>
         </a>
-        <nav aria-label="Primary navigation">
+        <div className="site-header__actions">
+          <nav aria-label="Primary navigation">
+            {initialRoute.name === "overview" ? (
+              <a href="#portfolio">Portfolio</a>
+            ) : (
+              <a href="/">Home</a>
+            )}
+            {initialRoute.name === "overview" ? <a href="#trading">Trade</a> : null}
+            {initialRoute.name === "overview" ? <a href="#financial">Funds</a> : null}
+            {initialRoute.name === "overview" ? <a href="#roadmap">Roadmap</a> : null}
+            <a
+              href="https://github.com/Ashutosh-code-arch/AtlasExchange"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Repository <span aria-hidden="true">↗</span>
+            </a>
+          </nav>
           {initialRoute.name === "overview" ? (
-            <a href="#portfolio">Portfolio</a>
-          ) : (
-            <a href="/">Home</a>
-          )}
-          {initialRoute.name === "overview" ? <a href="#trading">Trade</a> : null}
-          {initialRoute.name === "overview" ? <a href="#financial">Funds</a> : null}
-          {initialRoute.name === "overview" ? <a href="#roadmap">Roadmap</a> : null}
-          <a
-            href="https://github.com/Ashutosh-code-arch/AtlasExchange"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Repository <span aria-hidden="true">↗</span>
-          </a>
-        </nav>
+            <Suspense fallback={null}>
+              <NotificationCenter />
+            </Suspense>
+          ) : null}
+        </div>
       </header>
       {initialRoute.name === "overview" ? (
         <OverviewRoute apiBaseUrl={apiBaseUrl} readinessClient={readinessClient} />

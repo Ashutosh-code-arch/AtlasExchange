@@ -471,6 +471,19 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   hashes in-memory limiter keys. Unit, contract, and real-PostgreSQL HTTP tests prove validation,
   caching, limiting, isolation, non-disclosing misses, receipt idempotence, and unread transitions.
   Browser inbox presentation remains the next increment; no migration was required.
+- [ADR-051 — Browser Notification Inbox Experience](../architecture/decisions/ADR-051-browser-notification-inbox-experience.md)
+  defines authenticated lifecycle isolation, an exact header badge, responsive activity panel,
+  explicit refresh, last-valid stale retention, cursor append and deduplication, and
+  server-confirmed single-item acknowledgement without implicit polling.
+- The overview header now exposes a responsive authenticated Notification Center. It loads no
+  private data before authentication, resets by user identity, preserves exact amount and unread
+  strings, caps only the visual badge at `99+`, presents typed Financial completion copy, appends
+  explicit cursor pages, and retains visibly stale validated data after refresh failure. Mark-read
+  sends session CSRF proof, validates that the receipt matches the requested item, applies the
+  server's immutable timestamp, and decrements exact unread state only after success. API and
+  component tests cover malformed output, large counts, pagination overlap, safe errors, and
+  anonymous isolation; an isolated browser journey proves deposit capture, inbox delivery,
+  acknowledgement, and read persistence across reload.
 
 ## Phase transition rule
 

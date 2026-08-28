@@ -66,6 +66,7 @@ describe("Atlas overview", () => {
     );
     expect(await screen.findByText("Operational")).toBeInTheDocument();
     expect(await screen.findByText(appUser.email)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Notifications" })).toBeInTheDocument();
   });
 
   it("shows a safe offline state when readiness cannot be loaded", async () => {
