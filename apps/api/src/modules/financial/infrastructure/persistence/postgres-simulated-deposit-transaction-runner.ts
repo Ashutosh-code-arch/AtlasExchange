@@ -7,6 +7,7 @@ import type {
   SimulatedDepositTransaction,
   SimulatedDepositTransactionRunner,
 } from "../../application/simulated-deposit-transaction.js";
+import type { FinancialNotificationPublisher } from "../../application/financial-notification-publisher.js";
 import type {
   CreateOrGetWalletInput,
   PersistWalletResult,
@@ -25,6 +26,7 @@ import {
   type WalletOwnerId,
 } from "../../domain/wallet.js";
 import type { FinancialDatabaseSchema } from "./financial-database-schema.js";
+import type { FinancialNotificationPublisherFactory } from "./financial-notification-publisher-factory.js";
 
 interface PersistedWalletRow {
   readonly id: string;
@@ -63,7 +65,10 @@ function mapWallet(row: PersistedWalletRow, accounts: readonly PersistedAccountR
 }
 
 class PostgresSimulatedDepositTransaction implements SimulatedDepositTransaction {
-  public constructor(private readonly database: Transaction<FinancialDatabaseSchema>) {}
+  public constructor(
+    private readonly database: Transaction<FinancialDatabaseSchema>,
+    public readonly notifications: Pick<FinancialNotificationPublisher, "depositCredited">,
+  ) {}
 
   public async lockIdempotencyKey(
     ownerId: WalletOwnerId,
@@ -328,13 +333,23 @@ class PostgresSimulatedDepositTransaction implements SimulatedDepositTransaction
 }
 
 export class PostgresSimulatedDepositTransactionRunner implements SimulatedDepositTransactionRunner {
-  public constructor(private readonly database: Kysely<FinancialDatabaseSchema>) {}
+  public constructor(
+    private readonly database: Kysely<FinancialDatabaseSchema>,
+    private readonly notificationPublisherFactory: FinancialNotificationPublisherFactory,
+  ) {}
 
   public execute<Result>(
     operation: (transaction: SimulatedDepositTransaction) => Promise<Result>,
   ): Promise<Result> {
     return this.database
       .transaction()
-      .execute((database) => operation(new PostgresSimulatedDepositTransaction(database)));
+      .execute((database) =>
+        operation(
+          new PostgresSimulatedDepositTransaction(
+            database,
+            this.notificationPublisherFactory(database),
+          ),
+        ),
+      );
   }
 }

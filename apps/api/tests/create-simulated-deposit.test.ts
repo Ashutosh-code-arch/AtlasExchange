@@ -4,6 +4,7 @@ import {
   CreateSimulatedDeposit,
   type CreateSimulatedDepositCommand,
 } from "../src/modules/financial/application/create-simulated-deposit.js";
+import type { FinancialNotificationInput } from "../src/modules/financial/application/financial-notification-publisher.js";
 import type {
   LockedSimulatedDepositAccounts,
   PersistedSimulatedDeposit,
@@ -76,6 +77,13 @@ function accounts(): LockedSimulatedDepositAccounts {
 }
 
 class FakeSimulatedDepositTransaction implements SimulatedDepositTransaction {
+  public readonly notificationInputs: FinancialNotificationInput[] = [];
+  public readonly notifications = {
+    depositCredited: (input: FinancialNotificationInput): Promise<void> => {
+      this.notificationInputs.push(input);
+      return Promise.resolve();
+    },
+  };
   public existing: PersistedSimulatedDeposit | undefined;
   public persisted: PersistedSimulatedDeposit | undefined;
   public persistedInput: PersistSimulatedDepositInput | undefined;
@@ -202,6 +210,15 @@ describe("CreateSimulatedDeposit", () => {
       },
     });
     expect(testHarness.runner.transaction.persistedInput?.intentHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(testHarness.runner.transaction.notificationInputs).toEqual([
+      {
+        ownerId,
+        sourceId: depositId,
+        assetCode: "BTC",
+        amount: "1.25",
+        occurredAt: creditedAt,
+      },
+    ]);
   });
 
   it("returns the original deposit for an identical retry even when new funding is disabled", async () => {
@@ -218,6 +235,7 @@ describe("CreateSimulatedDeposit", () => {
       status: "existing",
       deposit: existing.record,
     });
+    expect(retryHarness.runner.transaction.notificationInputs).toEqual([]);
     expect(retryHarness.runner.transaction.walletInput).toBeUndefined();
   });
 

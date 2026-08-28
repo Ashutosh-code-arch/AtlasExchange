@@ -4,6 +4,7 @@ import {
   CreateSimulatedWithdrawal,
   type CreateSimulatedWithdrawalCommand,
 } from "../src/modules/financial/application/create-simulated-withdrawal.js";
+import type { FinancialNotificationInput } from "../src/modules/financial/application/financial-notification-publisher.js";
 import type {
   LockedSimulatedWithdrawalAccounts,
   PersistedSimulatedWithdrawal,
@@ -73,6 +74,13 @@ function accounts(availableBalanceAtomicUnits = 200_000_000n): LockedSimulatedWi
 }
 
 class FakeSimulatedWithdrawalTransaction implements SimulatedWithdrawalTransaction {
+  public readonly notificationInputs: FinancialNotificationInput[] = [];
+  public readonly notifications = {
+    withdrawalCompleted: (input: FinancialNotificationInput): Promise<void> => {
+      this.notificationInputs.push(input);
+      return Promise.resolve();
+    },
+  };
   public existing: PersistedSimulatedWithdrawal | undefined;
   public persisted: PersistedSimulatedWithdrawal | undefined;
   public persistedInput: PersistSimulatedWithdrawalInput | undefined;
@@ -204,6 +212,15 @@ describe("CreateSimulatedWithdrawal", () => {
       },
     });
     expect(testHarness.runner.transaction.persistedInput?.intentHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(testHarness.runner.transaction.notificationInputs).toEqual([
+      {
+        ownerId,
+        sourceId: withdrawalId,
+        assetCode: "BTC",
+        amount: "1.25",
+        occurredAt: completedAt,
+      },
+    ]);
   });
 
   it("returns the original withdrawal for a retry after withdrawals are disabled", async () => {
@@ -220,6 +237,7 @@ describe("CreateSimulatedWithdrawal", () => {
       status: "existing",
       withdrawal: existing.record,
     });
+    expect(retryHarness.runner.transaction.notificationInputs).toEqual([]);
     expect(retryHarness.runner.transaction.walletLookups).toBe(0);
     expect(retryHarness.runner.transaction.accountLocks).toBe(0);
   });

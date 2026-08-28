@@ -438,6 +438,17 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   facts and changed retries, return existing records for identical retries, isolate identical source
   IDs across owners, serialize concurrency, and roll back with the caller transaction. Financial
   source integration and public delivery remain the next increments.
+- [ADR-048 — Atomic Financial Notification Capture](../architecture/decisions/ADR-048-atomic-financial-notification-capture.md)
+  defines completed-only emission, persisted-record payload authority, same-transaction failure
+  semantics, Financial-owned port direction, retry deduplication, and the explicit no-backfill
+  rollout boundary.
+- New simulated deposits and withdrawals now capture exact typed notification facts inside their
+  existing wallet, journal, and balance transaction. The composition root binds Notifications'
+  implementation to Financial's narrow application port without exposing Notifications SQL or
+  records to Financial. Unit tests prove exact mapping and no retry emission; real-PostgreSQL tests
+  prove exact persisted facts, one notification across retries, concurrent source idempotency, and
+  complete source rollback when capture fails. The composed authenticated Financial HTTP lifecycle
+  proves both kinds are captured from real commands.
 
 ## Phase transition rule
 

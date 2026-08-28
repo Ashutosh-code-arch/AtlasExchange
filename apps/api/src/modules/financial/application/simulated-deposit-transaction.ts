@@ -10,6 +10,7 @@ import type {
   PersistWalletResult,
   WalletCreationAsset,
 } from "./wallet-creation-transaction.js";
+import type { FinancialNotificationPublisher } from "./financial-notification-publisher.js";
 
 export interface LockedSimulatedDepositAccounts {
   readonly available: LedgerAccount;
@@ -31,6 +32,7 @@ export interface PersistedSimulatedDeposit {
 }
 
 export interface SimulatedDepositTransaction {
+  readonly notifications: Pick<FinancialNotificationPublisher, "depositCredited">;
   lockIdempotencyKey(
     ownerId: WalletOwnerId,
     idempotencyKey: FinancialIdempotencyKey,

@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
-import { Kysely, PostgresDialect, sql } from "kysely";
+import { Kysely, PostgresDialect, sql, type Transaction } from "kysely";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -9,6 +9,10 @@ import {
   CreateSimulatedWithdrawal,
   type CreateSimulatedWithdrawalCommand,
 } from "../src/modules/financial/application/create-simulated-withdrawal.js";
+import type {
+  FinancialNotificationPublisher,
+  FinancialNotificationPublisherFactory,
+} from "../src/modules/financial/index.js";
 import { GetSimulatedWithdrawal } from "../src/modules/financial/application/get-simulated-withdrawal.js";
 import { PostJournal } from "../src/modules/financial/application/post-journal.js";
 import type { FinancialDatabaseSchema } from "../src/modules/financial/infrastructure/persistence/financial-database-schema.js";
@@ -16,6 +20,10 @@ import { PostgresJournalPostingTransactionRunner } from "../src/modules/financia
 import { PostgresSimulatedDepositTransactionRunner } from "../src/modules/financial/infrastructure/persistence/postgres-simulated-deposit-transaction-runner.js";
 import { PostgresSimulatedWithdrawalReader } from "../src/modules/financial/infrastructure/persistence/postgres-simulated-withdrawal-reader.js";
 import { PostgresSimulatedWithdrawalTransactionRunner } from "../src/modules/financial/infrastructure/persistence/postgres-simulated-withdrawal-transaction-runner.js";
+import {
+  createFinancialNotificationPublisher,
+  type NotificationsDatabaseSchema,
+} from "../src/modules/notifications/index.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
 
 const baseDatabaseUrl =
@@ -30,16 +38,27 @@ function databaseUrlFor(name: string): string {
 
 const adminPool = new Pool({ connectionString: databaseUrlFor("postgres"), max: 1 });
 const integrationDatabaseUrl = databaseUrlFor(databaseName);
-const database = new Kysely<FinancialDatabaseSchema>({
+type WithdrawalDatabaseSchema = FinancialDatabaseSchema & NotificationsDatabaseSchema;
+
+const database = new Kysely<WithdrawalDatabaseSchema>({
   dialect: new PostgresDialect({
     pool: new Pool({ connectionString: integrationDatabaseUrl, max: 12 }),
   }),
 });
-const withdrawalRunner = new PostgresSimulatedWithdrawalTransactionRunner(database);
+const notificationPublisherFactory = (
+  transaction: Transaction<FinancialDatabaseSchema>,
+): FinancialNotificationPublisher =>
+  createFinancialNotificationPublisher(
+    transaction as unknown as Transaction<NotificationsDatabaseSchema>,
+  );
+const withdrawalRunner = new PostgresSimulatedWithdrawalTransactionRunner(
+  database,
+  notificationPublisherFactory,
+);
 const createWithdrawal = new CreateSimulatedWithdrawal(withdrawalRunner, true);
 const getWithdrawal = new GetSimulatedWithdrawal(new PostgresSimulatedWithdrawalReader(database));
 const createDeposit = new CreateSimulatedDeposit(
-  new PostgresSimulatedDepositTransactionRunner(database),
+  new PostgresSimulatedDepositTransactionRunner(database, notificationPublisherFactory),
   true,
 );
 const postJournal = new PostJournal(new PostgresJournalPostingTransactionRunner(database));
@@ -159,6 +178,13 @@ describe("PostgreSQL simulated-withdrawal persistence", () => {
       .where("posting.journal_id", "=", result.withdrawal.journalId)
       .orderBy("posting.position")
       .execute();
+    const notification = await database
+      .selectFrom("notifications.inbox")
+      .select(["owner_id", "kind", "source_id", "payload", "occurred_at"])
+      .where("owner_id", "=", ownerId)
+      .where("kind", "=", "financial.withdrawal_completed")
+      .where("source_id", "=", result.withdrawal.id)
+      .executeTakeFirstOrThrow();
 
     expect(withdrawal).toMatchObject({
       owner_id: ownerId,
@@ -181,6 +207,13 @@ describe("PostgreSQL simulated-withdrawal persistence", () => {
       { position: 1, direction: "debit", amount: "125000000", kind: "user_available" },
       { position: 2, direction: "credit", amount: "125000000", kind: "external_custody" },
     ]);
+    expect(notification).toEqual({
+      owner_id: ownerId,
+      kind: "financial.withdrawal_completed",
+      source_id: result.withdrawal.id,
+      payload: { assetCode: "BTC", amount: "1.25" },
+      occurred_at: new Date(result.withdrawal.completedAt),
+    });
     await expect(accountBalance(funded.walletId, "user_available")).resolves.toEqual({
       balance: "75000000",
     });
@@ -286,6 +319,14 @@ describe("PostgreSQL simulated-withdrawal persistence", () => {
       status: "idempotency_conflict",
       withdrawalId: first.withdrawal.id,
     });
+    const notifications = await database
+      .selectFrom("notifications.inbox")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("owner_id", "=", ownerId)
+      .where("kind", "=", "financial.withdrawal_completed")
+      .where("source_id", "=", first.withdrawal.id)
+      .executeTakeFirstOrThrow();
+    expect(notifications.count).toBe("1");
     await expect(accountBalance(funded.walletId, "user_available")).resolves.toEqual({
       balance: "75000000",
     });
@@ -307,6 +348,41 @@ describe("PostgreSQL simulated-withdrawal persistence", () => {
     expect(new Set(ids).size).toBe(1);
     await expect(accountBalance(funded.walletId, "user_available")).resolves.toEqual({
       balance: "75000000",
+    });
+  });
+
+  it("rolls back the withdrawal and balance movement when notification capture fails", async () => {
+    const ownerId = randomUUID();
+    const funded = await fund(ownerId);
+    const failingPublisherFactory: FinancialNotificationPublisherFactory = () => ({
+      depositCredited: () => Promise.resolve(),
+      withdrawalCompleted: () => Promise.reject(new Error("notification capture failed")),
+    });
+    const failingCreate = new CreateSimulatedWithdrawal(
+      new PostgresSimulatedWithdrawalTransactionRunner(database, failingPublisherFactory),
+      true,
+    );
+
+    await expect(failingCreate.execute(command(ownerId))).rejects.toThrow(
+      "notification capture failed",
+    );
+    await expect(accountBalance(funded.walletId, "user_available")).resolves.toEqual({
+      balance: "200000000",
+    });
+    const withdrawals = await database
+      .selectFrom("financial.withdrawals")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("owner_id", "=", ownerId)
+      .executeTakeFirstOrThrow();
+    const notifications = await database
+      .selectFrom("notifications.inbox")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("owner_id", "=", ownerId)
+      .where("kind", "=", "financial.withdrawal_completed")
+      .executeTakeFirstOrThrow();
+    expect({ withdrawals: withdrawals.count, notifications: notifications.count }).toEqual({
+      withdrawals: "0",
+      notifications: "0",
     });
   });
 

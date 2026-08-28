@@ -14,6 +14,7 @@ import type { SimulatedDepositRateLimiter } from "./application/simulated-deposi
 import type { SimulatedWithdrawalRateLimiter } from "./application/simulated-withdrawal-rate-limiter.js";
 import { createFinancialRouter } from "./http/financial-router.js";
 import type { FinancialDatabaseSchema } from "./infrastructure/persistence/financial-database-schema.js";
+import type { FinancialNotificationPublisherFactory } from "./infrastructure/persistence/financial-notification-publisher-factory.js";
 import { PostgresAssetCatalogReader } from "./infrastructure/persistence/postgres-asset-catalog-reader.js";
 import { PostgresSimulatedDepositReader } from "./infrastructure/persistence/postgres-simulated-deposit-reader.js";
 import { PostgresSimulatedDepositTransactionRunner } from "./infrastructure/persistence/postgres-simulated-deposit-transaction-runner.js";
@@ -32,6 +33,7 @@ export interface CreateFinancialModuleRouterOptions {
   readonly webOrigin: string;
   readonly simulatedFundingEnabled: boolean;
   readonly simulatedWithdrawalsEnabled: boolean;
+  readonly notificationPublisherFactory: FinancialNotificationPublisherFactory;
   readonly simulatedDepositRateLimiter?: SimulatedDepositRateLimiter;
   readonly simulatedWithdrawalRateLimiter?: SimulatedWithdrawalRateLimiter;
 }
@@ -67,7 +69,10 @@ export function createFinancialModuleRouter(options: CreateFinancialModuleRouter
     ...queries,
     createWallet: new CreateWallet(new PostgresWalletCreationTransactionRunner(options.database)),
     createSimulatedDeposit: new CreateSimulatedDeposit(
-      new PostgresSimulatedDepositTransactionRunner(options.database),
+      new PostgresSimulatedDepositTransactionRunner(
+        options.database,
+        options.notificationPublisherFactory,
+      ),
       options.simulatedFundingEnabled,
     ),
     getSimulatedDeposit: new GetSimulatedDeposit(
@@ -76,7 +81,10 @@ export function createFinancialModuleRouter(options: CreateFinancialModuleRouter
     simulatedDepositRateLimiter:
       options.simulatedDepositRateLimiter ?? new InMemorySimulatedDepositRateLimiter(),
     createSimulatedWithdrawal: new CreateSimulatedWithdrawal(
-      new PostgresSimulatedWithdrawalTransactionRunner(options.database),
+      new PostgresSimulatedWithdrawalTransactionRunner(
+        options.database,
+        options.notificationPublisherFactory,
+      ),
       options.simulatedWithdrawalsEnabled,
     ),
     getSimulatedWithdrawal: new GetSimulatedWithdrawal(

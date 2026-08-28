@@ -7,6 +7,7 @@ import type {
   SimulatedWithdrawalTransaction,
   SimulatedWithdrawalTransactionRunner,
 } from "../../application/simulated-withdrawal-transaction.js";
+import type { FinancialNotificationPublisher } from "../../application/financial-notification-publisher.js";
 import type { WalletCreationAsset } from "../../application/wallet-creation-transaction.js";
 import { parseAssetCode, type AssetCode } from "../../domain/asset-code.js";
 import { AssetQuantity } from "../../domain/asset-quantity.js";
@@ -24,6 +25,7 @@ import {
   type WalletOwnerId,
 } from "../../domain/wallet.js";
 import type { FinancialDatabaseSchema } from "./financial-database-schema.js";
+import type { FinancialNotificationPublisherFactory } from "./financial-notification-publisher-factory.js";
 
 interface PersistedWalletRow {
   readonly id: string;
@@ -62,7 +64,10 @@ function mapWallet(row: PersistedWalletRow, accounts: readonly PersistedAccountR
 }
 
 class PostgresSimulatedWithdrawalTransaction implements SimulatedWithdrawalTransaction {
-  public constructor(private readonly database: Transaction<FinancialDatabaseSchema>) {}
+  public constructor(
+    private readonly database: Transaction<FinancialDatabaseSchema>,
+    public readonly notifications: Pick<FinancialNotificationPublisher, "withdrawalCompleted">,
+  ) {}
 
   public async lockIdempotencyKey(
     ownerId: WalletOwnerId,
@@ -296,13 +301,23 @@ class PostgresSimulatedWithdrawalTransaction implements SimulatedWithdrawalTrans
 }
 
 export class PostgresSimulatedWithdrawalTransactionRunner implements SimulatedWithdrawalTransactionRunner {
-  public constructor(private readonly database: Kysely<FinancialDatabaseSchema>) {}
+  public constructor(
+    private readonly database: Kysely<FinancialDatabaseSchema>,
+    private readonly notificationPublisherFactory: FinancialNotificationPublisherFactory,
+  ) {}
 
   public execute<Result>(
     operation: (transaction: SimulatedWithdrawalTransaction) => Promise<Result>,
   ): Promise<Result> {
     return this.database
       .transaction()
-      .execute((database) => operation(new PostgresSimulatedWithdrawalTransaction(database)));
+      .execute((database) =>
+        operation(
+          new PostgresSimulatedWithdrawalTransaction(
+            database,
+            this.notificationPublisherFactory(database),
+          ),
+        ),
+      );
   }
 }

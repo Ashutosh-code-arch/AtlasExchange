@@ -156,6 +156,13 @@ export class CreateSimulatedDeposit {
         intentHash,
         journal,
       });
+      await transaction.notifications.depositCredited({
+        ownerId,
+        sourceId: persisted.record.id,
+        assetCode: persisted.record.amount.assetCode,
+        amount: persisted.record.amount.toCanonicalDecimal(),
+        occurredAt: persisted.record.creditedAt,
+      });
 
       return { status: "created", deposit: persisted.record };
     });

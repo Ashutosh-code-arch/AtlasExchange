@@ -7,7 +7,7 @@ import {
   walletListResponseSchema,
   walletResponseSchema,
 } from "@atlas/contracts";
-import { Kysely, PostgresDialect } from "kysely";
+import { Kysely, PostgresDialect, type Transaction } from "kysely";
 import pino from "pino";
 import { Pool } from "pg";
 import request from "supertest";
@@ -24,6 +24,10 @@ import {
   createFinancialModuleRouter,
   type FinancialDatabaseSchema,
 } from "../src/modules/financial/index.js";
+import {
+  createFinancialNotificationPublisher,
+  type NotificationsDatabaseSchema,
+} from "../src/modules/notifications/index.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
 import { LifecycleState } from "../src/platform/lifecycle/lifecycle-state.js";
 
@@ -33,7 +37,9 @@ const databaseName = `atlas_financial_http_${process.pid}_${randomBytes(6).toStr
 const webOrigin = "http://localhost:5173";
 const csrfHmacKey = Buffer.alloc(32, 11).toString("base64url");
 
-type AtlasHttpDatabaseSchema = IdentityDatabaseSchema & FinancialDatabaseSchema;
+type AtlasHttpDatabaseSchema = IdentityDatabaseSchema &
+  FinancialDatabaseSchema &
+  NotificationsDatabaseSchema;
 
 interface AuthenticatedBrowser {
   readonly userId: string;
@@ -141,6 +147,10 @@ describe("composed Financial HTTP flow", () => {
       webOrigin,
       simulatedFundingEnabled: true,
       simulatedWithdrawalsEnabled: true,
+      notificationPublisherFactory: (transaction) =>
+        createFinancialNotificationPublisher(
+          transaction as unknown as Transaction<NotificationsDatabaseSchema>,
+        ),
     });
     app = createApp({
       lifecycle: new LifecycleState({ checkReadiness: () => Promise.resolve(true) }),
@@ -256,6 +266,19 @@ describe("composed Financial HTTP flow", () => {
       wallet_id: walletId,
       amount: "125000000",
     });
+    const notification = await database
+      .selectFrom("notifications.inbox")
+      .select(["owner_id", "kind", "source_id", "payload"])
+      .where("owner_id", "=", firstBrowser.userId)
+      .where("kind", "=", "financial.deposit_credited")
+      .where("source_id", "=", depositId)
+      .executeTakeFirstOrThrow();
+    expect(notification).toEqual({
+      owner_id: firstBrowser.userId,
+      kind: "financial.deposit_credited",
+      source_id: depositId,
+      payload: { assetCode: "BTC", amount: "1.25" },
+    });
   });
 
   it("atomically withdraws available value, replays safely, and conceals ownership", async () => {
@@ -337,6 +360,21 @@ describe("composed Financial HTTP flow", () => {
     expect(postings).toEqual([
       { direction: "debit", amount: "750000000000000000", kind: "user_available" },
       { direction: "credit", amount: "750000000000000000", kind: "external_custody" },
+    ]);
+    const notifications = await database
+      .selectFrom("notifications.inbox")
+      .select(["owner_id", "kind", "source_id", "payload"])
+      .where("owner_id", "=", firstBrowser.userId)
+      .where("kind", "=", "financial.withdrawal_completed")
+      .where("source_id", "=", withdrawalId)
+      .execute();
+    expect(notifications).toEqual([
+      {
+        owner_id: firstBrowser.userId,
+        kind: "financial.withdrawal_completed",
+        source_id: withdrawalId,
+        payload: { assetCode: "ETH", amount: "0.75" },
+      },
     ]);
 
     const walletAfterWithdrawal = await request(app)

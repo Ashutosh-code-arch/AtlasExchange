@@ -1,5 +1,6 @@
 import { createServer, type Server } from "node:http";
 
+import type { Transaction } from "kysely";
 import type { Logger } from "pino";
 
 import { createApp } from "./app.js";
@@ -23,7 +24,10 @@ import {
   type MarketDataDatabaseSchema,
 } from "./modules/market-data/index.js";
 import { createPortfolioModuleRouter } from "./modules/portfolio/index.js";
-import type { NotificationsDatabaseSchema } from "./modules/notifications/index.js";
+import {
+  createFinancialNotificationPublisher,
+  type NotificationsDatabaseSchema,
+} from "./modules/notifications/index.js";
 import { createTradingModuleRouter, type TradingDatabaseSchema } from "./modules/trading/index.js";
 import {
   createDatabaseResources,
@@ -138,6 +142,10 @@ async function start(): Promise<RunningServer> {
       webOrigin: config.http.webOrigin,
       simulatedFundingEnabled: config.financial.simulatedFundingEnabled,
       simulatedWithdrawalsEnabled: config.financial.simulatedWithdrawalsEnabled,
+      notificationPublisherFactory: (transaction) =>
+        createFinancialNotificationPublisher(
+          transaction as unknown as Transaction<NotificationsDatabaseSchema>,
+        ),
     });
     const tradingRouter = createTradingModuleRouter({
       database: database.database,

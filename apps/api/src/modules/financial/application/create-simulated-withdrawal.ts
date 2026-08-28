@@ -162,6 +162,13 @@ export class CreateSimulatedWithdrawal {
         intentHash,
         journal,
       });
+      await transaction.notifications.withdrawalCompleted({
+        ownerId,
+        sourceId: persisted.record.id,
+        assetCode: persisted.record.amount.assetCode,
+        amount: persisted.record.amount.toCanonicalDecimal(),
+        occurredAt: persisted.record.completedAt,
+      });
 
       return { status: "created", withdrawal: persisted.record };
     });

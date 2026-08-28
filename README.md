@@ -54,6 +54,9 @@ The next Product Surfaces foundation now adds a durable owner-scoped Notificatio
 typed facts cover completed simulated deposits and withdrawals, preserve exact amounts, participate
 in caller transactions, reject changed retries, and keep immutable content separate from monotonic
 read receipts. Source integration and authenticated inbox delivery follow as focused increments.
+Completed simulated deposits and withdrawals now write those facts atomically with their exact
+Financial journals and balances. Identical retries return the existing source outcome without a
+second notification, while capture failure rolls back the complete new Financial operation.
 
 ## Prerequisites
 

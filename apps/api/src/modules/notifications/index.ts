@@ -3,6 +3,7 @@ export {
   type CreateNotificationResult,
   type NotificationWriter,
 } from "./application/create-notification.js";
+export { createFinancialNotificationPublisher } from "./infrastructure/persistence/financial-notification-publisher.js";
 export {
   NotificationRecord,
   notificationKinds,

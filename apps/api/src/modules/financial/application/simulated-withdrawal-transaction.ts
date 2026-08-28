@@ -6,6 +6,7 @@ import type { LedgerAccount } from "../domain/ledger-account.js";
 import type { SimulatedWithdrawalRecord } from "../domain/simulated-withdrawal.js";
 import type { Wallet, WalletOwnerId } from "../domain/wallet.js";
 import type { WalletCreationAsset } from "./wallet-creation-transaction.js";
+import type { FinancialNotificationPublisher } from "./financial-notification-publisher.js";
 
 export interface LockedSimulatedWithdrawalAccounts {
   readonly available: LedgerAccount;
@@ -28,6 +29,7 @@ export interface PersistedSimulatedWithdrawal {
 }
 
 export interface SimulatedWithdrawalTransaction {
+  readonly notifications: Pick<FinancialNotificationPublisher, "withdrawalCompleted">;
   lockIdempotencyKey(
     ownerId: WalletOwnerId,
     idempotencyKey: FinancialIdempotencyKey,

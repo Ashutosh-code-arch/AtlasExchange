@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
-import { Kysely, PostgresDialect, sql } from "kysely";
+import { Kysely, PostgresDialect, sql, type Transaction } from "kysely";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -8,10 +8,18 @@ import {
   CreateSimulatedDeposit,
   type CreateSimulatedDepositCommand,
 } from "../src/modules/financial/application/create-simulated-deposit.js";
+import type {
+  FinancialNotificationPublisher,
+  FinancialNotificationPublisherFactory,
+} from "../src/modules/financial/index.js";
 import { GetSimulatedDeposit } from "../src/modules/financial/application/get-simulated-deposit.js";
 import type { FinancialDatabaseSchema } from "../src/modules/financial/infrastructure/persistence/financial-database-schema.js";
 import { PostgresSimulatedDepositTransactionRunner } from "../src/modules/financial/infrastructure/persistence/postgres-simulated-deposit-transaction-runner.js";
 import { PostgresSimulatedDepositReader } from "../src/modules/financial/infrastructure/persistence/postgres-simulated-deposit-reader.js";
+import {
+  createFinancialNotificationPublisher,
+  type NotificationsDatabaseSchema,
+} from "../src/modules/notifications/index.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
 
 const baseDatabaseUrl =
@@ -26,12 +34,23 @@ function databaseUrlFor(name: string): string {
 
 const adminPool = new Pool({ connectionString: databaseUrlFor("postgres"), max: 1 });
 const integrationDatabaseUrl = databaseUrlFor(databaseName);
-const database = new Kysely<FinancialDatabaseSchema>({
+type DepositDatabaseSchema = FinancialDatabaseSchema & NotificationsDatabaseSchema;
+
+const database = new Kysely<DepositDatabaseSchema>({
   dialect: new PostgresDialect({
     pool: new Pool({ connectionString: integrationDatabaseUrl, max: 8 }),
   }),
 });
-const runner = new PostgresSimulatedDepositTransactionRunner(database);
+const notificationPublisherFactory = (
+  transaction: Transaction<FinancialDatabaseSchema>,
+): FinancialNotificationPublisher =>
+  createFinancialNotificationPublisher(
+    transaction as unknown as Transaction<NotificationsDatabaseSchema>,
+  );
+const runner = new PostgresSimulatedDepositTransactionRunner(
+  database,
+  notificationPublisherFactory,
+);
 const createDeposit = new CreateSimulatedDeposit(runner, true);
 const getDeposit = new GetSimulatedDeposit(new PostgresSimulatedDepositReader(database));
 
@@ -106,6 +125,13 @@ describe("PostgreSQL simulated-deposit persistence", () => {
       .where("posting.journal_id", "=", result.deposit.journalId)
       .orderBy("posting.position")
       .execute();
+    const notification = await database
+      .selectFrom("notifications.inbox")
+      .select(["owner_id", "kind", "source_id", "payload", "occurred_at"])
+      .where("owner_id", "=", ownerId)
+      .where("kind", "=", "financial.deposit_credited")
+      .where("source_id", "=", result.deposit.id)
+      .executeTakeFirstOrThrow();
 
     expect(deposit).toMatchObject({
       owner_id: ownerId,
@@ -128,6 +154,13 @@ describe("PostgreSQL simulated-deposit persistence", () => {
       { position: 1, direction: "debit", amount: "125000000", kind: "external_custody" },
       { position: 2, direction: "credit", amount: "125000000", kind: "user_available" },
     ]);
+    expect(notification).toEqual({
+      owner_id: ownerId,
+      kind: "financial.deposit_credited",
+      source_id: result.deposit.id,
+      payload: { assetCode: "BTC", amount: "1.25" },
+      occurred_at: new Date(result.deposit.creditedAt),
+    });
     await expect(accountBalance(result.deposit.wallet.id, "user_available")).resolves.toEqual({
       balance: "125000000",
     });
@@ -178,6 +211,14 @@ describe("PostgreSQL simulated-deposit persistence", () => {
     }
     expect(retry.deposit.id).toBe(first.deposit.id);
     expect(conflict).toEqual({ status: "idempotency_conflict", depositId: first.deposit.id });
+    const notifications = await database
+      .selectFrom("notifications.inbox")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("owner_id", "=", ownerId)
+      .where("kind", "=", "financial.deposit_credited")
+      .where("source_id", "=", first.deposit.id)
+      .executeTakeFirstOrThrow();
+    expect(notifications.count).toBe("1");
     await expect(accountBalance(first.deposit.wallet.id, "user_available")).resolves.toEqual({
       balance: "125000000",
     });
@@ -203,6 +244,46 @@ describe("PostgreSQL simulated-deposit persistence", () => {
       .where("idempotency_key", "=", request.idempotencyKey)
       .executeTakeFirstOrThrow();
     expect(deposits.count).toBe("1");
+  });
+
+  it("rolls back the complete deposit when notification capture fails", async () => {
+    const ownerId = randomUUID();
+    const failingPublisherFactory: FinancialNotificationPublisherFactory = () => ({
+      depositCredited: () => Promise.reject(new Error("notification capture failed")),
+      withdrawalCompleted: () => Promise.resolve(),
+    });
+    const failingCreate = new CreateSimulatedDeposit(
+      new PostgresSimulatedDepositTransactionRunner(database, failingPublisherFactory),
+      true,
+    );
+
+    await expect(failingCreate.execute(command(ownerId))).rejects.toThrow(
+      "notification capture failed",
+    );
+    const deposits = await database
+      .selectFrom("financial.deposits")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("owner_id", "=", ownerId)
+      .executeTakeFirstOrThrow();
+    const wallets = await database
+      .selectFrom("financial.wallets")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("owner_id", "=", ownerId)
+      .executeTakeFirstOrThrow();
+    const notifications = await database
+      .selectFrom("notifications.inbox")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("owner_id", "=", ownerId)
+      .executeTakeFirstOrThrow();
+    expect({
+      deposits: deposits.count,
+      wallets: wallets.count,
+      notifications: notifications.count,
+    }).toEqual({
+      deposits: "0",
+      wallets: "0",
+      notifications: "0",
+    });
   });
 
   it("serializes a same-key cross-asset race and rolls back the losing wallet", async () => {
