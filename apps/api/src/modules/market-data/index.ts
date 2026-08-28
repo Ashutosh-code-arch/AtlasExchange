@@ -1,4 +1,11 @@
 export {
+  GetPublicCandles,
+  type GetPublicCandlesQuery,
+  type GetPublicCandlesResult,
+  type PublicCandleHistory,
+  type PublicHistoricalCandle,
+} from "./application/get-public-candles.js";
+export {
   defaultCandleHistoryLimit,
   GetCandles,
   maximumCandleHistoryLimit,

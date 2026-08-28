@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 
 import {
   marketDataApiErrorResponseSchema,
+  marketDataCandlesResponseSchema,
   marketDataOrderBookResponseSchema,
   marketDataTickerResponseSchema,
 } from "@atlas/contracts";
@@ -98,6 +99,31 @@ describe("composed Market Data HTTP flow", () => {
          ($1, 'BTC-USD', $3, 4, 2, 5100, 3, '2026-08-28T12:00:04.000Z')`,
       [tickerGenerationId, randomUUID(), randomUUID()],
     );
+    const candleGeneration = await fixturePool.query<{ id: string }>(
+      `SELECT id FROM market_data.projection_generations
+       WHERE projection_name = 'candles' AND status = 'active'`,
+    );
+    const candleGenerationId = candleGeneration.rows[0]?.id;
+    if (candleGenerationId === undefined) throw new Error("Active candle generation was not found");
+    await fixturePool.query(
+      `INSERT INTO market_data.projection_checkpoints (
+         generation_id, market_code, last_sequence, last_occurred_at
+       ) VALUES ($1, 'BTC-USD', 5, '2026-08-28T12:00:05.000Z')`,
+      [candleGenerationId],
+    );
+    await fixturePool.query(
+      `INSERT INTO market_data.candles (
+         generation_id, market_code, interval, bucket_start, bucket_end,
+         open_execution_sequence, close_execution_sequence, open_price_ticks,
+         high_price_ticks, low_price_ticks, close_price_ticks, base_volume_lots,
+         quote_volume_tick_lots, trade_count, last_sequence, updated_at
+       ) VALUES
+         ($1, 'BTC-USD', '5m', '2026-08-28T11:55:00.000Z', '2026-08-28T12:00:00.000Z',
+          1, 2, 4900, 5000, 4900, 5000, 5, 24900, 2, 3, '2026-08-28T11:59:00.000Z'),
+         ($1, 'BTC-USD', '5m', '2026-08-28T12:00:00.000Z', '2026-08-28T12:05:00.000Z',
+          3, 4, 5000, 5100, 5000, 5100, 5, 25300, 2, 5, '2026-08-28T12:00:05.000Z')`,
+      [candleGenerationId],
+    );
     await fixturePool.query(
       "UPDATE trading.market_publication_sequences SET last_sequence = 7 WHERE market_code = 'BTC-USD'",
     );
@@ -106,7 +132,7 @@ describe("composed Market Data HTTP flow", () => {
   afterAll(async () => {
     await database.destroy();
     await fixturePool.end();
-    await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}" WITH (FORCE)`);
+    await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}"`);
     await adminPool.end();
   });
 
@@ -152,6 +178,62 @@ describe("composed Market Data HTTP flow", () => {
     });
   });
 
+  it("reads exact paginated candle history and distinguishes open from closed buckets", async () => {
+    const newest = await request(app).get(
+      "/api/v1/market-data/markets/BTC-USD/candles?interval=5m&limit=1",
+    );
+    expect(newest.status).toBe(200);
+    expect(newest.headers["cache-control"]).toBe("public, max-age=1, must-revalidate");
+    expect(marketDataCandlesResponseSchema.parse(newest.body).data).toEqual({
+      marketCode: "BTC-USD",
+      interval: "5m",
+      limit: 1,
+      sequence: "5",
+      publishedSequence: "7",
+      lag: "2",
+      freshness: "behind",
+      asOf: "2026-08-28T12:00:05.000Z",
+      generatedAt: "2026-08-28T12:00:07.000Z",
+      candles: [
+        {
+          start: "2026-08-28T12:00:00.000Z",
+          end: "2026-08-28T12:05:00.000Z",
+          openPrice: "50000",
+          highPrice: "51000",
+          lowPrice: "50000",
+          closePrice: "51000",
+          baseVolume: "0.005",
+          quoteVolume: "253",
+          tradeCount: "2",
+          closed: false,
+        },
+      ],
+      nextBefore: "2026-08-28T12:00:00.000Z",
+    });
+
+    const older = await request(app).get(
+      "/api/v1/market-data/markets/BTC-USD/candles?interval=5m&limit=1&before=2026-08-28T12%3A00%3A00.000Z",
+    );
+    expect(older.status).toBe(200);
+    expect(marketDataCandlesResponseSchema.parse(older.body).data).toMatchObject({
+      candles: [
+        {
+          start: "2026-08-28T11:55:00.000Z",
+          end: "2026-08-28T12:00:00.000Z",
+          openPrice: "49000",
+          highPrice: "50000",
+          lowPrice: "49000",
+          closePrice: "50000",
+          baseVolume: "0.005",
+          quoteVolume: "249",
+          tradeCount: "2",
+          closed: true,
+        },
+      ],
+      nextBefore: null,
+    });
+  });
+
   it("returns a safe not-found response for an unknown canonical market", async () => {
     const response = await request(app).get("/api/v1/market-data/markets/SOL-USD/order-book");
     expect(response.status).toBe(404);
@@ -161,6 +243,13 @@ describe("composed Market Data HTTP flow", () => {
     const tickerResponse = await request(app).get("/api/v1/market-data/markets/SOL-USD/ticker");
     expect(tickerResponse.status).toBe(404);
     expect(marketDataApiErrorResponseSchema.parse(tickerResponse.body).error.code).toBe(
+      "MARKET_NOT_FOUND",
+    );
+    const candleResponse = await request(app).get(
+      "/api/v1/market-data/markets/SOL-USD/candles?interval=1m",
+    );
+    expect(candleResponse.status).toBe(404);
+    expect(marketDataApiErrorResponseSchema.parse(candleResponse.body).error.code).toBe(
       "MARKET_NOT_FOUND",
     );
   });

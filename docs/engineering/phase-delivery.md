@@ -328,6 +328,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   returning exact sparse candles in ascending chart order. Unit and real-PostgreSQL tests cover
   limits, clocks, identity drift, current/open bounds, exact values, terminal and continuing pages,
   coherent checkpoints, worker factory composition, and truthful caught-up status.
+- [ADR-040 — Public Candle History HTTP Delivery](../architecture/decisions/ADR-040-public-candle-history-http-delivery.md)
+  exposes the accepted anonymous candle route with exact market conversion, point-in-time
+  publication lag, open/closed state, sparse ascending pages, exclusive aligned cursors, shared
+  snapshot caching/rate limiting, privacy, and safe errors.
+- The composed API now serves 1-minute through 1-day history from the active candle generation. It
+  validates malformed requests before limiter admission, converts ticks/lots/tick-lots without
+  floating point, carries truthful checkpoint freshness, and supports stable backward pagination.
+  Application, HTTP, shared-contract, and real-PostgreSQL tests cover exact decimals, open/closed
+  buckets, sparse pages, cursors, unknown markets, invalid input, cache headers, limiting, and
+  internal-invariant containment.
 
 ## Phase transition rule
 

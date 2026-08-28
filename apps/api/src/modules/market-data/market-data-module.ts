@@ -9,6 +9,8 @@ import {
 } from "../trading/index.js";
 import { GetLevelTwoOrderBook } from "./application/get-level-two-order-book.js";
 import { ProjectCandles } from "./application/candle-projection.js";
+import { GetCandles } from "./application/get-candles.js";
+import { GetPublicCandles } from "./application/get-public-candles.js";
 import { GetPublicTradeTicker } from "./application/get-public-trade-ticker.js";
 import { GetTradeTicker } from "./application/get-trade-ticker.js";
 import type { MarketDataSnapshotRateLimiter } from "./application/market-data-snapshot-rate-limiter.js";
@@ -20,6 +22,7 @@ import {
 import { ProjectMarketData } from "./application/project-market-data.js";
 import { ProjectTradeTicker } from "./application/trade-ticker-projection.js";
 import type { MarketDataDatabaseSchema } from "./infrastructure/persistence/market-data-database-schema.js";
+import { PostgresCandleHistoryReader } from "./infrastructure/persistence/postgres-candle-history-reader.js";
 import { PostgresCandleProjectionCheckpointReader } from "./infrastructure/persistence/postgres-candle-projection-checkpoint-reader.js";
 import { PostgresCandleProjectionTransactionRunner } from "./infrastructure/persistence/postgres-candle-projection-transaction-runner.js";
 import { PostgresLevelTwoOrderBookReader } from "./infrastructure/persistence/postgres-level-two-order-book-reader.js";
@@ -50,6 +53,11 @@ export function createMarketDataModuleRouter(options: CreateMarketDataModuleRout
   const markets = new PostgresTradingMarketReader(options.database);
   const publications = new PostgresTradingPublicationFactReader(options.database);
   return createMarketDataRouter({
+    getCandles: new GetPublicCandles(
+      markets,
+      new GetCandles(new PostgresCandleHistoryReader(options.database), options.now),
+      publications,
+    ),
     getLevelTwoOrderBook: new GetLevelTwoOrderBook(
       markets,
       new PostgresLevelTwoOrderBookReader(options.database),

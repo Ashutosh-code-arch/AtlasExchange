@@ -27,17 +27,18 @@ The active phase derives truthful Market Data from committed Atlas Trading facts
 sequence-aware public level-two order-book and rolling 24-hour ticker views plus a responsive web
 depth and ticker panel. An independently checkpointed candle projection adds exact sparse UTC
 OHLCV for six accepted intervals and now runs under the managed projection worker with a coherent
-cursor-based internal history reader. Its public history route, chart, snapshot recovery, and later
-WebSocket delivery remain incremental work. Market Data is never part of matching or settlement
-authority, and external prices and fabricated liquidity remain out of scope.
+cursor-based internal history reader and anonymous bounded REST history. Its web chart, snapshot
+recovery, and later WebSocket delivery remain incremental work. Market Data is never part of
+matching or settlement authority, and external prices and fabricated liquidity remain out of scope.
 The Trading boundary publishes private-safe, versioned final-state facts under a durable per-market
 sequence. Market Data now consumes that boundary into generation-aware checkpoints, private active
 order state, and exact deterministic level-two aggregates with replay and gap protection. A managed
 per-market worker continuously advances those projections with bounded polling, retry/backoff,
 graceful shutdown, and structured sequence-lag diagnostics.
-The public REST snapshots expose exact decimal depth and committed-trade ticker values, sequence
-freshness, short caching, and rate limiting. The web workspace polls depth and ticker state safely,
-pauses in hidden tabs, and keeps stale state visibly distinct from a current snapshot.
+The public REST snapshots expose exact decimal depth, committed-trade ticker values, and sparse
+candle history with sequence freshness, short caching, and rate limiting. The web workspace polls
+depth and ticker state safely, pauses in hidden tabs, and keeps stale state visibly distinct from a
+current snapshot.
 
 ## Prerequisites
 
