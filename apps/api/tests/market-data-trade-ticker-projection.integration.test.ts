@@ -7,6 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import {
   createMarketDataProjectionWorker,
   GetTradeTicker,
+  PostgresCandleProjectionCheckpointReader,
   PostgresTradeTickerProjectionCheckpointReader,
   PostgresTradeTickerProjectionTransactionRunner,
   PostgresTradeTickerReader,
@@ -47,6 +48,7 @@ const database = new Kysely<TickerIntegrationSchema>({
 const btcUsd = parseMarketCode("BTC-USD");
 const factReader = new PostgresTradingPublicationFactReader(database);
 const checkpointReader = new PostgresTradeTickerProjectionCheckpointReader(database);
+const candleCheckpointReader = new PostgresCandleProjectionCheckpointReader(database);
 const transactionRunner = new PostgresTradeTickerProjectionTransactionRunner(database);
 const tickerReader = new PostgresTradeTickerReader(database);
 
@@ -116,6 +118,7 @@ describe("Market Data trade ticker PostgreSQL projection", () => {
   beforeEach(async () => {
     await pool.query(
       `TRUNCATE
+         market_data.candles,
          market_data.level_two_order_book_levels,
          market_data.level_two_projected_orders,
          market_data.ticker_trades,
@@ -295,7 +298,7 @@ describe("Market Data trade ticker PostgreSQL projection", () => {
     });
   });
 
-  it("runs the ticker through the composed managed worker", async () => {
+  it("runs the ticker and candles through the composed managed worker", async () => {
     await insertOrderFact(1, new Date("2026-08-28T10:00:01.000Z"));
     const tradeId = await insertTradeFact({
       sequence: 2,
@@ -326,6 +329,9 @@ describe("Market Data trade ticker PostgreSQL projection", () => {
           await expect(checkpointReader.getCheckpoint(btcUsd)).resolves.toMatchObject({
             lastSequence: 2n,
           });
+          await expect(candleCheckpointReader.getCheckpoint(btcUsd)).resolves.toMatchObject({
+            lastSequence: 2n,
+          });
           expect(worker.getStatus().markets).toEqual(
             expect.arrayContaining([
               expect.objectContaining({
@@ -348,6 +354,10 @@ describe("Market Data trade ticker PostgreSQL projection", () => {
        FROM market_data.ticker_trades`,
     );
     expect(rows.rows).toEqual([{ trade_id: tradeId, price_ticks: "5050", quantity_lots: "7" }]);
+    const candleRows = await pool.query<{ count: string }>(
+      "SELECT COUNT(*)::TEXT AS count FROM market_data.candles",
+    );
+    expect(candleRows.rows[0]?.count).toBe("6");
   });
 
   it("rolls trade writes and checkpoint creation back on a sequence gap", async () => {

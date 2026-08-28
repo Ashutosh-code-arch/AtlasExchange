@@ -1,4 +1,14 @@
 export {
+  defaultCandleHistoryLimit,
+  GetCandles,
+  maximumCandleHistoryLimit,
+  type CandleHistoryPage,
+  type CandleHistoryReader,
+  type CandleHistorySnapshot,
+  type GetCandlesQuery,
+  type HistoricalCandle,
+} from "./application/get-candles.js";
+export {
   candleIntervalDefinitions,
   candleProjectionName,
   CandleProjectionError,
@@ -92,6 +102,7 @@ export {
 export type { MarketDataDatabaseSchema } from "./infrastructure/persistence/market-data-database-schema.js";
 export { PostgresCandleProjectionCheckpointReader } from "./infrastructure/persistence/postgres-candle-projection-checkpoint-reader.js";
 export { PostgresCandleProjectionTransactionRunner } from "./infrastructure/persistence/postgres-candle-projection-transaction-runner.js";
+export { PostgresCandleHistoryReader } from "./infrastructure/persistence/postgres-candle-history-reader.js";
 export { PostgresLevelTwoOrderBookReader } from "./infrastructure/persistence/postgres-level-two-order-book-reader.js";
 export { PostgresMarketDataProjectionCheckpointReader } from "./infrastructure/persistence/postgres-market-data-projection-checkpoint-reader.js";
 export { PostgresMarketDataProjectionTransactionRunner } from "./infrastructure/persistence/postgres-market-data-projection-transaction-runner.js";

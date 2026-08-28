@@ -8,6 +8,7 @@ import {
   type TradingReadDatabaseSchema,
 } from "../trading/index.js";
 import { GetLevelTwoOrderBook } from "./application/get-level-two-order-book.js";
+import { ProjectCandles } from "./application/candle-projection.js";
 import { GetPublicTradeTicker } from "./application/get-public-trade-ticker.js";
 import { GetTradeTicker } from "./application/get-trade-ticker.js";
 import type { MarketDataSnapshotRateLimiter } from "./application/market-data-snapshot-rate-limiter.js";
@@ -19,6 +20,8 @@ import {
 import { ProjectMarketData } from "./application/project-market-data.js";
 import { ProjectTradeTicker } from "./application/trade-ticker-projection.js";
 import type { MarketDataDatabaseSchema } from "./infrastructure/persistence/market-data-database-schema.js";
+import { PostgresCandleProjectionCheckpointReader } from "./infrastructure/persistence/postgres-candle-projection-checkpoint-reader.js";
+import { PostgresCandleProjectionTransactionRunner } from "./infrastructure/persistence/postgres-candle-projection-transaction-runner.js";
 import { PostgresLevelTwoOrderBookReader } from "./infrastructure/persistence/postgres-level-two-order-book-reader.js";
 import { PostgresMarketDataProjectionCheckpointReader } from "./infrastructure/persistence/postgres-market-data-projection-checkpoint-reader.js";
 import { PostgresMarketDataProjectionTransactionRunner } from "./infrastructure/persistence/postgres-market-data-projection-transaction-runner.js";
@@ -78,6 +81,11 @@ export function createMarketDataProjectionWorker(
         facts,
         new PostgresTradeTickerProjectionCheckpointReader(options.database),
         new PostgresTradeTickerProjectionTransactionRunner(options.database),
+      ),
+      new ProjectCandles(
+        facts,
+        new PostgresCandleProjectionCheckpointReader(options.database),
+        new PostgresCandleProjectionTransactionRunner(options.database),
       ),
     ),
     facts,

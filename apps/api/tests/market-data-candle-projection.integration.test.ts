@@ -5,6 +5,8 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  GetCandles,
+  PostgresCandleHistoryReader,
   PostgresCandleProjectionCheckpointReader,
   PostgresCandleProjectionTransactionRunner,
   ProjectCandles,
@@ -41,6 +43,7 @@ const btcUsd = parseMarketCode("BTC-USD");
 const factReader = new PostgresTradingPublicationFactReader(database);
 const checkpointReader = new PostgresCandleProjectionCheckpointReader(database);
 const transactionRunner = new PostgresCandleProjectionTransactionRunner(database);
+const historyReader = new PostgresCandleHistoryReader(database);
 
 async function insertOrderFact(sequence: number, occurredAt: Date): Promise<void> {
   await pool.query(
@@ -245,6 +248,81 @@ describe("Market Data candle PostgreSQL projection", () => {
        FROM market_data.candles`,
     );
     expect(candles.rows[0]).toEqual({ count: "6", volume: "24" });
+  });
+
+  it("reads exact sparse history with coherent checkpoints and an exclusive backward cursor", async () => {
+    await insertOrderFact(1, new Date("2026-08-28T11:59:59.000Z"));
+    for (const [sequence, minute, price, quantity] of [
+      [2, "00", "100", "2"],
+      [3, "02", "110", "3"],
+      [4, "04", "90", "4"],
+      [5, "06", "120", "1"],
+    ] as const) {
+      await insertTradeFact({
+        sequence,
+        executionSequence: String(sequence),
+        priceTicks: price,
+        quantityLots: quantity,
+        occurredAt: new Date(`2026-08-28T12:${minute}:00.000Z`),
+      });
+    }
+    await new ProjectCandles(factReader, checkpointReader, transactionRunner).execute({
+      marketCode: btcUsd,
+      limit: 10,
+    });
+    const getCandles = new GetCandles(historyReader, () => new Date("2026-08-28T12:07:30.000Z"));
+
+    const newest = await getCandles.execute({ marketCode: btcUsd, interval: "1m", limit: 2 });
+    expect(newest).toEqual({
+      marketCode: btcUsd,
+      interval: "1m",
+      limit: 2,
+      sequence: 5n,
+      asOf: new Date("2026-08-28T12:06:00.000Z"),
+      generatedAt: new Date("2026-08-28T12:07:30.000Z"),
+      candles: [
+        {
+          start: new Date("2026-08-28T12:04:00.000Z"),
+          end: new Date("2026-08-28T12:05:00.000Z"),
+          openPriceTicks: 90n,
+          highPriceTicks: 90n,
+          lowPriceTicks: 90n,
+          closePriceTicks: 90n,
+          baseVolumeLots: 4n,
+          quoteVolumeTickLots: 360n,
+          tradeCount: 1n,
+        },
+        {
+          start: new Date("2026-08-28T12:06:00.000Z"),
+          end: new Date("2026-08-28T12:07:00.000Z"),
+          openPriceTicks: 120n,
+          highPriceTicks: 120n,
+          lowPriceTicks: 120n,
+          closePriceTicks: 120n,
+          baseVolumeLots: 1n,
+          quoteVolumeTickLots: 120n,
+          tradeCount: 1n,
+        },
+      ],
+      nextBefore: new Date("2026-08-28T12:04:00.000Z"),
+    });
+
+    if (newest.nextBefore === null) throw new Error("Expected a second candle history page.");
+    await expect(
+      getCandles.execute({
+        marketCode: btcUsd,
+        interval: "1m",
+        limit: 2,
+        before: newest.nextBefore,
+      }),
+    ).resolves.toMatchObject({
+      sequence: 5n,
+      candles: [
+        expect.objectContaining({ start: new Date("2026-08-28T12:00:00.000Z") }),
+        expect.objectContaining({ start: new Date("2026-08-28T12:02:00.000Z") }),
+      ],
+      nextBefore: null,
+    });
   });
 
   it("enforces supported aligned positive candle rows in PostgreSQL", async () => {

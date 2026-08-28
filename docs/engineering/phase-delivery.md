@@ -318,6 +318,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   exact volumes, execution-ordered open/close, sparse gaps, replay safety, rollback, concurrency,
   and persistence constraints. Worker composition, the historical reader, and the HTTP route remain
   the next delivery increment.
+- [ADR-039 — Managed Candle Projection and Internal History Reader](../architecture/decisions/ADR-039-managed-candle-projection-and-internal-history-reader.md)
+  composes candles into the existing all-settled per-market worker and defines overall progress as
+  the minimum of book, ticker, and candle checkpoints. One failed view therefore cannot be hidden
+  behind faster siblings, while each view retains independent transactions and replay recovery.
+- The internal candle use case evaluates one injected clock, validates interval-aligned exclusive
+  cursors, caps initial/future queries at the current UTC bucket end, and delegates to a
+  repeatable-read PostgreSQL page. A descending `limit + 1` index read proves another page before
+  returning exact sparse candles in ascending chart order. Unit and real-PostgreSQL tests cover
+  limits, clocks, identity drift, current/open bounds, exact values, terminal and continuing pages,
+  coherent checkpoints, worker factory composition, and truthful caught-up status.
 
 ## Phase transition rule
 
