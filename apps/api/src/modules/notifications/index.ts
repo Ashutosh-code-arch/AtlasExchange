@@ -20,6 +20,10 @@ export {
   type MarkNotificationReadResult,
   type NotificationReadMarker,
 } from "./application/mark-notification-read.js";
+export type {
+  NotificationRequestRateLimitDecision,
+  NotificationRequestRateLimiter,
+} from "./application/notification-request-rate-limiter.js";
 export {
   decodeNotificationInboxCursor,
   defaultNotificationInboxPageLimit,
@@ -53,3 +57,17 @@ export {
 } from "./infrastructure/persistence/postgres-notification-writer.js";
 export { PostgresNotificationInboxReader } from "./infrastructure/persistence/postgres-notification-inbox-reader.js";
 export { PostgresNotificationReadMarker } from "./infrastructure/persistence/postgres-notification-read-marker.js";
+export {
+  InMemoryNotificationRequestRateLimiter,
+  notificationRequestRateLimitMaximumRequests,
+  notificationRequestRateLimitWindowMilliseconds,
+  type InMemoryNotificationRequestRateLimiterOptions,
+} from "./infrastructure/security/in-memory-notification-request-rate-limiter.js";
+export {
+  createNotificationRouter,
+  type NotificationRouterOptions,
+} from "./http/notification-router.js";
+export {
+  createNotificationModuleRouter,
+  type CreateNotificationModuleRouterOptions,
+} from "./notification-module.js";

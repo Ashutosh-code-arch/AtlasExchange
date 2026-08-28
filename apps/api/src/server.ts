@@ -26,6 +26,7 @@ import {
 import { createPortfolioModuleRouter } from "./modules/portfolio/index.js";
 import {
   createFinancialNotificationPublisher,
+  createNotificationModuleRouter,
   type NotificationsDatabaseSchema,
 } from "./modules/notifications/index.js";
 import { createTradingModuleRouter, type TradingDatabaseSchema } from "./modules/trading/index.js";
@@ -167,6 +168,13 @@ async function start(): Promise<RunningServer> {
       authenticateAccess,
       secureCookies: config.identity.sessionSecurity.secureCookies,
     });
+    const notificationRouter = createNotificationModuleRouter({
+      database: database.database,
+      authenticateAccess,
+      sessionCsrfTokenService,
+      secureCookies: config.identity.sessionSecurity.secureCookies,
+      webOrigin: config.http.webOrigin,
+    });
     if (marketDataWorker === undefined) {
       logger.info(
         { event: "market_data.projection_worker.disabled" },
@@ -182,6 +190,7 @@ async function start(): Promise<RunningServer> {
       tradingRouter,
       marketDataRouter,
       portfolioRouter,
+      notificationRouter,
       applicationVersion: config.logging.applicationVersion,
     });
     const server = createServer(app);

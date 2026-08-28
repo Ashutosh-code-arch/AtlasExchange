@@ -150,6 +150,31 @@ export {
 } from "./portfolio.js";
 
 export {
+  notificationApiErrorCodeSchema,
+  notificationApiErrorResponseSchema,
+  notificationCursorSchema,
+  notificationExactCountSchema,
+  notificationKindSchema,
+  notificationKinds,
+  notificationListQuerySchema,
+  notificationListResponseSchema,
+  notificationMarkReadParamsSchema,
+  notificationMarkReadResponseSchema,
+  notificationPayloadSchema,
+  notificationSchema,
+  type Notification,
+  type NotificationApiErrorCode,
+  type NotificationApiErrorResponse,
+  type NotificationCursor,
+  type NotificationKind,
+  type NotificationListQuery,
+  type NotificationListResponse,
+  type NotificationMarkReadParams,
+  type NotificationMarkReadResponse,
+  type NotificationPayload,
+} from "./notifications.js";
+
+export {
   currentUserResponseSchema,
   forgotPasswordAcceptedResponseSchema,
   forgotPasswordRequestSchema,

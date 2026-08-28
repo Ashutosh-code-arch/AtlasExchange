@@ -459,6 +459,18 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   foreign records. Unit and real-PostgreSQL tests prove validation, lookahead cursors, equal-time
   ordering, page continuity, isolation, unread transitions, and retry stability. HTTP and browser
   delivery remain the next increments; no schema migration was required.
+- [ADR-050 — Authenticated Notification HTTP Contract](../architecture/decisions/ADR-050-authenticated-notification-http-contract.md)
+  defines the owner-derived list and CSRF-protected mark-read routes, strict query and response
+  contracts, identical missing/foreign behavior, no-store caching, safe failure containment, and
+  separate per-owner resource limits.
+- The composed API now serves `GET /api/v1/notifications` and
+  `PATCH /api/v1/notifications/:notificationId/read`. Strict shared contracts preserve exact
+  payloads, unread counts, ordering, cursors, and receipt timestamps without exposing owner or
+  persistence details. The server validates authentication before input and rate limiting, requires
+  session-bound same-origin CSRF for acknowledgement, returns one retry-stable receipt shape, and
+  hashes in-memory limiter keys. Unit, contract, and real-PostgreSQL HTTP tests prove validation,
+  caching, limiting, isolation, non-disclosing misses, receipt idempotence, and unread transitions.
+  Browser inbox presentation remains the next increment; no migration was required.
 
 ## Phase transition rule
 
