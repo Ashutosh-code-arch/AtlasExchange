@@ -11,10 +11,22 @@ type NullableDatabaseTimestamp = ColumnType<
 
 interface ProjectionGenerationsTable {
   id: GeneratedUuid;
-  projection_name: "level_two_order_book";
+  projection_name: "level_two_order_book" | "trade_ticker";
   status: "active" | "building" | "retired";
   created_at: GeneratedTimestamp;
   activated_at: NullableDatabaseTimestamp;
+}
+
+interface TickerTradesTable {
+  generation_id: string;
+  market_code: string;
+  trade_id: string;
+  market_sequence: string;
+  execution_sequence: string;
+  price_ticks: string;
+  quantity_lots: string;
+  executed_at: DatabaseTimestamp;
+  projected_at: GeneratedTimestamp;
 }
 
 interface ProjectionCheckpointsTable {
@@ -52,4 +64,5 @@ export interface MarketDataDatabaseSchema {
   "market_data.level_two_projected_orders": LevelTwoProjectedOrdersTable;
   "market_data.projection_checkpoints": ProjectionCheckpointsTable;
   "market_data.projection_generations": ProjectionGenerationsTable;
+  "market_data.ticker_trades": TickerTradesTable;
 }

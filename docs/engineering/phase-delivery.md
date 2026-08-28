@@ -272,6 +272,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   pauses in hidden tabs, ignores late market-switch responses, retains the last valid snapshot on a
   refresh failure, and offers explicit recovery. API, hook, component, anonymous-access, and real
   browser tests cover the boundary from PostgreSQL projection through visible order-book updates.
+- [ADR-035 — Trade Ticker Projection Persistence and Window Semantics](../architecture/decisions/ADR-035-trade-ticker-projection-persistence-and-window-semantics.md)
+  defines an independent generation and checkpoint, exact durable trade observations, atomic
+  replay-safe projection, deterministic equal-time ordering, and inclusive rolling 24-hour window
+  semantics.
+- Migration 0012 advances schema compatibility to version 12 and provisions the ticker generation
+  plus exact trade-observation persistence. The new application projector checkpoints every
+  contiguous market fact while storing only committed executions; order facts therefore preserve
+  comparable freshness without affecting ticker values. Unit and real-PostgreSQL tests cover exact
+  values, mixed-fact checkpointing, restart, replay idempotency, sequence-gap rollback, generation
+  uniqueness, and positive-value constraints.
 
 ## Phase transition rule
 

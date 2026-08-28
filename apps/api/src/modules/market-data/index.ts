@@ -1,4 +1,17 @@
 export {
+  ProjectTradeTicker,
+  tradeTickerProjectionName,
+  TradeTickerProjectionError,
+  type ProjectTradeTickerInput,
+  type ProjectTradeTickerResult,
+  type TradeTickerObservation,
+  type TradeTickerProjectionCheckpoint,
+  type TradeTickerProjectionCheckpointReader,
+  type TradeTickerProjectionIssue,
+  type TradeTickerProjectionTransaction,
+  type TradeTickerProjectionTransactionRunner,
+} from "./application/trade-ticker-projection.js";
+export {
   defaultPublicOrderBookDepth,
   GetLevelTwoOrderBook,
   maximumPublicOrderBookDepth,
@@ -43,6 +56,8 @@ export type { MarketDataDatabaseSchema } from "./infrastructure/persistence/mark
 export { PostgresLevelTwoOrderBookReader } from "./infrastructure/persistence/postgres-level-two-order-book-reader.js";
 export { PostgresMarketDataProjectionCheckpointReader } from "./infrastructure/persistence/postgres-market-data-projection-checkpoint-reader.js";
 export { PostgresMarketDataProjectionTransactionRunner } from "./infrastructure/persistence/postgres-market-data-projection-transaction-runner.js";
+export { PostgresTradeTickerProjectionCheckpointReader } from "./infrastructure/persistence/postgres-trade-ticker-projection-checkpoint-reader.js";
+export { PostgresTradeTickerProjectionTransactionRunner } from "./infrastructure/persistence/postgres-trade-ticker-projection-transaction-runner.js";
 export {
   InMemoryMarketDataSnapshotRateLimiter,
   marketDataSnapshotRateLimitMaximumRequests,

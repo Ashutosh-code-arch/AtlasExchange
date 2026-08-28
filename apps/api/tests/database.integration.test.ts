@@ -50,10 +50,11 @@ describe("PostgreSQL foundation integration", () => {
       "0009_create_trading_reservation_schema.sql",
       "0010_create_trading_market_data_fact_schema.sql",
       "0011_create_market_data_level_two_projection_schema.sql",
+      "0012_create_market_data_trade_ticker_projection.sql",
     ]);
     await expect(applyMigrations(integrationDatabaseUrl)).resolves.toEqual([]);
 
-    const compatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "11");
+    const compatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "12");
     const incompatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "999");
 
     await expect(compatibleDatabase.checkReadiness()).resolves.toBe(true);
@@ -68,6 +69,6 @@ describe("PostgreSQL foundation integration", () => {
     );
     await verificationPool.end();
 
-    expect(result.rows[0]?.count).toBe("11");
+    expect(result.rows[0]?.count).toBe("12");
   });
 });
