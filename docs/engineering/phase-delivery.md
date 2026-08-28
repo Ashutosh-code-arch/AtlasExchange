@@ -292,6 +292,15 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   quote-volume tick-lots without floating-point arithmetic. Unit and real-PostgreSQL tests cover
   sibling failure completion, aggregate failure reporting, inclusive boundaries, exclusions,
   empty windows, exact sums, and actual managed-worker composition.
+- [ADR-037 — Public Trade Ticker HTTP Contract](../architecture/decisions/ADR-037-public-trade-ticker-http-contract.md)
+  defines the anonymous query-free ticker route, exact public decimals, explicit rolling-window and
+  freshness metadata, empty-window representation, shared snapshot caching/rate limiting, privacy,
+  safe errors, and deliberate omission of percentage change until its reference rule is accepted.
+- The composed API now serves committed-trade last price and quantity, 24-hour high/low, and exact
+  base/quote volumes from the active ticker projection. It converts ticks, lots, and tick-lots using
+  Trading's authoritative market definition, exposes no execution or projection internals, and
+  returns truthful null prices with zero volumes for trade-free windows. Shared-contract,
+  application, HTTP, and real-PostgreSQL tests prove the boundary.
 
 ## Phase transition rule
 

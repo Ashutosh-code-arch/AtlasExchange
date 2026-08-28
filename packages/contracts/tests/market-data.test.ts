@@ -6,6 +6,9 @@ import {
   marketDataOrderBookParamsSchema,
   marketDataOrderBookQuerySchema,
   marketDataOrderBookResponseSchema,
+  marketDataTickerParamsSchema,
+  marketDataTickerQuerySchema,
+  marketDataTickerResponseSchema,
 } from "../src/index.js";
 
 const currentSnapshot = {
@@ -104,5 +107,75 @@ describe("Market Data order-book contracts", () => {
         error: { code: "PROJECTION_FAILED", message: "private", requestId: "request-1" },
       }).success,
     ).toBe(false);
+  });
+});
+
+const populatedTicker = {
+  success: true,
+  data: {
+    marketCode: "BTC-USD",
+    sequence: "12",
+    publishedSequence: "14",
+    lag: "2",
+    freshness: "behind",
+    asOf: "2026-08-28T12:00:00.000Z",
+    generatedAt: "2026-08-28T12:00:01.000Z",
+    windowStart: "2026-08-27T12:00:01.000Z",
+    windowEnd: "2026-08-28T12:00:01.000Z",
+    lastPrice: "50100",
+    lastQuantity: "0.002",
+    lastExecutedAt: "2026-08-28T12:00:00.000Z",
+    highPrice: "50200",
+    lowPrice: "49900",
+    baseVolume: "0.02",
+    quoteVolume: "1001",
+  },
+} as const;
+
+describe("Market Data ticker contracts", () => {
+  it("accepts only a canonical market parameter and an empty query", () => {
+    expect(marketDataTickerParamsSchema.parse({ marketCode: "BTC-USD" })).toEqual({
+      marketCode: "BTC-USD",
+    });
+    expect(marketDataTickerQuerySchema.parse({})).toEqual({});
+    expect(marketDataTickerParamsSchema.safeParse({ marketCode: "btc-usd" }).success).toBe(false);
+    expect(marketDataTickerQuerySchema.safeParse({ ownerId: "private" }).success).toBe(false);
+  });
+
+  it("accepts exact populated and empty rolling windows", () => {
+    expect(marketDataTickerResponseSchema.parse(populatedTicker)).toEqual(populatedTicker);
+    expect(
+      marketDataTickerResponseSchema.safeParse({
+        ...populatedTicker,
+        data: {
+          ...populatedTicker.data,
+          lastPrice: null,
+          lastQuantity: null,
+          lastExecutedAt: null,
+          highPrice: null,
+          lowPrice: null,
+          baseVolume: "0",
+          quoteVolume: "0",
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects inconsistent metadata, windows, trade values, and internal fields", () => {
+    for (const data of [
+      { ...populatedTicker.data, lag: "1" },
+      { ...populatedTicker.data, freshness: "current" },
+      { ...populatedTicker.data, asOf: null },
+      { ...populatedTicker.data, generatedAt: "2026-08-28T12:00:02.000Z" },
+      { ...populatedTicker.data, windowStart: "2026-08-27T12:00:00.999Z" },
+      { ...populatedTicker.data, lastQuantity: null },
+      { ...populatedTicker.data, baseVolume: "0" },
+      { ...populatedTicker.data, highPrice: "49800" },
+      { ...populatedTicker.data, lastPrice: "50300" },
+      { ...populatedTicker.data, lastExecutedAt: "2026-08-27T12:00:00.999Z" },
+      { ...populatedTicker.data, generationId: "private" },
+    ]) {
+      expect(marketDataTickerResponseSchema.safeParse({ success: true, data }).success).toBe(false);
+    }
   });
 });

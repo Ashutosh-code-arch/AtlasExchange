@@ -23,19 +23,19 @@ The implemented foundation, Identity, Financial, and Trading phases provide:
 - exact spot limit orders, durable reservation, deterministic price-time matching, immutable trades,
   atomic four-wallet settlement, owner-scoped history, and a responsive exchange-style Trading desk.
 
-The active phase derives truthful Market Data from committed Atlas Trading facts. It now provides a
-sequence-aware public level-two order-book view and responsive web depth panel, and will add
-trade-derived tickers, candles, snapshot recovery, and later WebSocket delivery without making
-Market Data part of the matching or settlement authority. External prices and fabricated liquidity
-remain out of scope.
+The active phase derives truthful Market Data from committed Atlas Trading facts. It now provides
+sequence-aware public level-two order-book and rolling 24-hour ticker views plus a responsive web
+depth panel, and will add ticker presentation, candles, snapshot recovery, and later WebSocket
+delivery without making Market Data part of the matching or settlement authority. External prices
+and fabricated liquidity remain out of scope.
 The Trading boundary publishes private-safe, versioned final-state facts under a durable per-market
 sequence. Market Data now consumes that boundary into generation-aware checkpoints, private active
 order state, and exact deterministic level-two aggregates with replay and gap protection. A managed
 per-market worker continuously advances those projections with bounded polling, retry/backoff,
 graceful shutdown, and structured sequence-lag diagnostics.
-The public REST snapshot exposes exact decimal levels, bounded depth, sequence freshness, short
-caching, and rate limiting. The web workspace polls it safely, pauses in hidden tabs, and keeps stale
-state visibly distinct from a current snapshot.
+The public REST snapshots expose exact decimal depth and committed-trade ticker values, sequence
+freshness, short caching, and rate limiting. The web workspace polls depth safely, pauses in hidden
+tabs, and keeps stale state visibly distinct from a current snapshot.
 
 ## Prerequisites
 

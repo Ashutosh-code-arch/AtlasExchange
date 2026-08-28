@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { positiveFinancialQuantitySchema } from "./financial.js";
+import { financialQuantitySchema, positiveFinancialQuantitySchema } from "./financial.js";
 import { tradingMarketCodeSchema } from "./trading.js";
 
 const depthPattern = /^(?:[1-9]|[1-9]\d|100)$/;
@@ -22,6 +22,12 @@ export const maximumMarketDataOrderBookDepth = 100;
 export const marketDataOrderBookParamsSchema = z.strictObject({
   marketCode: tradingMarketCodeSchema,
 });
+
+export const marketDataTickerParamsSchema = z.strictObject({
+  marketCode: tradingMarketCodeSchema,
+});
+
+export const marketDataTickerQuerySchema = z.strictObject({});
 
 export const marketDataOrderBookQuerySchema = z.strictObject({
   depth: z.string().regex(depthPattern).transform(Number).default(defaultMarketDataOrderBookDepth),
@@ -85,6 +91,99 @@ export const marketDataOrderBookResponseSchema = z
     }
   });
 
+export const marketDataTickerResponseSchema = z
+  .strictObject({
+    success: z.literal(true),
+    data: z.strictObject({
+      marketCode: tradingMarketCodeSchema,
+      sequence: nonNegativeIntegerTextSchema,
+      publishedSequence: nonNegativeIntegerTextSchema,
+      lag: nonNegativeIntegerTextSchema,
+      freshness: marketDataOrderBookFreshnessSchema,
+      asOf: z.iso.datetime().nullable(),
+      generatedAt: z.iso.datetime(),
+      windowStart: z.iso.datetime(),
+      windowEnd: z.iso.datetime(),
+      lastPrice: positiveFinancialQuantitySchema.nullable(),
+      lastQuantity: positiveFinancialQuantitySchema.nullable(),
+      lastExecutedAt: z.iso.datetime().nullable(),
+      highPrice: positiveFinancialQuantitySchema.nullable(),
+      lowPrice: positiveFinancialQuantitySchema.nullable(),
+      baseVolume: financialQuantitySchema,
+      quoteVolume: financialQuantitySchema,
+    }),
+  })
+  .superRefine((response, context) => {
+    const ticker = response.data;
+    if (BigInt(ticker.publishedSequence) !== BigInt(ticker.sequence) + BigInt(ticker.lag)) {
+      context.addIssue({ code: "custom", message: "Ticker sequence metadata must reconcile." });
+    }
+    if ((ticker.lag === "0") !== (ticker.freshness === "current")) {
+      context.addIssue({ code: "custom", message: "Ticker freshness must agree with lag." });
+    }
+    if ((ticker.sequence === "0") !== (ticker.asOf === null)) {
+      context.addIssue({ code: "custom", message: "Ticker timestamp must agree with sequence." });
+    }
+    const windowStart = Date.parse(ticker.windowStart);
+    const windowEnd = Date.parse(ticker.windowEnd);
+    if (windowEnd - windowStart !== 24 * 60 * 60 * 1_000) {
+      context.addIssue({ code: "custom", message: "Ticker window must span exactly 24 hours." });
+    }
+    if (ticker.generatedAt !== ticker.windowEnd) {
+      context.addIssue({
+        code: "custom",
+        message: "Ticker generation time must close its window.",
+      });
+    }
+    const nullableTradeValues = [
+      ticker.lastPrice,
+      ticker.lastQuantity,
+      ticker.lastExecutedAt,
+      ticker.highPrice,
+      ticker.lowPrice,
+    ];
+    const hasTrades = ticker.lastPrice !== null;
+    if (nullableTradeValues.some((value) => (value !== null) !== hasTrades)) {
+      context.addIssue({
+        code: "custom",
+        message: "Ticker trade values must be present together.",
+      });
+      return;
+    }
+    if (!hasTrades) {
+      if (ticker.baseVolume !== "0" || ticker.quoteVolume !== "0") {
+        context.addIssue({
+          code: "custom",
+          message: "An empty ticker window must have zero volume.",
+        });
+      }
+      return;
+    }
+    if (ticker.baseVolume === "0" || ticker.quoteVolume === "0") {
+      context.addIssue({ code: "custom", message: "A populated ticker window must have volume." });
+    }
+    if (
+      ticker.lastExecutedAt !== null &&
+      (Date.parse(ticker.lastExecutedAt) < windowStart ||
+        Date.parse(ticker.lastExecutedAt) > windowEnd)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Last trade must fall inside the ticker window.",
+      });
+    }
+    if (
+      ticker.highPrice !== null &&
+      ticker.lowPrice !== null &&
+      ticker.lastPrice !== null &&
+      (compareDecimals(ticker.highPrice, ticker.lowPrice) < 0 ||
+        compareDecimals(ticker.lastPrice, ticker.lowPrice) < 0 ||
+        compareDecimals(ticker.lastPrice, ticker.highPrice) > 0)
+    ) {
+      context.addIssue({ code: "custom", message: "Ticker prices must reconcile." });
+    }
+  });
+
 export const marketDataApiErrorCodeSchema = z.enum([
   "INTERNAL_SERVER_ERROR",
   "MARKET_NOT_FOUND",
@@ -106,5 +205,8 @@ export type MarketDataOrderBookQuery = z.infer<typeof marketDataOrderBookQuerySc
 export type MarketDataOrderBookFreshness = z.infer<typeof marketDataOrderBookFreshnessSchema>;
 export type MarketDataOrderBookLevel = z.infer<typeof marketDataOrderBookLevelSchema>;
 export type MarketDataOrderBookResponse = z.infer<typeof marketDataOrderBookResponseSchema>;
+export type MarketDataTickerParams = z.infer<typeof marketDataTickerParamsSchema>;
+export type MarketDataTickerQuery = z.infer<typeof marketDataTickerQuerySchema>;
+export type MarketDataTickerResponse = z.infer<typeof marketDataTickerResponseSchema>;
 export type MarketDataApiErrorCode = z.infer<typeof marketDataApiErrorCodeSchema>;
 export type MarketDataApiErrorResponse = z.infer<typeof marketDataApiErrorResponseSchema>;

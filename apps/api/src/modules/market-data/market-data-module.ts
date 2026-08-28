@@ -8,6 +8,8 @@ import {
   type TradingReadDatabaseSchema,
 } from "../trading/index.js";
 import { GetLevelTwoOrderBook } from "./application/get-level-two-order-book.js";
+import { GetPublicTradeTicker } from "./application/get-public-trade-ticker.js";
+import { GetTradeTicker } from "./application/get-trade-ticker.js";
 import type { MarketDataSnapshotRateLimiter } from "./application/market-data-snapshot-rate-limiter.js";
 import { ProjectLevelTwoOrderBook } from "./application/level-two-order-book-projection.js";
 import {
@@ -22,6 +24,7 @@ import { PostgresMarketDataProjectionCheckpointReader } from "./infrastructure/p
 import { PostgresMarketDataProjectionTransactionRunner } from "./infrastructure/persistence/postgres-market-data-projection-transaction-runner.js";
 import { PostgresTradeTickerProjectionCheckpointReader } from "./infrastructure/persistence/postgres-trade-ticker-projection-checkpoint-reader.js";
 import { PostgresTradeTickerProjectionTransactionRunner } from "./infrastructure/persistence/postgres-trade-ticker-projection-transaction-runner.js";
+import { PostgresTradeTickerReader } from "./infrastructure/persistence/postgres-trade-ticker-reader.js";
 import { InMemoryMarketDataSnapshotRateLimiter } from "./infrastructure/security/in-memory-market-data-snapshot-rate-limiter.js";
 import { createMarketDataRouter } from "./http/market-data-router.js";
 
@@ -49,6 +52,11 @@ export function createMarketDataModuleRouter(options: CreateMarketDataModuleRout
       new PostgresLevelTwoOrderBookReader(options.database),
       publications,
       options.now,
+    ),
+    getTradeTicker: new GetPublicTradeTicker(
+      markets,
+      new GetTradeTicker(new PostgresTradeTickerReader(options.database), options.now),
+      publications,
     ),
     snapshotRateLimiter: options.snapshotRateLimiter ?? new InMemoryMarketDataSnapshotRateLimiter(),
   });

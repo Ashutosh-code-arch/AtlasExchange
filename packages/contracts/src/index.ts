@@ -7,6 +7,9 @@ export {
   marketDataOrderBookParamsSchema,
   marketDataOrderBookQuerySchema,
   marketDataOrderBookResponseSchema,
+  marketDataTickerParamsSchema,
+  marketDataTickerQuerySchema,
+  marketDataTickerResponseSchema,
   maximumMarketDataOrderBookDepth,
   type MarketDataApiErrorCode,
   type MarketDataApiErrorResponse,
@@ -15,6 +18,9 @@ export {
   type MarketDataOrderBookParams,
   type MarketDataOrderBookQuery,
   type MarketDataOrderBookResponse,
+  type MarketDataTickerParams,
+  type MarketDataTickerQuery,
+  type MarketDataTickerResponse,
 } from "./market-data.js";
 
 export {

@@ -1,4 +1,10 @@
 export {
+  GetPublicTradeTicker,
+  type GetPublicTradeTickerQuery,
+  type GetPublicTradeTickerResult,
+  type PublicTradeTicker,
+} from "./application/get-public-trade-ticker.js";
+export {
   GetTradeTicker,
   tradeTickerWindowMilliseconds,
   type TradeTickerLastTrade,
