@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type {
   MarketDataOrderBookResponse,
+  MarketDataTickerResponse,
   TradingMarket,
   TradingOrder,
   TradingTrade,
@@ -79,6 +80,7 @@ type TradeLoader = NonNullable<TradingWorkspaceProps["tradeLoader"]>;
 type OrderPlacer = NonNullable<TradingWorkspaceProps["orderPlacer"]>;
 type OrderCanceller = NonNullable<TradingWorkspaceProps["orderCanceller"]>;
 type OrderBookLoader = NonNullable<TradingWorkspaceProps["orderBookLoader"]>;
+type TickerLoader = NonNullable<TradingWorkspaceProps["tickerLoader"]>;
 
 const orderBook: MarketDataOrderBookResponse["data"] = {
   marketCode: "BTC-USD",
@@ -91,6 +93,25 @@ const orderBook: MarketDataOrderBookResponse["data"] = {
   generatedAt: "2026-08-28T12:00:03.250Z",
   bids: [{ price: "50000", quantity: "0.003", orderCount: "2" }],
   asks: [{ price: "50010", quantity: "0.002", orderCount: "1" }],
+};
+
+const ticker: MarketDataTickerResponse["data"] = {
+  marketCode: "BTC-USD",
+  sequence: "3",
+  publishedSequence: "3",
+  lag: "0",
+  freshness: "current",
+  asOf: "2026-08-28T12:00:03.000Z",
+  generatedAt: "2026-08-28T12:00:03.250Z",
+  windowStart: "2026-08-27T12:00:03.250Z",
+  windowEnd: "2026-08-28T12:00:03.250Z",
+  lastPrice: "50000",
+  lastQuantity: "0.001",
+  lastExecutedAt: "2026-08-28T12:00:02.000Z",
+  highPrice: "50000",
+  lowPrice: "49000",
+  baseVolume: "0.002",
+  quoteVolume: "99",
 };
 
 function renderWorkspace(
@@ -129,6 +150,8 @@ function standardProps(overrides: TradingWorkspaceProps = {}): TradingWorkspaceP
       .mockResolvedValue({ trades: [execution], page: { nextCursor: null } }),
     orderBookLoader: vi.fn<OrderBookLoader>().mockResolvedValue(orderBook),
     orderBookPollIntervalMs: 60_000,
+    tickerLoader: vi.fn<TickerLoader>().mockResolvedValue(ticker),
+    tickerPollIntervalMs: 60_000,
     ...overrides,
   };
 }
@@ -139,8 +162,17 @@ describe("TradingWorkspace", () => {
     const orderLoader = vi.fn<OrderLoader>();
     const tradeLoader = vi.fn<TradeLoader>();
     const orderBookLoader = vi.fn<OrderBookLoader>().mockResolvedValue(orderBook);
+    const tickerLoader = vi.fn<TickerLoader>().mockResolvedValue(ticker);
     renderWorkspace(
-      { marketLoader, orderLoader, tradeLoader, orderBookLoader, orderBookPollIntervalMs: 60_000 },
+      {
+        marketLoader,
+        orderLoader,
+        tradeLoader,
+        orderBookLoader,
+        orderBookPollIntervalMs: 60_000,
+        tickerLoader,
+        tickerPollIntervalMs: 60_000,
+      },
       false,
     );
 
@@ -151,6 +183,9 @@ describe("TradingWorkspace", () => {
       await screen.findByRole("table", { name: "BTC-USD level-two order book" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Current snapshot")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "BTC-USD rolling 24-hour ticker" }),
+    ).toHaveTextContent(/50000.*Last size.*0\.001.*24h high.*50000/i);
     expect(screen.getByText("Sign in above to place and manage orders.")).toBeInTheDocument();
     expect(screen.getByLabelText("Quantity")).toBeDisabled();
     expect(screen.getByText(/Sign in to view your private orders/i)).toBeInTheDocument();
@@ -161,6 +196,7 @@ describe("TradingWorkspace", () => {
       marketCode: "BTC-USD",
       depth: 15,
     });
+    expect(tickerLoader).toHaveBeenCalledWith(expect.any(Object), { marketCode: "BTC-USD" });
   });
 
   it("places a sell limit order from the selected market and shows server-confirmed success", async () => {

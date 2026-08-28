@@ -301,6 +301,12 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   Trading's authoritative market definition, exposes no execution or projection internals, and
   returns truthful null prices with zero volumes for trade-free windows. Shared-contract,
   application, HTTP, and real-PostgreSQL tests prove the boundary.
+- The Trading workspace now presents a responsive rolling ticker above level-two depth. Its
+  independent two-second REST loop is non-overlapping, pauses in hidden tabs, ignores late
+  market-switch responses, retains the last valid ticker after refresh failure, and exposes manual
+  recovery plus exact lag. The panel labels committed trades and base/quote units, shows no price
+  when the window is empty, and renders last price/size, high/low, and both volumes without client
+  arithmetic. API, hook, component, workspace, and full browser tests cover the public flow.
 
 ## Phase transition rule
 

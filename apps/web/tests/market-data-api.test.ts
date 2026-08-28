@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { getLevelTwoOrderBook } from "../src/features/market-data";
+import { getLevelTwoOrderBook, getTradeTicker } from "../src/features/market-data";
 
 const response = {
   success: true,
@@ -15,6 +15,28 @@ const response = {
     generatedAt: "2026-08-28T12:00:12.250Z",
     bids: [{ price: "50000", quantity: "0.003", orderCount: "2" }],
     asks: [{ price: "50010", quantity: "0.002", orderCount: "1" }],
+  },
+} as const;
+
+const tickerResponse = {
+  success: true,
+  data: {
+    marketCode: "BTC-USD",
+    sequence: "12",
+    publishedSequence: "12",
+    lag: "0",
+    freshness: "current",
+    asOf: "2026-08-28T12:00:12.000Z",
+    generatedAt: "2026-08-28T12:00:12.250Z",
+    windowStart: "2026-08-27T12:00:12.250Z",
+    windowEnd: "2026-08-28T12:00:12.250Z",
+    lastPrice: "50000",
+    lastQuantity: "0.003",
+    lastExecutedAt: "2026-08-28T12:00:12.000Z",
+    highPrice: "50100",
+    lowPrice: "49900",
+    baseVolume: "0.01",
+    quoteVolume: "500",
   },
 } as const;
 
@@ -53,5 +75,34 @@ describe("Market Data API", () => {
     await expect(
       getLevelTwoOrderBook({ request }, { marketCode: "BTC-USD", depth: 15 }),
     ).rejects.toMatchObject({ name: "ZodError" });
+  });
+
+  it("requests and validates the public rolling ticker without authentication recovery", async () => {
+    const request = vi.fn().mockResolvedValue(Response.json(tickerResponse));
+
+    await expect(getTradeTicker({ request }, { marketCode: "BTC-USD" })).resolves.toEqual(
+      tickerResponse.data,
+    );
+    expect(request).toHaveBeenCalledWith("/api/v1/market-data/markets/BTC-USD/ticker", {
+      method: "GET",
+      recoverAuthentication: false,
+    });
+  });
+
+  it("rejects invalid ticker inputs and private response fields", async () => {
+    const request = vi.fn().mockResolvedValue(
+      Response.json({
+        ...tickerResponse,
+        data: { ...tickerResponse.data, executionSequence: "private" },
+      }),
+    );
+    await expect(getTradeTicker({ request }, { marketCode: "btc-usd" })).rejects.toMatchObject({
+      name: "ZodError",
+    });
+    expect(request).not.toHaveBeenCalled();
+
+    await expect(getTradeTicker({ request }, { marketCode: "BTC-USD" })).rejects.toMatchObject({
+      name: "ZodError",
+    });
   });
 });

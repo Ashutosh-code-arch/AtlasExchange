@@ -11,8 +11,11 @@ import { ApiHttpError, ApiTransportError } from "../../../shared/api/http-client
 import { useAuthenticationSession } from "../../authentication";
 import {
   LevelTwoOrderBook,
+  TradeTickerPanel,
   getLevelTwoOrderBook,
+  getTradeTicker,
   type LevelTwoOrderBookLoader,
+  type TradeTickerLoader,
 } from "../../market-data";
 import {
   cancelTradingOrder,
@@ -42,6 +45,8 @@ export interface TradingWorkspaceProps extends TradingStateProps {
   readonly orderBookLoader?: LevelTwoOrderBookLoader;
   readonly orderBookDepth?: number;
   readonly orderBookPollIntervalMs?: number;
+  readonly tickerLoader?: TradeTickerLoader;
+  readonly tickerPollIntervalMs?: number;
 }
 
 interface Feedback {
@@ -529,6 +534,8 @@ export function TradingWorkspace({
   orderBookLoader = getLevelTwoOrderBook,
   orderBookDepth = 15,
   orderBookPollIntervalMs = 2_000,
+  tickerLoader = getTradeTicker,
+  tickerPollIntervalMs = 2_000,
   pageSize = 25,
   idempotencyKeyFactory,
 }: TradingWorkspaceProps): React.JSX.Element {
@@ -693,10 +700,17 @@ export function TradingWorkspace({
               </div>
               <div>
                 <dt>Price feed</dt>
-                <dd className="trading-market-header__live">Level 2 · REST</dd>
+                <dd className="trading-market-header__live">Ticker + Level 2 · REST</dd>
               </div>
             </dl>
           </header>
+
+          <TradeTickerPanel
+            request={request}
+            loader={tickerLoader}
+            pollIntervalMs={tickerPollIntervalMs}
+            {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
+          />
 
           <LevelTwoOrderBook
             request={request}

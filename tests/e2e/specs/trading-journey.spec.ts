@@ -137,6 +137,8 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   await expect(sellerBook).toContainText("50000");
   await expect(sellerBook).toContainText("0.5");
   await expect(page.getByText("Current snapshot")).toBeVisible();
+  const publicTicker = page.getByRole("region", { name: "BTC-USD rolling 24-hour ticker" });
+  await expect(publicTicker).toContainText("No committed trades in the rolling 24-hour window.");
   await signOut(page);
 
   await registerVerifyAndSignIn(page, request, buyerEmail);
@@ -147,6 +149,13 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   await placeLimitOrder(page, { side: "Buy", quantity: "0.5", price: "51000" });
   await expect(page.locator(".trading-feedback")).toContainText(/executed 1 fill/);
   await expect(page.getByText("No open liquidity is projected for BTC-USD.")).toBeVisible();
+  await expect(publicTicker.getByRole("heading", { name: "50000" })).toBeVisible();
+  await expect(
+    publicTicker.locator(".trade-ticker__metrics > div").filter({ hasText: "Last size" }),
+  ).toContainText("0.5");
+  await expect(
+    publicTicker.locator(".trade-ticker__metrics > div").filter({ hasText: "Quote volume" }),
+  ).toContainText("25000");
   const buyerExecutions = page.getByRole("table", {
     name: "Executions for the selected Trading market",
   });
