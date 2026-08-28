@@ -4,8 +4,22 @@ import { financialQuantitySchema, positiveFinancialQuantitySchema } from "./fina
 import { tradingMarketCodeSchema } from "./trading.js";
 
 const depthPattern = /^(?:[1-9]|[1-9]\d|100)$/;
+const candleLimitPattern = /^(?:[1-9]|[1-9]\d|[1-4]\d{2}|500)$/;
 const nonNegativeIntegerTextSchema = z.string().regex(/^(?:0|[1-9]\d*)$/);
 const positiveIntegerTextSchema = z.string().regex(/^[1-9]\d*$/);
+
+export const marketDataCandleIntervals = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
+export const defaultMarketDataCandleLimit = 200;
+export const maximumMarketDataCandleLimit = 500;
+
+const candleIntervalMilliseconds = {
+  "1m": 60_000,
+  "5m": 5 * 60_000,
+  "15m": 15 * 60_000,
+  "1h": 60 * 60_000,
+  "4h": 4 * 60 * 60_000,
+  "1d": 24 * 60 * 60_000,
+} as const;
 
 function compareDecimals(left: string, right: string): number {
   const [leftWhole = "0", leftFraction = ""] = left.split(".");
@@ -26,6 +40,31 @@ export const marketDataOrderBookParamsSchema = z.strictObject({
 export const marketDataTickerParamsSchema = z.strictObject({
   marketCode: tradingMarketCodeSchema,
 });
+
+export const marketDataCandleIntervalSchema = z.enum(marketDataCandleIntervals);
+
+export const marketDataCandleParamsSchema = z.strictObject({
+  marketCode: tradingMarketCodeSchema,
+});
+
+export const marketDataCandleQuerySchema = z
+  .strictObject({
+    interval: marketDataCandleIntervalSchema,
+    limit: z
+      .string()
+      .regex(candleLimitPattern)
+      .transform(Number)
+      .default(defaultMarketDataCandleLimit),
+    before: z.iso.datetime().optional(),
+  })
+  .superRefine((query, context) => {
+    if (
+      query.before !== undefined &&
+      Date.parse(query.before) % candleIntervalMilliseconds[query.interval] !== 0
+    ) {
+      context.addIssue({ code: "custom", message: "Candle cursor must be interval aligned." });
+    }
+  });
 
 export const marketDataTickerQuerySchema = z.strictObject({});
 
@@ -184,6 +223,94 @@ export const marketDataTickerResponseSchema = z
     }
   });
 
+export const marketDataCandleSchema = z.strictObject({
+  start: z.iso.datetime(),
+  end: z.iso.datetime(),
+  openPrice: positiveFinancialQuantitySchema,
+  highPrice: positiveFinancialQuantitySchema,
+  lowPrice: positiveFinancialQuantitySchema,
+  closePrice: positiveFinancialQuantitySchema,
+  baseVolume: positiveFinancialQuantitySchema,
+  quoteVolume: positiveFinancialQuantitySchema,
+  tradeCount: positiveIntegerTextSchema,
+  closed: z.boolean(),
+});
+
+export const marketDataCandlesResponseSchema = z
+  .strictObject({
+    success: z.literal(true),
+    data: z.strictObject({
+      marketCode: tradingMarketCodeSchema,
+      interval: marketDataCandleIntervalSchema,
+      limit: z.number().int().min(1).max(maximumMarketDataCandleLimit),
+      sequence: nonNegativeIntegerTextSchema,
+      publishedSequence: nonNegativeIntegerTextSchema,
+      lag: nonNegativeIntegerTextSchema,
+      freshness: marketDataOrderBookFreshnessSchema,
+      asOf: z.iso.datetime().nullable(),
+      generatedAt: z.iso.datetime(),
+      candles: z.array(marketDataCandleSchema).max(maximumMarketDataCandleLimit),
+      nextBefore: z.iso.datetime().nullable(),
+    }),
+  })
+  .superRefine((response, context) => {
+    const snapshot = response.data;
+    if (BigInt(snapshot.publishedSequence) !== BigInt(snapshot.sequence) + BigInt(snapshot.lag)) {
+      context.addIssue({ code: "custom", message: "Candle sequence metadata must reconcile." });
+    }
+    if ((snapshot.lag === "0") !== (snapshot.freshness === "current")) {
+      context.addIssue({ code: "custom", message: "Candle freshness must agree with lag." });
+    }
+    if ((snapshot.sequence === "0") !== (snapshot.asOf === null)) {
+      context.addIssue({ code: "custom", message: "Candle timestamp must agree with sequence." });
+    }
+    if (snapshot.candles.length > snapshot.limit) {
+      context.addIssue({ code: "custom", message: "Candles cannot exceed the requested limit." });
+    }
+
+    const generatedAt = Date.parse(snapshot.generatedAt);
+    const duration = candleIntervalMilliseconds[snapshot.interval];
+    for (const [index, candle] of snapshot.candles.entries()) {
+      const start = Date.parse(candle.start);
+      const end = Date.parse(candle.end);
+      if (start % duration !== 0 || end - start !== duration) {
+        context.addIssue({ code: "custom", message: "Candle boundaries must be UTC aligned." });
+      }
+      const previous = snapshot.candles[index - 1];
+      if (previous !== undefined && Date.parse(previous.start) >= start) {
+        context.addIssue({ code: "custom", message: "Candles must use strict ascending order." });
+      }
+      if (candle.closed !== end <= generatedAt) {
+        context.addIssue({
+          code: "custom",
+          message: "Candle closed state must match generation time.",
+        });
+      }
+      if (generatedAt < start) {
+        context.addIssue({ code: "custom", message: "Candle cannot begin after generation time." });
+      }
+      if (
+        compareDecimals(candle.highPrice, candle.lowPrice) < 0 ||
+        compareDecimals(candle.openPrice, candle.lowPrice) < 0 ||
+        compareDecimals(candle.openPrice, candle.highPrice) > 0 ||
+        compareDecimals(candle.closePrice, candle.lowPrice) < 0 ||
+        compareDecimals(candle.closePrice, candle.highPrice) > 0
+      ) {
+        context.addIssue({ code: "custom", message: "Candle prices must reconcile." });
+      }
+    }
+    const first = snapshot.candles[0];
+    if (
+      snapshot.nextBefore !== null &&
+      (first === undefined || snapshot.nextBefore !== first.start)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Candle cursor must match the earliest candle.",
+      });
+    }
+  });
+
 export const marketDataApiErrorCodeSchema = z.enum([
   "INTERNAL_SERVER_ERROR",
   "MARKET_NOT_FOUND",
@@ -205,6 +332,11 @@ export type MarketDataOrderBookQuery = z.infer<typeof marketDataOrderBookQuerySc
 export type MarketDataOrderBookFreshness = z.infer<typeof marketDataOrderBookFreshnessSchema>;
 export type MarketDataOrderBookLevel = z.infer<typeof marketDataOrderBookLevelSchema>;
 export type MarketDataOrderBookResponse = z.infer<typeof marketDataOrderBookResponseSchema>;
+export type MarketDataCandleInterval = z.infer<typeof marketDataCandleIntervalSchema>;
+export type MarketDataCandleParams = z.infer<typeof marketDataCandleParamsSchema>;
+export type MarketDataCandleQuery = z.infer<typeof marketDataCandleQuerySchema>;
+export type MarketDataCandle = z.infer<typeof marketDataCandleSchema>;
+export type MarketDataCandlesResponse = z.infer<typeof marketDataCandlesResponseSchema>;
 export type MarketDataTickerParams = z.infer<typeof marketDataTickerParamsSchema>;
 export type MarketDataTickerQuery = z.infer<typeof marketDataTickerQuerySchema>;
 export type MarketDataTickerResponse = z.infer<typeof marketDataTickerResponseSchema>;

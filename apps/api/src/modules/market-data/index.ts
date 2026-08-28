@@ -1,4 +1,21 @@
 export {
+  candleIntervalDefinitions,
+  candleProjectionName,
+  CandleProjectionError,
+  getCandleBucket,
+  ProjectCandles,
+  type CandleBucket,
+  type CandleInterval,
+  type CandleProjectionCheckpoint,
+  type CandleProjectionCheckpointReader,
+  type CandleProjectionIssue,
+  type CandleProjectionTransaction,
+  type CandleProjectionTransactionRunner,
+  type CandleTradeContribution,
+  type ProjectCandlesInput,
+  type ProjectCandlesResult,
+} from "./application/candle-projection.js";
+export {
   GetPublicTradeTicker,
   type GetPublicTradeTickerQuery,
   type GetPublicTradeTickerResult,
@@ -73,6 +90,8 @@ export {
   type ProjectMarketDataResult,
 } from "./application/project-market-data.js";
 export type { MarketDataDatabaseSchema } from "./infrastructure/persistence/market-data-database-schema.js";
+export { PostgresCandleProjectionCheckpointReader } from "./infrastructure/persistence/postgres-candle-projection-checkpoint-reader.js";
+export { PostgresCandleProjectionTransactionRunner } from "./infrastructure/persistence/postgres-candle-projection-transaction-runner.js";
 export { PostgresLevelTwoOrderBookReader } from "./infrastructure/persistence/postgres-level-two-order-book-reader.js";
 export { PostgresMarketDataProjectionCheckpointReader } from "./infrastructure/persistence/postgres-market-data-projection-checkpoint-reader.js";
 export { PostgresMarketDataProjectionTransactionRunner } from "./infrastructure/persistence/postgres-market-data-projection-transaction-runner.js";

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  defaultMarketDataCandleLimit,
+  marketDataCandleParamsSchema,
+  marketDataCandleQuerySchema,
+  marketDataCandlesResponseSchema,
   defaultMarketDataOrderBookDepth,
   marketDataApiErrorResponseSchema,
   marketDataOrderBookParamsSchema,
@@ -10,6 +14,114 @@ import {
   marketDataTickerQuerySchema,
   marketDataTickerResponseSchema,
 } from "../src/index.js";
+
+const candleSnapshot = {
+  success: true,
+  data: {
+    marketCode: "BTC-USD",
+    interval: "5m",
+    limit: 2,
+    sequence: "20",
+    publishedSequence: "22",
+    lag: "2",
+    freshness: "behind",
+    asOf: "2026-08-28T12:06:00.000Z",
+    generatedAt: "2026-08-28T12:07:00.000Z",
+    candles: [
+      {
+        start: "2026-08-28T11:55:00.000Z",
+        end: "2026-08-28T12:00:00.000Z",
+        openPrice: "50000",
+        highPrice: "50100",
+        lowPrice: "49900",
+        closePrice: "50050",
+        baseVolume: "0.1",
+        quoteVolume: "5005",
+        tradeCount: "4",
+        closed: true,
+      },
+      {
+        start: "2026-08-28T12:05:00.000Z",
+        end: "2026-08-28T12:10:00.000Z",
+        openPrice: "50100",
+        highPrice: "50100",
+        lowPrice: "50080",
+        closePrice: "50080",
+        baseVolume: "0.02",
+        quoteVolume: "1001.6",
+        tradeCount: "2",
+        closed: false,
+      },
+    ],
+    nextBefore: "2026-08-28T11:55:00.000Z",
+  },
+} as const;
+
+describe("Market Data candle contracts", () => {
+  it("accepts supported intervals and bounded historical queries", () => {
+    expect(marketDataCandleParamsSchema.parse({ marketCode: "BTC-USD" })).toEqual({
+      marketCode: "BTC-USD",
+    });
+    expect(marketDataCandleQuerySchema.parse({ interval: "1m" })).toEqual({
+      interval: "1m",
+      limit: defaultMarketDataCandleLimit,
+    });
+    expect(
+      marketDataCandleQuerySchema.parse({
+        interval: "1d",
+        limit: "500",
+        before: "2026-08-28T00:00:00.000Z",
+      }),
+    ).toEqual({
+      interval: "1d",
+      limit: 500,
+      before: "2026-08-28T00:00:00.000Z",
+    });
+    for (const query of [
+      {},
+      { interval: "30m" },
+      { interval: "1m", limit: "0" },
+      { interval: "1m", limit: "501" },
+      { interval: "1m", limit: 20 },
+      { interval: "5m", before: "2026-08-28T12:01:00.000Z" },
+      { interval: "1m", ownerId: "private" },
+    ]) {
+      expect(marketDataCandleQuerySchema.safeParse(query).success).toBe(false);
+    }
+  });
+
+  it("accepts exact closed and open candles without requiring contiguous buckets", () => {
+    expect(marketDataCandlesResponseSchema.parse(candleSnapshot)).toEqual(candleSnapshot);
+  });
+
+  it("rejects inconsistent metadata, boundaries, ordering, OHLC, and internal fields", () => {
+    for (const data of [
+      { ...candleSnapshot.data, lag: "1" },
+      { ...candleSnapshot.data, freshness: "current" },
+      { ...candleSnapshot.data, asOf: null },
+      { ...candleSnapshot.data, limit: 1 },
+      { ...candleSnapshot.data, candles: candleSnapshot.data.candles.toReversed() },
+      { ...candleSnapshot.data, nextBefore: "2026-08-28T11:50:00.000Z" },
+      {
+        ...candleSnapshot.data,
+        candles: [{ ...candleSnapshot.data.candles[0], start: "2026-08-28T11:56:00.000Z" }],
+      },
+      {
+        ...candleSnapshot.data,
+        candles: [{ ...candleSnapshot.data.candles[0], highPrice: "49800" }],
+      },
+      {
+        ...candleSnapshot.data,
+        candles: [{ ...candleSnapshot.data.candles[0], closed: false }],
+      },
+      { ...candleSnapshot.data, generationId: "private" },
+    ]) {
+      expect(marketDataCandlesResponseSchema.safeParse({ success: true, data }).success).toBe(
+        false,
+      );
+    }
+  });
+});
 
 const currentSnapshot = {
   success: true,

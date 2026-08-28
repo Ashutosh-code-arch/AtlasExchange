@@ -13,7 +13,7 @@ describe("API configuration", () => {
     const config = parseApiConfig(validEnvironment);
 
     expect(config.http.port).toBe(3000);
-    expect(config.database.expectedSchemaVersion).toBe("12");
+    expect(config.database.expectedSchemaVersion).toBe("13");
     expect(config.financial.simulatedFundingEnabled).toBe(true);
     expect(config.financial.simulatedWithdrawalsEnabled).toBe(true);
     expect(config.marketData.projection).toEqual({

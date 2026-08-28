@@ -11,10 +11,29 @@ type NullableDatabaseTimestamp = ColumnType<
 
 interface ProjectionGenerationsTable {
   id: GeneratedUuid;
-  projection_name: "level_two_order_book" | "trade_ticker";
+  projection_name: "candles" | "level_two_order_book" | "trade_ticker";
   status: "active" | "building" | "retired";
   created_at: GeneratedTimestamp;
   activated_at: NullableDatabaseTimestamp;
+}
+
+interface CandlesTable {
+  generation_id: string;
+  market_code: string;
+  interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+  bucket_start: DatabaseTimestamp;
+  bucket_end: DatabaseTimestamp;
+  open_execution_sequence: string;
+  close_execution_sequence: string;
+  open_price_ticks: string;
+  high_price_ticks: string;
+  low_price_ticks: string;
+  close_price_ticks: string;
+  base_volume_lots: string;
+  quote_volume_tick_lots: string;
+  trade_count: string;
+  last_sequence: string;
+  updated_at: DatabaseTimestamp;
 }
 
 interface TickerTradesTable {
@@ -60,6 +79,7 @@ interface LevelTwoOrderBookLevelsTable {
 }
 
 export interface MarketDataDatabaseSchema {
+  "market_data.candles": CandlesTable;
   "market_data.level_two_order_book_levels": LevelTwoOrderBookLevelsTable;
   "market_data.level_two_projected_orders": LevelTwoProjectedOrdersTable;
   "market_data.projection_checkpoints": ProjectionCheckpointsTable;

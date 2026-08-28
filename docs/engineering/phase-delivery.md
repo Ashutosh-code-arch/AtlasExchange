@@ -307,6 +307,17 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   recovery plus exact lag. The panel labels committed trades and base/quote units, shows no price
   when the window is empty, and renders last price/size, high/low, and both volumes without client
   arithmetic. API, hook, component, workspace, and full browser tests cover the public flow.
+- [ADR-038 — Candle Projection and Historical Contract](../architecture/decisions/ADR-038-candle-projection-and-historical-contract.md)
+  defines six UTC epoch-aligned intervals, exact execution-sequence OHLCV, sparse half-open
+  buckets, independently checkpointed atomic projection, bounded cursor history, explicit open
+  candles, and initial full retention.
+- Migration 0013 advances schema compatibility to version 13 and provisions the independent candle
+  generation plus constrained aggregate persistence. The application projector checkpoints every
+  contiguous fact and applies each committed trade to all supported intervals without synthesizing
+  empty buckets. Shared-contract, database-independent, and real-PostgreSQL tests prove alignment,
+  exact volumes, execution-ordered open/close, sparse gaps, replay safety, rollback, concurrency,
+  and persistence constraints. Worker composition, the historical reader, and the HTTP route remain
+  the next delivery increment.
 
 ## Phase transition rule
 
