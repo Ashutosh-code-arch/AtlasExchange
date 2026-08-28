@@ -55,6 +55,8 @@ export const portfolioValueSchema = z
   .regex(canonicalPortfolioValuePattern)
   .refine((value) => significantDigits(value) <= maximumPortfolioValueDigits);
 
+export const portfolioSnapshotQuerySchema = z.strictObject({});
+
 export const portfolioUnpricedReasonSchema = z.enum(["NO_VALUATION_MARKET", "NO_REFERENCE_PRICE"]);
 
 export const portfolioValuationSchema = z.discriminatedUnion("status", [
@@ -212,8 +214,27 @@ export const portfolioSnapshotResponseSchema = z
     }
   });
 
+export const portfolioApiErrorCodeSchema = z.enum([
+  "AUTHENTICATION_REQUIRED",
+  "INTERNAL_SERVER_ERROR",
+  "RATE_LIMITED",
+  "VALIDATION_FAILED",
+]);
+
+export const portfolioApiErrorResponseSchema = z.strictObject({
+  success: z.literal(false),
+  error: z.strictObject({
+    code: portfolioApiErrorCodeSchema,
+    message: z.string().min(1),
+    requestId: z.string().min(1),
+  }),
+});
+
 export type PortfolioValue = z.infer<typeof portfolioValueSchema>;
 export type PortfolioUnpricedReason = z.infer<typeof portfolioUnpricedReasonSchema>;
 export type PortfolioValuation = z.infer<typeof portfolioValuationSchema>;
 export type PortfolioPosition = z.infer<typeof portfolioPositionSchema>;
 export type PortfolioSnapshotResponse = z.infer<typeof portfolioSnapshotResponseSchema>;
+export type PortfolioSnapshotQuery = z.infer<typeof portfolioSnapshotQuerySchema>;
+export type PortfolioApiErrorCode = z.infer<typeof portfolioApiErrorCodeSchema>;
+export type PortfolioApiErrorResponse = z.infer<typeof portfolioApiErrorResponseSchema>;

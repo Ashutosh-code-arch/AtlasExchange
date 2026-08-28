@@ -32,8 +32,27 @@ export interface CreateTradingModuleRouterOptions {
   readonly cancelOrderRateLimiter?: TradingCommandRateLimiter;
 }
 
-export function createTradingModuleRouter(options: CreateTradingModuleRouterOptions): Router {
+export interface CreateTradingPublicQueriesOptions {
+  readonly database: Kysely<TradingReadDatabaseSchema>;
+}
+
+export interface TradingPublicQueries {
+  readonly listMarkets: ListMarkets;
+  readonly getMarket: GetMarket;
+}
+
+export function createTradingPublicQueries(
+  options: CreateTradingPublicQueriesOptions,
+): TradingPublicQueries {
   const marketReader = new PostgresTradingMarketReader(options.database);
+  return {
+    listMarkets: new ListMarkets(marketReader),
+    getMarket: new GetMarket(marketReader),
+  };
+}
+
+export function createTradingModuleRouter(options: CreateTradingModuleRouterOptions): Router {
+  const queries = createTradingPublicQueries(options);
   const orderReader = new PostgresTradingOrderReader(options.database);
   const tradeReader = new PostgresTradingTradeReader(options.database);
   const transactionRunner = new PostgresTradingTransactionRunner(options.database);
@@ -42,8 +61,7 @@ export function createTradingModuleRouter(options: CreateTradingModuleRouterOpti
     sessionCsrfTokenService: options.sessionCsrfTokenService,
     secureCookies: options.secureCookies,
     webOrigin: options.webOrigin,
-    listMarkets: new ListMarkets(marketReader),
-    getMarket: new GetMarket(marketReader),
+    ...queries,
     listOrders: new ListOrders(orderReader),
     getOrder: new GetOrder(orderReader),
     getTrade: new GetTrade(tradeReader),

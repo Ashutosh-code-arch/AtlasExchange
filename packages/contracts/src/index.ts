@@ -131,12 +131,18 @@ export {
 
 export {
   maximumPortfolioValueDigits,
+  portfolioApiErrorCodeSchema,
+  portfolioApiErrorResponseSchema,
   portfolioPositionSchema,
+  portfolioSnapshotQuerySchema,
   portfolioSnapshotResponseSchema,
   portfolioUnpricedReasonSchema,
   portfolioValuationSchema,
   portfolioValueSchema,
+  type PortfolioApiErrorCode,
+  type PortfolioApiErrorResponse,
   type PortfolioPosition,
+  type PortfolioSnapshotQuery,
   type PortfolioSnapshotResponse,
   type PortfolioUnpricedReason,
   type PortfolioValuation,

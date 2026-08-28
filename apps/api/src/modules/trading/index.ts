@@ -125,8 +125,11 @@ export {
   type InMemoryTradingCommandRateLimiterOptions,
 } from "./infrastructure/security/in-memory-trading-command-rate-limiter.js";
 export {
+  createTradingPublicQueries,
   createTradingModuleRouter,
+  type CreateTradingPublicQueriesOptions,
   type CreateTradingModuleRouterOptions,
+  type TradingPublicQueries,
 } from "./trading-module.js";
 export { createTradingRouter, type TradingRouterOptions } from "./http/trading-router.js";
 export {

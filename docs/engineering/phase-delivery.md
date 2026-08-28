@@ -408,6 +408,15 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   valuation markets, exact totals, zero positions, unpriced assets, and completeness. Focused
   contract and application tests cover complete, incomplete, zero, precision, and upstream-invariant
   behavior.
+- [ADR-045 — Authenticated Portfolio HTTP Contract](../architecture/decisions/ADR-045-authenticated-portfolio-http-contract.md)
+  defines the query-free owner-derived route, strict success and safe-error representations,
+  private no-store caching, per-owner limiting, incomplete-snapshot success semantics, public module
+  composition, and explicit non-atomic source-read boundary.
+- The composed API now serves `GET /api/v1/portfolio` from authenticated session ownership. Reusable
+  Financial, Trading, and Market Data query factories preserve module boundaries, while a bounded
+  process-local limiter hashes owner keys and returns `Retry-After`. HTTP unit tests cover
+  authentication, validation order, privacy, limiting, response containment, and caching; a
+  real-PostgreSQL integration test proves exact committed-price valuation and cross-owner isolation.
 
 ## Phase transition rule
 

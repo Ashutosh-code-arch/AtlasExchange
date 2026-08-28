@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   maximumPortfolioValueDigits,
+  portfolioApiErrorResponseSchema,
+  portfolioSnapshotQuerySchema,
   portfolioSnapshotResponseSchema,
   portfolioValueSchema,
 } from "../src/index.js";
@@ -63,6 +65,27 @@ const snapshot = {
 } as const;
 
 describe("Portfolio snapshot contract", () => {
+  it("accepts only an empty snapshot query and safe bounded errors", () => {
+    expect(portfolioSnapshotQuerySchema.parse({})).toEqual({});
+    expect(portfolioSnapshotQuerySchema.safeParse({ ownerId: "private" }).success).toBe(false);
+    expect(
+      portfolioApiErrorResponseSchema.parse({
+        success: false,
+        error: {
+          code: "RATE_LIMITED",
+          message: "Portfolio request rate limit exceeded.",
+          requestId: "portfolio-request",
+        },
+      }).error.code,
+    ).toBe("RATE_LIMITED");
+    expect(
+      portfolioApiErrorResponseSchema.safeParse({
+        success: false,
+        error: { code: "WALLET_NOT_FOUND", message: "private", requestId: "request" },
+      }).success,
+    ).toBe(false);
+  });
+
   it("accepts exact sorted positions and a reconciled complete valuation", () => {
     expect(portfolioSnapshotResponseSchema.parse(snapshot)).toEqual(snapshot);
   });

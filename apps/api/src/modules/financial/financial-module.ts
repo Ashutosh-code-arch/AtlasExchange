@@ -36,16 +36,35 @@ export interface CreateFinancialModuleRouterOptions {
   readonly simulatedWithdrawalRateLimiter?: SimulatedWithdrawalRateLimiter;
 }
 
-export function createFinancialModuleRouter(options: CreateFinancialModuleRouterOptions): Router {
+export interface CreateFinancialReadQueriesOptions {
+  readonly database: Kysely<FinancialDatabaseSchema>;
+}
+
+export interface FinancialReadQueries {
+  readonly listAssets: ListAssets;
+  readonly listWallets: ListWallets;
+  readonly getWalletBalance: GetWalletBalance;
+}
+
+export function createFinancialReadQueries(
+  options: CreateFinancialReadQueriesOptions,
+): FinancialReadQueries {
   const walletBalanceReader = new PostgresWalletBalanceReader(options.database);
+  return {
+    listAssets: new ListAssets(new PostgresAssetCatalogReader(options.database)),
+    listWallets: new ListWallets(walletBalanceReader),
+    getWalletBalance: new GetWalletBalance(walletBalanceReader),
+  };
+}
+
+export function createFinancialModuleRouter(options: CreateFinancialModuleRouterOptions): Router {
+  const queries = createFinancialReadQueries(options);
   return createFinancialRouter({
     authenticateAccess: options.authenticateAccess,
     sessionCsrfTokenService: options.sessionCsrfTokenService,
     secureCookies: options.secureCookies,
     webOrigin: options.webOrigin,
-    listAssets: new ListAssets(new PostgresAssetCatalogReader(options.database)),
-    listWallets: new ListWallets(walletBalanceReader),
-    getWalletBalance: new GetWalletBalance(walletBalanceReader),
+    ...queries,
     createWallet: new CreateWallet(new PostgresWalletCreationTransactionRunner(options.database)),
     createSimulatedDeposit: new CreateSimulatedDeposit(
       new PostgresSimulatedDepositTransactionRunner(options.database),

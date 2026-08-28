@@ -22,6 +22,7 @@ import {
   createMarketDataStreamGateway,
   type MarketDataDatabaseSchema,
 } from "./modules/market-data/index.js";
+import { createPortfolioModuleRouter } from "./modules/portfolio/index.js";
 import { createTradingModuleRouter, type TradingDatabaseSchema } from "./modules/trading/index.js";
 import {
   createDatabaseResources,
@@ -151,6 +152,11 @@ async function start(): Promise<RunningServer> {
         })
       : undefined;
     const marketDataRouter = createMarketDataModuleRouter({ database: database.database });
+    const portfolioRouter = createPortfolioModuleRouter({
+      database: database.database,
+      authenticateAccess,
+      secureCookies: config.identity.sessionSecurity.secureCookies,
+    });
     if (marketDataWorker === undefined) {
       logger.info(
         { event: "market_data.projection_worker.disabled" },
@@ -165,6 +171,7 @@ async function start(): Promise<RunningServer> {
       financialRouter,
       tradingRouter,
       marketDataRouter,
+      portfolioRouter,
       applicationVersion: config.logging.applicationVersion,
     });
     const server = createServer(app);

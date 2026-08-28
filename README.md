@@ -45,8 +45,9 @@ decimal depth, committed-trade ticker values, sparse candle history, sequence fr
 caching, and rate limiting. Phase 6 has begun with an exact read-only portfolio snapshot foundation.
 It composes Financial balances, direct USD Trading markets, and committed Atlas ticker prices without
 creating a second balance authority, fabricating missing values, or using floating-point valuation.
-Authenticated delivery and the Portfolio UI are the next increment; notifications and administration
-follow later in the phase.
+The authenticated no-store `GET /api/v1/portfolio` boundary now derives ownership from the session,
+validates exact totals, bounds reads per account, and reports incomplete valuation as data. The
+Portfolio UI is the next increment; notifications and administration follow later in the phase.
 
 ## Prerequisites
 

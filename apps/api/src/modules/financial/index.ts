@@ -87,7 +87,10 @@ export type { FinancialDatabaseSchema } from "./infrastructure/persistence/finan
 export { PostgresAssetCatalogReader } from "./infrastructure/persistence/postgres-asset-catalog-reader.js";
 export { bindPostgresTradingFundsTransaction } from "./infrastructure/persistence/postgres-trading-funds-transaction.js";
 export {
+  createFinancialReadQueries,
   createFinancialModuleRouter,
+  type CreateFinancialReadQueriesOptions,
   type CreateFinancialModuleRouterOptions,
+  type FinancialReadQueries,
 } from "./financial-module.js";
 export { createFinancialRouter, type FinancialRouterOptions } from "./http/financial-router.js";
