@@ -3,10 +3,22 @@ import type {
   TradingMarketReader,
   TradingPublicationSequenceReader,
 } from "../../trading/index.js";
-import type {
-  ProjectLevelTwoOrderBook,
-  ProjectLevelTwoOrderBookResult,
-} from "./level-two-order-book-projection.js";
+
+export interface MarketDataProjectorInput {
+  readonly marketCode: MarketCode;
+  readonly limit?: number;
+}
+
+export interface MarketDataProjectorResult {
+  readonly readCount: number;
+  readonly appliedCount: number;
+  readonly lastSequence: bigint;
+  readonly caughtUp: boolean;
+}
+
+export interface MarketDataProjector {
+  execute(input: MarketDataProjectorInput): Promise<MarketDataProjectorResult>;
+}
 
 export type MarketDataProjectionWorkerMarketState =
   "behind" | "caught_up" | "failed" | "starting" | "stopped";
@@ -128,7 +140,7 @@ export class MarketDataProjectionWorker {
 
   public constructor(
     private readonly markets: Pick<TradingMarketReader, "list">,
-    private readonly projector: Pick<ProjectLevelTwoOrderBook, "execute">,
+    private readonly projector: MarketDataProjector,
     private readonly publicationSequences: TradingPublicationSequenceReader,
     private readonly logger: MarketDataWorkerLogger,
     private readonly options: MarketDataProjectionWorkerOptions,
@@ -260,7 +272,7 @@ export class MarketDataProjectionWorker {
   }
 
   private async projectMarketCycle(marketCode: MarketCode): Promise<void> {
-    let latestResult: ProjectLevelTwoOrderBookResult | undefined;
+    let latestResult: MarketDataProjectorResult | undefined;
     let appliedCount = 0;
     for (let batch = 0; batch < this.options.maximumBatchesPerCycle; batch += 1) {
       latestResult = await this.projector.execute({

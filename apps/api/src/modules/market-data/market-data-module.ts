@@ -14,10 +14,14 @@ import {
   MarketDataProjectionWorker,
   type MarketDataProjectionWorkerOptions,
 } from "./application/market-data-projection-worker.js";
+import { ProjectMarketData } from "./application/project-market-data.js";
+import { ProjectTradeTicker } from "./application/trade-ticker-projection.js";
 import type { MarketDataDatabaseSchema } from "./infrastructure/persistence/market-data-database-schema.js";
 import { PostgresLevelTwoOrderBookReader } from "./infrastructure/persistence/postgres-level-two-order-book-reader.js";
 import { PostgresMarketDataProjectionCheckpointReader } from "./infrastructure/persistence/postgres-market-data-projection-checkpoint-reader.js";
 import { PostgresMarketDataProjectionTransactionRunner } from "./infrastructure/persistence/postgres-market-data-projection-transaction-runner.js";
+import { PostgresTradeTickerProjectionCheckpointReader } from "./infrastructure/persistence/postgres-trade-ticker-projection-checkpoint-reader.js";
+import { PostgresTradeTickerProjectionTransactionRunner } from "./infrastructure/persistence/postgres-trade-ticker-projection-transaction-runner.js";
 import { InMemoryMarketDataSnapshotRateLimiter } from "./infrastructure/security/in-memory-market-data-snapshot-rate-limiter.js";
 import { createMarketDataRouter } from "./http/market-data-router.js";
 
@@ -56,10 +60,17 @@ export function createMarketDataProjectionWorker(
   const facts = new PostgresTradingPublicationFactReader(options.database);
   return new MarketDataProjectionWorker(
     new PostgresTradingMarketReader(options.database),
-    new ProjectLevelTwoOrderBook(
-      facts,
-      new PostgresMarketDataProjectionCheckpointReader(options.database),
-      new PostgresMarketDataProjectionTransactionRunner(options.database),
+    new ProjectMarketData(
+      new ProjectLevelTwoOrderBook(
+        facts,
+        new PostgresMarketDataProjectionCheckpointReader(options.database),
+        new PostgresMarketDataProjectionTransactionRunner(options.database),
+      ),
+      new ProjectTradeTicker(
+        facts,
+        new PostgresTradeTickerProjectionCheckpointReader(options.database),
+        new PostgresTradeTickerProjectionTransactionRunner(options.database),
+      ),
     ),
     facts,
     options.logger,

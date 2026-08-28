@@ -282,6 +282,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   comparable freshness without affecting ticker values. Unit and real-PostgreSQL tests cover exact
   values, mixed-fact checkpointing, restart, replay idempotency, sequence-gap rollback, generation
   uniqueness, and positive-value constraints.
+- [ADR-036 — Multi-Projection Worker and Internal Ticker Read Model](../architecture/decisions/ADR-036-multi-projection-worker-and-internal-ticker-read-model.md)
+  refines the managed worker behind a generic combined-projector boundary. Level-two and ticker
+  execute independently and are both awaited, while overall progress and lag use the slower durable
+  checkpoint so caught-up state cannot conceal a stale required view.
+- The production worker factory now starts both projections for every discovered market. An internal
+  repeatable-read ticker query evaluates the injected-clock interval `[now - 24h, now]`, selects
+  equal-time trades by execution sequence, and returns exact high, low, base-volume lots, and
+  quote-volume tick-lots without floating-point arithmetic. Unit and real-PostgreSQL tests cover
+  sibling failure completion, aggregate failure reporting, inclusive boundaries, exclusions,
+  empty windows, exact sums, and actual managed-worker composition.
 
 ## Phase transition rule
 

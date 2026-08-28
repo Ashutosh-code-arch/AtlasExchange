@@ -1,4 +1,11 @@
 export {
+  GetTradeTicker,
+  tradeTickerWindowMilliseconds,
+  type TradeTickerLastTrade,
+  type TradeTickerSnapshot,
+  type TradeTickerWindowReader,
+} from "./application/get-trade-ticker.js";
+export {
   ProjectTradeTicker,
   tradeTickerProjectionName,
   TradeTickerProjectionError,
@@ -45,6 +52,9 @@ export {
 } from "./application/level-two-order-book-projection.js";
 export {
   MarketDataProjectionWorker,
+  type MarketDataProjector,
+  type MarketDataProjectorInput,
+  type MarketDataProjectorResult,
   type MarketDataProjectionWorkerMarketState,
   type MarketDataProjectionWorkerMarketStatus,
   type MarketDataProjectionWorkerOptions,
@@ -52,12 +62,17 @@ export {
   type MarketDataWorkerLogger,
   type MarketDataWorkerScheduler,
 } from "./application/market-data-projection-worker.js";
+export {
+  ProjectMarketData,
+  type ProjectMarketDataResult,
+} from "./application/project-market-data.js";
 export type { MarketDataDatabaseSchema } from "./infrastructure/persistence/market-data-database-schema.js";
 export { PostgresLevelTwoOrderBookReader } from "./infrastructure/persistence/postgres-level-two-order-book-reader.js";
 export { PostgresMarketDataProjectionCheckpointReader } from "./infrastructure/persistence/postgres-market-data-projection-checkpoint-reader.js";
 export { PostgresMarketDataProjectionTransactionRunner } from "./infrastructure/persistence/postgres-market-data-projection-transaction-runner.js";
 export { PostgresTradeTickerProjectionCheckpointReader } from "./infrastructure/persistence/postgres-trade-ticker-projection-checkpoint-reader.js";
 export { PostgresTradeTickerProjectionTransactionRunner } from "./infrastructure/persistence/postgres-trade-ticker-projection-transaction-runner.js";
+export { PostgresTradeTickerReader } from "./infrastructure/persistence/postgres-trade-ticker-reader.js";
 export {
   InMemoryMarketDataSnapshotRateLimiter,
   marketDataSnapshotRateLimitMaximumRequests,

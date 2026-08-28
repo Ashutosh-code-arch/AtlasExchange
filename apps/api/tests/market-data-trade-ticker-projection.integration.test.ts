@@ -2,11 +2,14 @@ import { randomBytes, randomUUID } from "node:crypto";
 
 import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createMarketDataProjectionWorker,
+  GetTradeTicker,
   PostgresTradeTickerProjectionCheckpointReader,
   PostgresTradeTickerProjectionTransactionRunner,
+  PostgresTradeTickerReader,
   ProjectTradeTicker,
   type MarketDataDatabaseSchema,
 } from "../src/modules/market-data/index.js";
@@ -19,6 +22,7 @@ import {
   type TradingPublicationFactReader,
 } from "../src/modules/trading/index.js";
 import { applyMigrations } from "../src/platform/database/migration-runner.js";
+import { createLogger } from "../src/platform/logging/logger.js";
 
 const baseDatabaseUrl =
   process.env.DATABASE_URL ?? "postgresql://atlas:atlas_local_only@127.0.0.1:5432/atlas";
@@ -44,6 +48,7 @@ const btcUsd = parseMarketCode("BTC-USD");
 const factReader = new PostgresTradingPublicationFactReader(database);
 const checkpointReader = new PostgresTradeTickerProjectionCheckpointReader(database);
 const transactionRunner = new PostgresTradeTickerProjectionTransactionRunner(database);
+const tickerReader = new PostgresTradeTickerReader(database);
 
 async function insertOrderFact(sequence: number, occurredAt: Date): Promise<void> {
   await pool.query(
@@ -111,6 +116,8 @@ describe("Market Data trade ticker PostgreSQL projection", () => {
   beforeEach(async () => {
     await pool.query(
       `TRUNCATE
+         market_data.level_two_order_book_levels,
+         market_data.level_two_projected_orders,
          market_data.ticker_trades,
          market_data.projection_checkpoints,
          trading.market_data_facts`,
@@ -199,6 +206,148 @@ describe("Market Data trade ticker PostgreSQL projection", () => {
       "SELECT COUNT(*)::TEXT AS count FROM market_data.ticker_trades",
     );
     expect(count.rows[0]?.count).toBe("2");
+  });
+
+  it("reads exact inclusive window aggregates and breaks equal timestamps by execution sequence", async () => {
+    const windowEnd = new Date("2026-08-28T12:00:00.000Z");
+    const windowStart = new Date("2026-08-27T12:00:00.000Z");
+    await insertTradeFact({
+      sequence: 1,
+      executionSequence: "1",
+      priceTicks: "9999",
+      quantityLots: "9",
+      occurredAt: new Date("2026-08-27T11:59:59.999Z"),
+    });
+    await insertTradeFact({
+      sequence: 2,
+      executionSequence: "2",
+      priceTicks: "100",
+      quantityLots: "2",
+      occurredAt: windowStart,
+    });
+    await insertTradeFact({
+      sequence: 3,
+      executionSequence: "3",
+      priceTicks: "110",
+      quantityLots: "3",
+      occurredAt: new Date("2026-08-28T11:00:00.000Z"),
+    });
+    await insertTradeFact({
+      sequence: 4,
+      executionSequence: "10",
+      priceTicks: "120",
+      quantityLots: "4",
+      occurredAt: windowEnd,
+    });
+    await insertTradeFact({
+      sequence: 5,
+      executionSequence: "11",
+      priceTicks: "105",
+      quantityLots: "1",
+      occurredAt: windowEnd,
+    });
+    const afterWindow = new Date("2026-08-28T12:00:00.001Z");
+    await insertTradeFact({
+      sequence: 6,
+      executionSequence: "12",
+      priceTicks: "8888",
+      quantityLots: "8",
+      occurredAt: afterWindow,
+    });
+    const projector = new ProjectTradeTicker(factReader, checkpointReader, transactionRunner);
+    await projector.execute({ marketCode: btcUsd, limit: 10 });
+    const useCase = new GetTradeTicker(tickerReader, () => windowEnd);
+
+    await expect(useCase.execute(btcUsd)).resolves.toEqual({
+      marketCode: btcUsd,
+      sequence: 6n,
+      asOf: afterWindow,
+      windowStart,
+      windowEnd,
+      lastTrade: {
+        priceTicks: 105n,
+        quantityLots: 1n,
+        executionSequence: 11n,
+        executedAt: windowEnd,
+      },
+      highPriceTicks: 120n,
+      lowPriceTicks: 100n,
+      baseVolumeLots: 10n,
+      quoteVolumeTickLots: 1_115n,
+    });
+  });
+
+  it("returns absent prices and exact zero volumes for an empty window", async () => {
+    const windowEnd = new Date("2026-08-28T12:00:00.000Z");
+    const useCase = new GetTradeTicker(tickerReader, () => windowEnd);
+
+    await expect(useCase.execute(btcUsd)).resolves.toEqual({
+      marketCode: btcUsd,
+      sequence: 0n,
+      asOf: null,
+      windowStart: new Date("2026-08-27T12:00:00.000Z"),
+      windowEnd,
+      lastTrade: null,
+      highPriceTicks: null,
+      lowPriceTicks: null,
+      baseVolumeLots: 0n,
+      quoteVolumeTickLots: 0n,
+    });
+  });
+
+  it("runs the ticker through the composed managed worker", async () => {
+    await insertOrderFact(1, new Date("2026-08-28T10:00:01.000Z"));
+    const tradeId = await insertTradeFact({
+      sequence: 2,
+      executionSequence: "20",
+      priceTicks: "5050",
+      quantityLots: "7",
+      occurredAt: new Date("2026-08-28T10:00:02.000Z"),
+    });
+    await pool.query(
+      "UPDATE trading.market_publication_sequences SET last_sequence = 2 WHERE market_code = 'BTC-USD'",
+    );
+    const worker = createMarketDataProjectionWorker({
+      database,
+      logger: createLogger({ level: "info", environment: "test", applicationVersion: "test" }),
+      worker: {
+        batchSize: 10,
+        maximumBatchesPerCycle: 2,
+        pollIntervalMs: 25,
+        retryInitialDelayMs: 25,
+        retryMaximumDelayMs: 100,
+      },
+    });
+
+    await worker.start();
+    try {
+      await vi.waitFor(
+        async () => {
+          await expect(checkpointReader.getCheckpoint(btcUsd)).resolves.toMatchObject({
+            lastSequence: 2n,
+          });
+          expect(worker.getStatus().markets).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                marketCode: btcUsd,
+                state: "caught_up",
+                projectedSequence: 2n,
+                publishedSequence: 2n,
+                lag: 0n,
+              }),
+            ]),
+          );
+        },
+        { timeout: 2_000, interval: 20 },
+      );
+    } finally {
+      await worker.stop();
+    }
+    const rows = await pool.query<{ trade_id: string; price_ticks: string; quantity_lots: string }>(
+      `SELECT trade_id, price_ticks, quantity_lots
+       FROM market_data.ticker_trades`,
+    );
+    expect(rows.rows).toEqual([{ trade_id: tradeId, price_ticks: "5050", quantity_lots: "7" }]);
   });
 
   it("rolls trade writes and checkpoint creation back on a sequence gap", async () => {
