@@ -248,7 +248,7 @@ describe("PostgreSQL Trading public readers", () => {
   afterAll(async () => {
     await database.destroy();
     await fixturePool.end();
-    await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}" WITH (FORCE)`);
+    await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}"`);
     await adminPool.end();
   });
 

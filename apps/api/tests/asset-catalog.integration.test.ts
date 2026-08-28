@@ -38,7 +38,7 @@ describe("MVP asset catalog migration", () => {
   afterAll(async () => {
     await database.destroy();
     await pool.end();
-    await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}" WITH (FORCE)`);
+    await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}"`);
     await adminPool.end();
   });
 

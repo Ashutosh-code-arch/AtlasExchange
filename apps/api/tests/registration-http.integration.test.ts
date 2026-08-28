@@ -80,7 +80,7 @@ describe("composed registration HTTP flow", () => {
 
   afterAll(async () => {
     await database.destroy();
-    await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}" WITH (FORCE)`);
+    await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}"`);
     await adminPool.end();
   });
 
