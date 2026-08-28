@@ -42,8 +42,11 @@ per-market worker continuously advances those projections with bounded polling, 
 graceful shutdown, and structured sequence-lag diagnostics.
 The public REST snapshots remain bounded diagnostic and direct-consumer boundaries with exact
 decimal depth, committed-trade ticker values, sparse candle history, sequence freshness, short
-caching, and rate limiting. Phase 6 product surfaces—portfolio, notifications, and administration—
-are next.
+caching, and rate limiting. Phase 6 has begun with an exact read-only portfolio snapshot foundation.
+It composes Financial balances, direct USD Trading markets, and committed Atlas ticker prices without
+creating a second balance authority, fabricating missing values, or using floating-point valuation.
+Authenticated delivery and the Portfolio UI are the next increment; notifications and administration
+follow later in the phase.
 
 ## Prerequisites
 

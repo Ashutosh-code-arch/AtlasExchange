@@ -130,6 +130,20 @@ export {
 } from "./financial.js";
 
 export {
+  maximumPortfolioValueDigits,
+  portfolioPositionSchema,
+  portfolioSnapshotResponseSchema,
+  portfolioUnpricedReasonSchema,
+  portfolioValuationSchema,
+  portfolioValueSchema,
+  type PortfolioPosition,
+  type PortfolioSnapshotResponse,
+  type PortfolioUnpricedReason,
+  type PortfolioValuation,
+  type PortfolioValue,
+} from "./portfolio.js";
+
+export {
   currentUserResponseSchema,
   forgotPasswordAcceptedResponseSchema,
   forgotPasswordRequestSchema,

@@ -13,7 +13,7 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 | 3. Financial foundation   | Assets, wallets, double-entry ledger, deposits, withdrawals      | Implemented |
 | 4. Trading                | Orders, reservation, matching, trades, atomic settlement         | Implemented |
 | 5. Market data            | Order-book views, tickers, candles, WebSocket streams            | Implemented |
-| 6. Product surfaces       | Portfolio, notifications, administration                         | Planned     |
+| 6. Product surfaces       | Portfolio, notifications, administration                         | In progress |
 | 7. Production readiness   | Security hardening, metrics, rate limits, performance            | Planned     |
 | 8. Deployment             | Deployment, runbooks, monitoring, interview evidence             | Planned     |
 
@@ -386,6 +386,28 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   browser tests prove projection, public delivery, multiplexing, reconnect, privacy, and lifecycle
   behavior.
 - `pnpm verify`, `pnpm build`, and `pnpm test:e2e` pass at the phase boundary.
+
+## Phase 6 entry criteria
+
+- The completed Financial, Trading, and Market Data phases expose the public module capabilities
+  required to compose a portfolio without querying another module's tables.
+- [ADR-044 — Portfolio Snapshot and Valuation Foundation](../architecture/decisions/ADR-044-portfolio-snapshot-and-valuation-foundation.md)
+  defines Financial balance authority, direct USD committed-trade valuation, exact derived
+  arithmetic, positive unpriced positions, zero-position treatment, deterministic completeness, and
+  the initial exclusion of profit/loss and external prices.
+- Authenticated HTTP delivery and browser presentation remain gated by focused follow-up decisions.
+
+## Phase 6 delivery state
+
+- A new read-only Portfolio application capability composes owner-scoped wallet balances, the asset
+  catalog, eligible direct Trading markets, and committed-trade tickers exclusively through public
+  module interfaces. It adds no balance authority, persistence, migration, or framework dependency.
+- Exact integer-coefficient decimal multiplication and scale-aligned addition preserve derived
+  precision without binary floating point or implicit USD-ledger rounding.
+- Strict shared contracts reconcile sorted positions, available/reserved/total balances, direct
+  valuation markets, exact totals, zero positions, unpriced assets, and completeness. Focused
+  contract and application tests cover complete, incomplete, zero, precision, and upstream-invariant
+  behavior.
 
 ## Phase transition rule
 
