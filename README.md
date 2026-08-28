@@ -24,11 +24,13 @@ The implemented foundation, Identity, Financial, and Trading phases provide:
   atomic four-wallet settlement, owner-scoped history, and a responsive exchange-style Trading desk.
 
 The active phase derives truthful Market Data from committed Atlas Trading facts. It now provides
-sequence-aware public level-two order-book and rolling 24-hour ticker views plus a responsive web
-depth and ticker panel. An independently checkpointed candle projection adds exact sparse UTC
-OHLCV for six accepted intervals and now runs under the managed projection worker with a coherent
-cursor-based internal history reader and anonymous bounded REST history. Its web chart, snapshot
-recovery, and later WebSocket delivery remain incremental work. Market Data is never part of
+sequence-aware public level-two order-book and rolling 24-hour ticker views plus responsive web
+depth, ticker, and candlestick panels. An independently checkpointed candle projection adds exact
+sparse UTC OHLCV for six accepted intervals and runs under the managed projection worker with a
+coherent cursor-based internal history reader and anonymous bounded REST history. Its responsive SVG
+chart preserves real time gaps, distinguishes open candles, exposes freshness, and safely refreshes
+the active market and interval. Snapshot recovery and later WebSocket delivery remain incremental
+work. Market Data is never part of
 matching or settlement authority, and external prices and fabricated liquidity remain out of scope.
 The Trading boundary publishes private-safe, versioned final-state facts under a durable per-market
 sequence. Market Data now consumes that boundary into generation-aware checkpoints, private active

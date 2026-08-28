@@ -338,6 +338,17 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   Application, HTTP, shared-contract, and real-PostgreSQL tests cover exact decimals, open/closed
   buckets, sparse pages, cursors, unknown markets, invalid input, cache headers, limiting, and
   internal-invariant containment.
+- [ADR-041 — Candlestick Chart and Polling Delivery](../architecture/decisions/ADR-041-candlestick-chart-and-polling-delivery.md)
+  defines the dependency-free SVG chart, actual-time sparse geometry, display-only numeric
+  conversion boundary, six interval controls, five-second bounded REST loop, selection isolation,
+  stale retention, freshness states, accessibility, and responsive behavior.
+- The Trading workspace now renders exact latest OHLCV values plus responsive candlesticks and volume
+  from committed Atlas executions. Missing buckets remain visible as time gaps, open candles use a
+  distinct dashed body, and empty history remains explicitly empty. Independent polling pauses in
+  hidden tabs, prevents overlap, ignores late market/interval responses, and preserves matching stale
+  history with manual recovery. API, hook, model, component, workspace, and full-stack browser tests
+  cover validation, polling lifecycle, sparse positioning, open state, interval switching, freshness,
+  anonymous access, and real projected history.
 
 ## Phase transition rule
 

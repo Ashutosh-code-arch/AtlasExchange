@@ -11,9 +11,12 @@ import { ApiHttpError, ApiTransportError } from "../../../shared/api/http-client
 import { useAuthenticationSession } from "../../authentication";
 import {
   LevelTwoOrderBook,
+  CandlestickChart,
   TradeTickerPanel,
+  getCandleHistory,
   getLevelTwoOrderBook,
   getTradeTicker,
+  type CandleHistoryLoader,
   type LevelTwoOrderBookLoader,
   type TradeTickerLoader,
 } from "../../market-data";
@@ -42,6 +45,9 @@ type TradingStateProps = Pick<
 >;
 
 export interface TradingWorkspaceProps extends TradingStateProps {
+  readonly candleHistoryLoader?: CandleHistoryLoader;
+  readonly candleHistoryLimit?: number;
+  readonly candlePollIntervalMs?: number;
   readonly orderBookLoader?: LevelTwoOrderBookLoader;
   readonly orderBookDepth?: number;
   readonly orderBookPollIntervalMs?: number;
@@ -531,6 +537,9 @@ export function TradingWorkspace({
   tradeLoader = listTradingTrades,
   orderPlacer = placeTradingOrder,
   orderCanceller = cancelTradingOrder,
+  candleHistoryLoader = getCandleHistory,
+  candleHistoryLimit = 120,
+  candlePollIntervalMs = 5_000,
   orderBookLoader = getLevelTwoOrderBook,
   orderBookDepth = 15,
   orderBookPollIntervalMs = 2_000,
@@ -700,7 +709,7 @@ export function TradingWorkspace({
               </div>
               <div>
                 <dt>Price feed</dt>
-                <dd className="trading-market-header__live">Ticker + Level 2 · REST</dd>
+                <dd className="trading-market-header__live">Candles + ticker + Level 2 · REST</dd>
               </div>
             </dl>
           </header>
@@ -709,6 +718,14 @@ export function TradingWorkspace({
             request={request}
             loader={tickerLoader}
             pollIntervalMs={tickerPollIntervalMs}
+            {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
+          />
+
+          <CandlestickChart
+            request={request}
+            loader={candleHistoryLoader}
+            limit={candleHistoryLimit}
+            pollIntervalMs={candlePollIntervalMs}
             {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
           />
 

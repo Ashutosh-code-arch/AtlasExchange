@@ -1155,6 +1155,246 @@ h1 span {
   text-transform: uppercase;
 }
 
+.candle-chart {
+  border-bottom: 1px solid var(--line);
+  background: #0d0f11;
+}
+
+.candle-chart__heading {
+  display: flex;
+  min-height: 78px;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.candle-chart__heading .eyebrow {
+  margin: 0 0 5px;
+  font-size: 8px;
+}
+
+.candle-chart__heading h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.candle-chart__controls {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+
+.candle-chart__intervals {
+  display: flex;
+  border: 1px solid var(--line);
+}
+
+.candle-chart__intervals button {
+  min-width: 38px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: "DM Mono", monospace;
+  font-size: 8px;
+}
+
+.candle-chart__intervals button:last-child {
+  border-right: 0;
+}
+
+.candle-chart__intervals button:hover,
+.candle-chart__intervals button:focus-visible {
+  color: var(--ink);
+  outline: 1px solid var(--acid);
+  outline-offset: -1px;
+}
+
+.candle-chart__intervals button[aria-pressed="true"] {
+  background: rgba(216, 255, 62, 0.1);
+  color: var(--acid);
+}
+
+.candle-chart__status {
+  display: grid;
+  gap: 4px;
+  min-width: 112px;
+  justify-items: end;
+  font-family: "DM Mono", monospace;
+  text-transform: uppercase;
+}
+
+.candle-chart__status span {
+  color: var(--buy);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.candle-chart__status span::before {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+  vertical-align: 1px;
+}
+
+.candle-chart__status[data-status="loading"] span,
+.candle-chart__status[data-status="idle"] span {
+  color: var(--muted);
+}
+
+.candle-chart__status[data-status="stale"] span,
+.candle-chart__status[data-status="error"] span,
+.candle-chart__status[data-status="behind"] span {
+  color: #ffc857;
+}
+
+.candle-chart__status small {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+
+.candle-chart__state,
+.candle-chart__empty {
+  display: flex;
+  min-height: 320px;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.candle-chart__notice {
+  display: flex;
+  gap: 14px;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+  margin: 0;
+  border-bottom: 1px solid rgba(255, 200, 87, 0.2);
+  background: rgba(255, 200, 87, 0.045);
+  color: #ffc857;
+  font-size: 9px;
+}
+
+.candle-chart__ohlc {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--line);
+}
+
+.candle-chart__ohlc > div {
+  min-width: 0;
+  padding: 10px 13px;
+  background: var(--surface);
+}
+
+.candle-chart__ohlc dt {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-family: "DM Mono", monospace;
+  font-size: 7px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.candle-chart__ohlc dd {
+  overflow: hidden;
+  margin: 0;
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.candle-chart__ohlc small {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.candle-chart__plot-scroll {
+  overflow-x: auto;
+}
+
+.candle-chart__plot {
+  display: block;
+  width: 100%;
+  min-width: 620px;
+  height: auto;
+  aspect-ratio: 1000 / 390;
+}
+
+.candle-chart__guide line,
+.candle-chart__volume-divider {
+  stroke: rgba(243, 241, 232, 0.085);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.candle-chart__guide text,
+.candle-chart__time-label {
+  fill: var(--muted);
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+}
+
+.candle-chart__wick {
+  stroke: currentColor;
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+}
+
+.candle-chart__body {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.candle-chart__volume {
+  fill: currentColor;
+  opacity: 0.24;
+}
+
+.candle-chart__candle--up {
+  color: var(--buy);
+}
+
+.candle-chart__candle--down {
+  color: var(--sell);
+}
+
+.candle-chart__candle--open .candle-chart__body {
+  fill: #0d0f11;
+  stroke-dasharray: 3 2;
+}
+
+.candle-chart__caption {
+  padding: 0 20px 13px;
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+
 .order-book {
   min-height: 360px;
   border-bottom: 1px solid var(--line);
@@ -2172,6 +2412,16 @@ footer {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .candle-chart__heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .candle-chart__controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .trading-ticket {
     position: static;
   }
@@ -2344,6 +2594,33 @@ footer {
   .trade-ticker__notice {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .candle-chart__controls {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .candle-chart__intervals {
+    width: 100%;
+  }
+
+  .candle-chart__intervals button {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .candle-chart__status {
+    justify-items: start;
+  }
+
+  .candle-chart__notice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .candle-chart__ohlc {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .order-book__status {

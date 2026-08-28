@@ -156,6 +156,16 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   await expect(
     publicTicker.locator(".trade-ticker__metrics > div").filter({ hasText: "Quote volume" }),
   ).toContainText("25000");
+  const candleChart = page.getByRole("region", { name: "BTC-USD candlestick chart" });
+  await expect(
+    candleChart.getByRole("img", { name: "BTC-USD 5m price and volume chart" }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(candleChart.getByLabel("Latest candle values")).toContainText("50000");
+  await expect(candleChart.getByLabel("Latest candle values")).toContainText("0.5 BTC");
+  await candleChart.getByRole("button", { name: "1m" }).click();
+  await expect(
+    candleChart.getByRole("img", { name: "BTC-USD 1m price and volume chart" }),
+  ).toBeVisible({ timeout: 15_000 });
   const buyerExecutions = page.getByRole("table", {
     name: "Executions for the selected Trading market",
   });

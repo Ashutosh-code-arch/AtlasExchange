@@ -168,7 +168,7 @@ Rejected because it is deterministic internal ordering metadata, not a public tr
 - Every request performs market lookup, history read, and publication-sequence observation.
 - One-second caching may intentionally trail a newly projected execution.
 - Process-local limits are not globally exact across API replicas.
-- The web still needs a charting and polling delivery slice.
+- The web requires a separate charting and polling delivery decision, resolved by ADR-041.
 
 ## Reconsider When
 
@@ -182,3 +182,4 @@ limiting, public retention changes, or a candle correction/version protocol is a
 - [ADR-037 — Public Trade Ticker HTTP Contract](ADR-037-public-trade-ticker-http-contract.md)
 - [ADR-038 — Candle Projection and Historical Contract](ADR-038-candle-projection-and-historical-contract.md)
 - [ADR-039 — Managed Candle Projection and Internal History Reader](ADR-039-managed-candle-projection-and-internal-history-reader.md)
+- [ADR-041 — Candlestick Chart and Polling Delivery](ADR-041-candlestick-chart-and-polling-delivery.md)

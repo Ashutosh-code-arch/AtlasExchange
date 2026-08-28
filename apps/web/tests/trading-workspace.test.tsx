@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type {
   MarketDataOrderBookResponse,
+  MarketDataCandlesResponse,
   MarketDataTickerResponse,
   TradingMarket,
   TradingOrder,
@@ -80,6 +81,7 @@ type TradeLoader = NonNullable<TradingWorkspaceProps["tradeLoader"]>;
 type OrderPlacer = NonNullable<TradingWorkspaceProps["orderPlacer"]>;
 type OrderCanceller = NonNullable<TradingWorkspaceProps["orderCanceller"]>;
 type OrderBookLoader = NonNullable<TradingWorkspaceProps["orderBookLoader"]>;
+type CandleHistoryLoader = NonNullable<TradingWorkspaceProps["candleHistoryLoader"]>;
 type TickerLoader = NonNullable<TradingWorkspaceProps["tickerLoader"]>;
 
 const orderBook: MarketDataOrderBookResponse["data"] = {
@@ -112,6 +114,20 @@ const ticker: MarketDataTickerResponse["data"] = {
   lowPrice: "49000",
   baseVolume: "0.002",
   quoteVolume: "99",
+};
+
+const candleHistory: MarketDataCandlesResponse["data"] = {
+  marketCode: "BTC-USD",
+  interval: "5m",
+  limit: 120,
+  sequence: "3",
+  publishedSequence: "3",
+  lag: "0",
+  freshness: "current",
+  asOf: "2026-08-28T12:06:00.000Z",
+  generatedAt: "2026-08-28T12:07:00.000Z",
+  candles: [],
+  nextBefore: null,
 };
 
 function renderWorkspace(
@@ -152,6 +168,8 @@ function standardProps(overrides: TradingWorkspaceProps = {}): TradingWorkspaceP
     orderBookPollIntervalMs: 60_000,
     tickerLoader: vi.fn<TickerLoader>().mockResolvedValue(ticker),
     tickerPollIntervalMs: 60_000,
+    candleHistoryLoader: vi.fn<CandleHistoryLoader>().mockResolvedValue(candleHistory),
+    candlePollIntervalMs: 60_000,
     ...overrides,
   };
 }
@@ -163,6 +181,7 @@ describe("TradingWorkspace", () => {
     const tradeLoader = vi.fn<TradeLoader>();
     const orderBookLoader = vi.fn<OrderBookLoader>().mockResolvedValue(orderBook);
     const tickerLoader = vi.fn<TickerLoader>().mockResolvedValue(ticker);
+    const candleHistoryLoader = vi.fn<CandleHistoryLoader>().mockResolvedValue(candleHistory);
     renderWorkspace(
       {
         marketLoader,
@@ -172,6 +191,8 @@ describe("TradingWorkspace", () => {
         orderBookPollIntervalMs: 60_000,
         tickerLoader,
         tickerPollIntervalMs: 60_000,
+        candleHistoryLoader,
+        candlePollIntervalMs: 60_000,
       },
       false,
     );
@@ -197,6 +218,14 @@ describe("TradingWorkspace", () => {
       depth: 15,
     });
     expect(tickerLoader).toHaveBeenCalledWith(expect.any(Object), { marketCode: "BTC-USD" });
+    expect(screen.getByRole("region", { name: "BTC-USD candlestick chart" })).toHaveTextContent(
+      /Price history.*No committed trades/i,
+    );
+    expect(candleHistoryLoader).toHaveBeenCalledWith(expect.any(Object), {
+      marketCode: "BTC-USD",
+      interval: "5m",
+      limit: 120,
+    });
   });
 
   it("places a sell limit order from the selected market and shows server-confirmed success", async () => {
