@@ -785,6 +785,262 @@ h1 span {
   border: 0;
 }
 
+.portfolio-workspace {
+  padding: 52px 0;
+  border-bottom: 1px solid var(--line);
+  scroll-margin-top: 20px;
+}
+
+.portfolio-workspace__heading {
+  display: flex;
+  gap: 36px;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.portfolio-workspace__heading .eyebrow {
+  margin-bottom: 8px;
+}
+
+.portfolio-workspace__heading h2 {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+
+.portfolio-workspace__heading > p {
+  max-width: 510px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: right;
+}
+
+.portfolio-workspace__gate {
+  display: flex;
+  gap: 18px;
+  min-height: 104px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  margin: 0;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.portfolio-workspace__body {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+}
+
+.portfolio-workspace__notice {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: rgba(255, 200, 87, 0.1);
+  color: #ffc857;
+  font-size: 11px;
+}
+
+.portfolio-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(220px, 0.55fr);
+  gap: 36px;
+  padding: 30px;
+  background: linear-gradient(110deg, rgba(216, 255, 62, 0.09), transparent 42%), var(--surface);
+}
+
+.portfolio-summary > div:first-child {
+  min-width: 0;
+}
+
+.portfolio-summary > div:first-child > span,
+.portfolio-positions th,
+.portfolio-positions td::before {
+  color: var(--muted);
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.portfolio-summary > div:first-child > strong {
+  display: block;
+  overflow-wrap: anywhere;
+  margin: 8px 0 10px;
+  color: var(--acid);
+  font-family: "DM Mono", monospace;
+  font-size: clamp(32px, 5vw, 56px);
+  font-weight: 400;
+  letter-spacing: -0.06em;
+  line-height: 1.05;
+}
+
+.portfolio-summary > div:first-child > strong small {
+  color: var(--muted);
+  font-size: 0.34em;
+  letter-spacing: 0.04em;
+}
+
+.portfolio-summary p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.portfolio-summary__meta {
+  display: grid;
+  align-content: center;
+  justify-items: end;
+  gap: 10px;
+}
+
+.portfolio-summary__meta > span {
+  padding: 6px 9px;
+  border: 1px solid rgba(216, 255, 62, 0.34);
+  color: var(--acid);
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.portfolio-summary__meta > span[data-complete="false"] {
+  border-color: rgba(255, 200, 87, 0.42);
+  color: #ffc857;
+}
+
+.portfolio-summary__meta small {
+  color: var(--muted);
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  text-align: right;
+}
+
+.portfolio-summary__meta .text-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.portfolio-positions__scroll {
+  overflow-x: auto;
+  background: var(--surface);
+}
+
+.portfolio-positions {
+  width: 100%;
+  min-width: 1040px;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.portfolio-positions th,
+.portfolio-positions td {
+  padding: 17px 16px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  vertical-align: middle;
+}
+
+.portfolio-positions th:first-child,
+.portfolio-positions td:first-child {
+  text-align: left;
+}
+
+.portfolio-positions tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.portfolio-positions tbody tr:hover {
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.portfolio-positions td {
+  font-family: "DM Mono", monospace;
+}
+
+.portfolio-positions td strong,
+.portfolio-positions td small {
+  display: block;
+}
+
+.portfolio-positions__cell {
+  display: block;
+}
+
+.portfolio-positions td strong {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.portfolio-positions td small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.portfolio-positions td::before {
+  display: none;
+}
+
+.portfolio-positions__status {
+  display: inline-block;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.portfolio-positions__status--cash,
+.portfolio-positions__status--valued {
+  border-color: rgba(102, 223, 178, 0.34);
+  color: var(--buy);
+}
+
+.portfolio-positions__status--unpriced {
+  border-color: rgba(255, 200, 87, 0.42);
+  color: #ffc857;
+}
+
+.portfolio-workspace__empty {
+  display: flex;
+  min-height: 130px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px;
+  background: var(--surface);
+}
+
+.portfolio-workspace__empty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.portfolio-workspace__disclaimer {
+  padding: 15px 18px;
+  margin: 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
 .trading-workspace {
   padding: 52px 0;
   border-bottom: 1px solid var(--line);
@@ -2400,6 +2656,18 @@ footer {
     grid-template-columns: 1fr;
   }
 
+  .portfolio-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .portfolio-summary__meta {
+    justify-items: start;
+  }
+
+  .portfolio-summary__meta small {
+    text-align: left;
+  }
+
   .financial-actions {
     grid-template-columns: 1fr;
   }
@@ -2540,13 +2808,93 @@ footer {
   }
 
   .financial-workspace__heading,
+  .portfolio-workspace__heading,
   .trading-workspace__heading,
+  .portfolio-workspace__empty,
   .financial-workspace__empty {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .financial-workspace__heading {
+    display: flex;
+  }
+
+  .portfolio-workspace__heading {
+    display: flex;
+  }
+
+  .portfolio-workspace__heading > p {
+    text-align: left;
+  }
+
+  .portfolio-workspace__notice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .portfolio-summary {
+    padding: 24px 20px;
+  }
+
+  .portfolio-positions__scroll {
+    overflow: visible;
+    background: transparent;
+  }
+
+  .portfolio-positions {
+    display: block;
+    min-width: 0;
+  }
+
+  .portfolio-positions thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .portfolio-positions tbody {
+    display: grid;
+    gap: 1px;
+  }
+
+  .portfolio-positions tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    background: var(--surface);
+  }
+
+  .portfolio-positions td,
+  .portfolio-positions td:first-child {
+    display: flex;
+    min-width: 0;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    text-align: right;
+  }
+
+  .portfolio-positions td:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .portfolio-positions td::before {
+    display: block;
+    flex: 0 0 auto;
+    content: attr(data-label);
+    text-align: left;
+  }
+
+  .portfolio-positions td > .portfolio-positions__cell,
+  .portfolio-positions td > span {
+    margin-left: auto;
+  }
+
+  .portfolio-workspace__empty {
     display: flex;
   }
 

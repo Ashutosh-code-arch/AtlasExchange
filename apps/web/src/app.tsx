@@ -12,6 +12,11 @@ const FinancialWorkspace = lazy(async () => {
   return { default: financial.FinancialWorkspace };
 });
 
+const PortfolioWorkspace = lazy(async () => {
+  const portfolio = await import("./features/portfolio");
+  return { default: portfolio.PortfolioWorkspace };
+});
+
 const TradingWorkspace = lazy(async () => {
   const trading = await import("./features/trading");
   return { default: trading.TradingWorkspace };
@@ -63,6 +68,15 @@ function OverviewRoute({
       <AuthenticationPanel />
       <Suspense
         fallback={
+          <section className="portfolio-workspace" aria-label="Portfolio">
+            <p className="portfolio-workspace__gate">Loading the Portfolio workspace…</p>
+          </section>
+        }
+      >
+        <PortfolioWorkspace />
+      </Suspense>
+      <Suspense
+        fallback={
           <section className="trading-workspace" aria-label="Trading desk">
             <p className="trading-workspace__catalog-state">Loading the Trading desk…</p>
           </section>
@@ -99,7 +113,12 @@ export function App({
           <span>ATLAS / EXCHANGE</span>
         </a>
         <nav aria-label="Primary navigation">
-          {initialRoute.name === "overview" ? <a href="#trading">Trade</a> : <a href="/">Home</a>}
+          {initialRoute.name === "overview" ? (
+            <a href="#portfolio">Portfolio</a>
+          ) : (
+            <a href="/">Home</a>
+          )}
+          {initialRoute.name === "overview" ? <a href="#trading">Trade</a> : null}
           {initialRoute.name === "overview" ? <a href="#financial">Funds</a> : null}
           {initialRoute.name === "overview" ? <a href="#roadmap">Roadmap</a> : null}
           <a

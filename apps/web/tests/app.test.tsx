@@ -54,11 +54,16 @@ describe("Atlas overview", () => {
     renderApp(() => Promise.resolve({ status: "ready" }));
 
     expect(screen.getByRole("heading", { name: /build trust/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Know what you hold" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Portfolio" })).toHaveAttribute("href", "#portfolio");
     expect(screen.getByText("Foundation")).toBeInTheDocument();
     expect(screen.getByText("Financial core").closest("li")).toHaveTextContent(
       /03\s*Financial core\s*Complete/i,
     );
-    expect(screen.getByText("Trading").closest("li")).toHaveTextContent(/04\s*Trading\s*Current/i);
+    expect(screen.getByText("Trading").closest("li")).toHaveTextContent(/04\s*Trading\s*Complete/i);
+    expect(screen.getByText("Product surfaces").closest("li")).toHaveTextContent(
+      /06\s*Product surfaces\s*Current/i,
+    );
     expect(await screen.findByText("Operational")).toBeInTheDocument();
     expect(await screen.findByText(appUser.email)).toBeInTheDocument();
   });

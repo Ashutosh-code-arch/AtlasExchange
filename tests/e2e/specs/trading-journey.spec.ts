@@ -243,6 +243,14 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
     reserved: "0",
     total: "35000",
   });
+  const buyerPortfolio = page.getByRole("region", { name: "Know what you hold" });
+  await buyerPortfolio.getByRole("button", { name: "Refresh portfolio" }).click();
+  await expect(buyerPortfolio.getByLabel("Portfolio USD value")).toContainText("60,000 USD");
+  await expect(buyerPortfolio.getByText("Complete valuation")).toBeVisible();
+  const buyerBitcoinPosition = buyerPortfolio.getByRole("row").filter({ hasText: "Bitcoin" });
+  await expect(buyerBitcoinPosition).toContainText("0.5");
+  await expect(buyerBitcoinPosition).toContainText("50,000 USD");
+  await expect(buyerBitcoinPosition).toContainText("25,000");
   await signOut(page);
 
   await signIn(page, sellerEmail);
@@ -252,6 +260,10 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
     reserved: "0",
     total: "25000",
   });
+  const sellerPortfolio = page.getByRole("region", { name: "Know what you hold" });
+  await sellerPortfolio.getByRole("button", { name: "Refresh portfolio" }).click();
+  await expect(sellerPortfolio.getByLabel("Portfolio USD value")).toContainText("50,000 USD");
+  await expect(sellerPortfolio.getByText("Complete valuation")).toBeVisible();
 
   await page.getByRole("tab", { name: /Executions 1/ }).click();
   const sellerExecutions = page.getByRole("table", {

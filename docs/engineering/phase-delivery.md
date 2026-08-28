@@ -417,6 +417,17 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   process-local limiter hashes owner keys and returns `Retry-After`. HTTP unit tests cover
   authentication, validation order, privacy, limiting, response containment, and caching; a
   real-PostgreSQL integration test proves exact committed-price valuation and cross-owner isolation.
+- [ADR-046 — Browser Portfolio Snapshot Experience](../architecture/decisions/ADR-046-browser-portfolio-snapshot-experience.md)
+  defines server-owned presentation, complete-versus-subtotal language, exact string formatting,
+  authenticated lifecycle isolation, explicit refresh, last-valid stale retention, responsive
+  structure, and the deliberate omission of ungrounded performance analytics.
+- The overview now presents a responsive authenticated Portfolio before the Trading desk. It renders
+  exact available, reserved, and total balances; committed-price references and timestamps; exact
+  USD values; truthful zero and unpriced states; excluded assets; and a server-owned complete total
+  or incomplete subtotal. It does no browser valuation arithmetic, never loads for anonymous users,
+  resets on user change, and retains a visibly stale last-valid snapshot after refresh failure.
+  Strict API parsing, focused component state tests, app-composition coverage, and isolated browser
+  journeys prove complete and incomplete snapshots through the real stack.
 
 ## Phase transition rule
 

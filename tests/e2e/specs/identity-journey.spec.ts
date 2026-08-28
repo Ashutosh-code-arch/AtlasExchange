@@ -112,4 +112,15 @@ test("registers, verifies email, signs in, and moves simulated funds", async ({
   await expect(
     page.getByText("No destination is collected because no external transfer occurs."),
   ).toBeVisible();
+
+  const portfolio = page.getByRole("region", { name: "Know what you hold" });
+  await portfolio.getByRole("button", { name: "Refresh portfolio" }).click();
+  await expect(portfolio.getByText("Valued subtotal")).toBeVisible();
+  await expect(portfolio.getByText("Incomplete valuation")).toBeVisible();
+  await expect(
+    portfolio.getByText(/BTC excluded because no accepted reference price/i),
+  ).toBeVisible();
+  const bitcoinPosition = portfolio.getByRole("row").filter({ hasText: "Bitcoin" });
+  await expect(bitcoinPosition).toContainText("0.75");
+  await expect(bitcoinPosition).toContainText("No committed price");
 });

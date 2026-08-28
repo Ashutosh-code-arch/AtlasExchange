@@ -9,8 +9,11 @@ const phases = [
   { number: "01", label: "Foundation", state: "Complete" },
   { number: "02", label: "Identity", state: "Complete" },
   { number: "03", label: "Financial core", state: "Complete" },
-  { number: "04", label: "Trading", state: "Current" },
-  { number: "05", label: "Market data", state: "Next" },
+  { number: "04", label: "Trading", state: "Complete" },
+  { number: "05", label: "Market data", state: "Complete" },
+  { number: "06", label: "Product surfaces", state: "Current" },
+  { number: "07", label: "Production readiness", state: "Next" },
+  { number: "08", label: "Deployment", state: "Planned" },
 ];
 
 export function OverviewPage({ readiness, onRefresh }: OverviewPageProps): React.JSX.Element {
@@ -26,14 +29,15 @@ export function OverviewPage({ readiness, onRefresh }: OverviewPageProps): React
           </h1>
           <p className="hero__summary">
             Atlas is a production-inspired exchange built one dependable boundary at a time. The
-            current release combines exact wallet balances with a server-authoritative limit-order
-            desk, deterministic matching, and atomic simulated settlement.
+            current release combines exact wallet balances and committed-trade portfolio valuation
+            with a server-authoritative limit-order desk, deterministic matching, and atomic
+            simulated settlement.
           </p>
           <div className="hero__actions">
             <a className="primary-button" href="#roadmap">
               Explore the build
             </a>
-            <span className="release-tag">v0.4 · Trading desk</span>
+            <span className="release-tag">v0.6 · Portfolio workspace</span>
           </div>
         </div>
         <div className="hero__visual" aria-label="Atlas foundation architecture">
