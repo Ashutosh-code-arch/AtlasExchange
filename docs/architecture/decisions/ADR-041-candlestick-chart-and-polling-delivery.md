@@ -6,6 +6,10 @@
 **Last reviewed:** 2026-08-28  
 **Canonical owner/source:** ADR-041
 
+**Partial supersession:** ADR-043 replaces the browser REST-polling delivery and lifecycle. The
+chart geometry, exact-value, selection, freshness, accessibility, and responsive decisions remain
+active.
+
 ## Context
 
 ADR-038 defines exact sparse candle history and ADR-040 exposes it through a bounded anonymous HTTP

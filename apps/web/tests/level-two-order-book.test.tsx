@@ -1,13 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { TradingMarket } from "@atlas/contracts";
 
-import {
-  LevelTwoOrderBook,
-  type LevelTwoOrderBookLoader,
-  type LevelTwoOrderBookSnapshot,
-} from "../src/features/market-data";
+import { LevelTwoOrderBook, type LevelTwoOrderBookSnapshot } from "../src/features/market-data";
+import { ControlledMarketDataStream } from "./support/controlled-market-data-stream";
 
 const market: TradingMarket = {
   code: "BTC-USD",
@@ -39,19 +36,10 @@ const orderBook: LevelTwoOrderBookSnapshot = {
   ],
 };
 
-const request = vi.fn(() => Promise.reject(new Error("Unexpected HTTP request")));
-
 describe("LevelTwoOrderBook", () => {
   it("renders exchange-style asks, midpoint, bids, exact values, and lag", async () => {
-    const loader = vi.fn<LevelTwoOrderBookLoader>().mockResolvedValue(orderBook);
-    render(
-      <LevelTwoOrderBook
-        request={request}
-        market={market}
-        loader={loader}
-        pollIntervalMs={60_000}
-      />,
-    );
+    const stream = new ControlledMarketDataStream({ orderBook });
+    render(<LevelTwoOrderBook stream={stream} market={market} />);
 
     const table = await screen.findByRole("table", { name: "BTC-USD level-two order book" });
     expect(screen.getByText("Behind 2")).toBeInTheDocument();
@@ -64,50 +52,42 @@ describe("LevelTwoOrderBook", () => {
   });
 
   it("shows an honest empty state", async () => {
-    const loader = vi.fn<LevelTwoOrderBookLoader>().mockResolvedValue({
-      ...orderBook,
-      sequence: "0",
-      publishedSequence: "0",
-      lag: "0",
-      freshness: "current",
-      asOf: null,
-      bids: [],
-      asks: [],
+    const stream = new ControlledMarketDataStream({
+      orderBook: {
+        ...orderBook,
+        sequence: "0",
+        publishedSequence: "0",
+        lag: "0",
+        freshness: "current",
+        asOf: null,
+        bids: [],
+        asks: [],
+      },
     });
-    render(
-      <LevelTwoOrderBook
-        request={request}
-        market={market}
-        loader={loader}
-        pollIntervalMs={60_000}
-      />,
-    );
+    render(<LevelTwoOrderBook stream={stream} market={market} />);
+
     expect(
       await screen.findByText("No open liquidity is projected for BTC-USD."),
     ).toBeInTheDocument();
     expect(screen.getByText(/Seq 0 · Awaiting first update/)).toBeInTheDocument();
   });
 
-  it("offers an explicit retry after an initial failure", async () => {
-    const loader = vi
-      .fn<LevelTwoOrderBookLoader>()
-      .mockRejectedValueOnce(new Error("offline"))
-      .mockResolvedValueOnce(orderBook);
+  it("offers an explicit retry after an initial stream failure", async () => {
+    const stream = new ControlledMarketDataStream();
     const user = userEvent.setup();
-    render(
-      <LevelTwoOrderBook
-        request={request}
-        market={market}
-        loader={loader}
-        pollIntervalMs={60_000}
-      />,
-    );
+    render(<LevelTwoOrderBook stream={stream} market={market} />);
+    await waitFor(() => expect(stream.activeSubscriptions).toHaveLength(1));
+    act(() => stream.makeUnavailable("order_book"));
     expect(await screen.findByText("Order book is unavailable.")).toBeInTheDocument();
+
     await user.click(screen.getByRole("button", { name: "Retry depth" }));
+    act(() => stream.emitOrderBook(orderBook));
+
     await waitFor(() =>
       expect(
         screen.getByRole("table", { name: "BTC-USD level-two order book" }),
       ).toBeInTheDocument(),
     );
+    expect(stream.retryCount).toBe(1);
   });
 });

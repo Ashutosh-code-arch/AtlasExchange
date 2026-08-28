@@ -68,7 +68,7 @@ function OverviewRoute({
           </section>
         }
       >
-        <TradingWorkspace />
+        <TradingWorkspace apiBaseUrl={apiBaseUrl} />
       </Suspense>
       <Suspense
         fallback={

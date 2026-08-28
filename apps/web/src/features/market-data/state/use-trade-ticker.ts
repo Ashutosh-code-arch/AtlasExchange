@@ -1,19 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  getTradeTicker,
-  type MarketDataHttpClient,
-  type TradeTickerLoader,
-  type TradeTickerSnapshot,
-} from "../api/market-data-api";
+import type { TradeTickerSnapshot } from "../api/market-data-api";
+import type {
+  MarketDataStreamSubscriptionHandle,
+  MarketDataSubscriptionClient,
+} from "./market-data-stream-client";
 
 export type TradeTickerStatus = "error" | "idle" | "loading" | "ready" | "stale";
 
 export interface UseTradeTickerOptions {
-  readonly request: MarketDataHttpClient["request"];
+  readonly stream: MarketDataSubscriptionClient;
   readonly marketCode?: string;
-  readonly pollIntervalMs?: number;
-  readonly loader?: TradeTickerLoader;
 }
 
 export interface TradeTickerController {
@@ -22,36 +19,24 @@ export interface TradeTickerController {
   readonly refresh: () => void;
 }
 
-export const defaultTickerPollIntervalMs = 2_000;
-
 export function useTradeTicker({
-  request,
+  stream,
   marketCode,
-  pollIntervalMs = defaultTickerPollIntervalMs,
-  loader = getTradeTicker,
 }: UseTradeTickerOptions): TradeTickerController {
-  if (!Number.isInteger(pollIntervalMs) || pollIntervalMs < 250 || pollIntervalMs > 60_000) {
-    throw new RangeError("Ticker polling interval is invalid.");
-  }
-
-  const client = useMemo(() => ({ request }), [request]);
   const snapshotRef = useRef<TradeTickerSnapshot | null>(null);
+  const handleRef = useRef<MarketDataStreamSubscriptionHandle | null>(null);
   const [snapshot, setSnapshot] = useState<TradeTickerSnapshot | null>(null);
   const [status, setStatus] = useState<TradeTickerStatus>(
     marketCode === undefined || marketCode.length === 0 ? "idle" : "loading",
   );
-  const [refreshSequence, setRefreshSequence] = useState(0);
 
   const refresh = useCallback((): void => {
-    setRefreshSequence((current) => current + 1);
+    handleRef.current?.retry();
   }, []);
 
   useEffect(() => {
     let active = true;
-    let inFlight = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const selectedMarketCode = marketCode ?? "";
-
     if (selectedMarketCode.length === 0) {
       void Promise.resolve().then(() => {
         if (!active) return;
@@ -64,57 +49,35 @@ export function useTradeTicker({
       };
     }
 
-    const schedule = (): void => {
-      if (!active) return;
-      timer = setTimeout(() => {
-        if (document.visibilityState === "visible") void load();
-        else schedule();
-      }, pollIntervalMs);
-    };
-
-    const load = async (): Promise<void> => {
-      if (inFlight) return;
-      inFlight = true;
-      try {
-        const nextSnapshot = await loader(client, { marketCode: selectedMarketCode });
-        if (!active) return;
-        snapshotRef.current = nextSnapshot;
-        setSnapshot(nextSnapshot);
-        setStatus("ready");
-      } catch {
-        if (!active) return;
-        const hasCurrentSnapshot = snapshotRef.current?.marketCode === selectedMarketCode;
-        setStatus(hasCurrentSnapshot ? "stale" : "error");
-      } finally {
-        inFlight = false;
-        schedule();
-      }
-    };
-
-    const handleVisibilityChange = (): void => {
-      if (!active || document.visibilityState !== "visible") return;
-      if (timer !== undefined) clearTimeout(timer);
-      void load();
-    };
-
     void Promise.resolve().then(() => {
-      if (!active) return;
-      if (snapshotRef.current?.marketCode !== selectedMarketCode) {
-        snapshotRef.current = null;
-        setSnapshot(null);
-        setStatus("loading");
-      }
-      if (document.visibilityState === "visible") void load();
-      else schedule();
+      if (!active || snapshotRef.current?.marketCode === selectedMarketCode) return;
+      snapshotRef.current = null;
+      setSnapshot(null);
+      setStatus("loading");
     });
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const handle = stream.subscribe(
+      { topic: "ticker", marketCode: selectedMarketCode },
+      {
+        onSnapshot: (message) => {
+          if (!active || message.topic !== "ticker") return;
+          snapshotRef.current = message.data;
+          setSnapshot(message.data);
+          setStatus("ready");
+        },
+        onUnavailable: () => {
+          if (!active) return;
+          setStatus(snapshotRef.current?.marketCode === selectedMarketCode ? "stale" : "error");
+        },
+      },
+    );
+    handleRef.current = handle;
 
     return () => {
       active = false;
-      if (timer !== undefined) clearTimeout(timer);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (handleRef.current === handle) handleRef.current = null;
+      handle.unsubscribe();
     };
-  }, [client, loader, marketCode, pollIntervalMs, refreshSequence]);
+  }, [marketCode, stream]);
 
   return { status, snapshot, refresh };
 }

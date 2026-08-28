@@ -10,15 +10,11 @@ import type {
 import { ApiHttpError, ApiTransportError } from "../../../shared/api/http-client";
 import { useAuthenticationSession } from "../../authentication";
 import {
+  BrowserMarketDataStreamClient,
   LevelTwoOrderBook,
   CandlestickChart,
   TradeTickerPanel,
-  getCandleHistory,
-  getLevelTwoOrderBook,
-  getTradeTicker,
-  type CandleHistoryLoader,
-  type LevelTwoOrderBookLoader,
-  type TradeTickerLoader,
+  type MarketDataSubscriptionClient,
 } from "../../market-data";
 import {
   cancelTradingOrder,
@@ -45,14 +41,10 @@ type TradingStateProps = Pick<
 >;
 
 export interface TradingWorkspaceProps extends TradingStateProps {
-  readonly candleHistoryLoader?: CandleHistoryLoader;
+  readonly apiBaseUrl: string;
   readonly candleHistoryLimit?: number;
-  readonly candlePollIntervalMs?: number;
-  readonly orderBookLoader?: LevelTwoOrderBookLoader;
   readonly orderBookDepth?: number;
-  readonly orderBookPollIntervalMs?: number;
-  readonly tickerLoader?: TradeTickerLoader;
-  readonly tickerPollIntervalMs?: number;
+  readonly marketDataStreamClient?: MarketDataSubscriptionClient;
 }
 
 interface Feedback {
@@ -532,23 +524,27 @@ function TradingActivity({
 }
 
 export function TradingWorkspace({
+  apiBaseUrl,
   marketLoader = listTradingMarkets,
   orderLoader = listTradingOrders,
   tradeLoader = listTradingTrades,
   orderPlacer = placeTradingOrder,
   orderCanceller = cancelTradingOrder,
-  candleHistoryLoader = getCandleHistory,
   candleHistoryLimit = 120,
-  candlePollIntervalMs = 5_000,
-  orderBookLoader = getLevelTwoOrderBook,
   orderBookDepth = 15,
-  orderBookPollIntervalMs = 2_000,
-  tickerLoader = getTradeTicker,
-  tickerPollIntervalMs = 2_000,
+  marketDataStreamClient,
   pageSize = 25,
   idempotencyKeyFactory,
 }: TradingWorkspaceProps): React.JSX.Element {
   const { state, request } = useAuthenticationSession();
+  const marketDataStream = useMemo(
+    () =>
+      marketDataStreamClient ??
+      new BrowserMarketDataStreamClient({
+        apiBaseUrl,
+      }),
+    [apiBaseUrl, marketDataStreamClient],
+  );
   const authenticated = state.status === "authenticated";
   const controller = useTradingWorkspaceState({
     request,
@@ -709,31 +705,25 @@ export function TradingWorkspace({
               </div>
               <div>
                 <dt>Price feed</dt>
-                <dd className="trading-market-header__live">Candles + ticker + Level 2 · REST</dd>
+                <dd className="trading-market-header__live">Candles + ticker + Level 2 · Live</dd>
               </div>
             </dl>
           </header>
 
           <TradeTickerPanel
-            request={request}
-            loader={tickerLoader}
-            pollIntervalMs={tickerPollIntervalMs}
+            stream={marketDataStream}
             {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
           />
 
           <CandlestickChart
-            request={request}
-            loader={candleHistoryLoader}
+            stream={marketDataStream}
             limit={candleHistoryLimit}
-            pollIntervalMs={candlePollIntervalMs}
             {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
           />
 
           <LevelTwoOrderBook
-            request={request}
-            loader={orderBookLoader}
+            stream={marketDataStream}
             depth={orderBookDepth}
-            pollIntervalMs={orderBookPollIntervalMs}
             {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
           />
 

@@ -120,6 +120,26 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   page,
   request,
 }) => {
+  const marketDataSocketTopics: Set<string>[] = [];
+  page.on("websocket", (socket) => {
+    if (!socket.url().endsWith("/api/v1/market-data/stream")) return;
+    const topics = new Set<string>();
+    marketDataSocketTopics.push(topics);
+    socket.on("framesent", ({ payload }) => {
+      if (typeof payload !== "string") return;
+      try {
+        const message = JSON.parse(payload) as {
+          readonly type?: unknown;
+          readonly subscription?: { readonly topic?: unknown };
+        };
+        if (message.type === "subscribe" && typeof message.subscription?.topic === "string") {
+          topics.add(message.subscription.topic);
+        }
+      } catch {
+        // Invalid client messages are asserted by the focused protocol tests.
+      }
+    });
+  });
   const sellerEmail = "seller-browser-journey@atlas.test";
   const buyerEmail = "buyer-browser-journey@atlas.test";
 
@@ -137,6 +157,37 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   await expect(sellerBook).toContainText("50000");
   await expect(sellerBook).toContainText("0.5");
   await expect(page.getByText("Current snapshot")).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        marketDataSocketTopics.some(
+          (topics) => topics.has("order_book") && topics.has("ticker") && topics.has("candles"),
+        ),
+      { timeout: 10_000 },
+    )
+    .toBe(true);
+  const socketsBeforeInterruption = marketDataSocketTopics.length;
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.getByText("Current snapshot")).toBeVisible();
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect
+    .poll(
+      () =>
+        marketDataSocketTopics
+          .slice(socketsBeforeInterruption)
+          .some(
+            (topics) => topics.has("order_book") && topics.has("ticker") && topics.has("candles"),
+          ),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+  await expect(page.getByText("Current snapshot")).toBeVisible({ timeout: 15_000 });
   const publicTicker = page.getByRole("region", { name: "BTC-USD rolling 24-hour ticker" });
   await expect(publicTicker).toContainText("No committed trades in the rolling 24-hour window.");
   await signOut(page);

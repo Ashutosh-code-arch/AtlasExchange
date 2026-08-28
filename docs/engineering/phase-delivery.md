@@ -12,7 +12,7 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 | 2. Identity               | Registration, login, session rotation, roles, account profile    | Implemented |
 | 3. Financial foundation   | Assets, wallets, double-entry ledger, deposits, withdrawals      | Implemented |
 | 4. Trading                | Orders, reservation, matching, trades, atomic settlement         | Implemented |
-| 5. Market data            | Order-book views, tickers, candles, WebSocket streams            | Active      |
+| 5. Market data            | Order-book views, tickers, candles, WebSocket streams            | Implemented |
 | 6. Product surfaces       | Portfolio, notifications, administration                         | Planned     |
 | 7. Production readiness   | Security hardening, metrics, rate limits, performance            | Planned     |
 | 8. Deployment             | Deployment, runbooks, monitoring, interview evidence             | Planned     |
@@ -358,8 +358,34 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   share one refresh read before fan-out, malformed clients are bounded, and reconnect requires no
   retained server session because every snapshot is complete. Shared-contract and real-socket tests
   cover protocol validation, negotiation, snapshots, fan-out, limits, origin isolation, heartbeat,
-  and graceful shutdown. Browser subscription, reconnect, stale recovery, and removal of redundant
-  foreground polling remain the final Phase 5 increment.
+  and graceful shutdown.
+- [ADR-043 — Browser Market Data Streaming and Recovery](../architecture/decisions/ADR-043-browser-market-data-streaming-and-recovery.md)
+  defines one workspace-owned connection, welcome-gated multiplexed subscriptions, strict routing,
+  monotonic replacement, last-valid stale retention, bounded reconnect, heartbeat timeout,
+  hidden-tab suspension, explicit retry, and Strict Mode-safe ownership.
+- The Trading workspace now uses one live stream for depth, ticker, and candles and has no implicit
+  production REST-polling fallback. Market and interval changes replace subscriptions without late
+  callback leakage. The isolated browser journey proves all three topics share a socket, hidden-tab
+  suspension retains the last snapshot, and visibility restoration creates a new socket that
+  resubscribes and recovers all views.
+
+## Phase 5 acceptance criteria
+
+- Market Data is rebuildable from immutable private-safe Trading facts and cannot influence matching,
+  reservation, settlement, or ledger authority.
+- Level-two, rolling ticker, and sparse UTC candle projections advance independently with durable
+  sequence checkpoints, replay safety, gap detection, exact arithmetic, and observable lag.
+- Anonymous REST snapshots expose bounded exact public representations with strict validation,
+  privacy, caching, rate limiting, and safe errors.
+- The public WebSocket protocol provides strict versioning, origin and subprotocol enforcement,
+  bounded subscriptions and payloads, grouped snapshot fan-out, heartbeat/backpressure handling,
+  deterministic full-snapshot recovery, and graceful process shutdown.
+- The responsive Trading workspace renders exact depth, ticker, candles, open-bucket state, sparse
+  time gaps, freshness, stale retention, and explicit recovery through one resilient connection.
+- Unit, contract, real-PostgreSQL integration, real-socket API, component, workspace, and isolated
+  browser tests prove projection, public delivery, multiplexing, reconnect, privacy, and lifecycle
+  behavior.
+- `pnpm verify`, `pnpm build`, and `pnpm test:e2e` pass at the phase boundary.
 
 ## Phase transition rule
 

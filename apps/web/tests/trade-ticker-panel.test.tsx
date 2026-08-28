@@ -1,13 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { TradingMarket } from "@atlas/contracts";
 
-import {
-  TradeTickerPanel,
-  type TradeTickerLoader,
-  type TradeTickerSnapshot,
-} from "../src/features/market-data";
+import { TradeTickerPanel, type TradeTickerSnapshot } from "../src/features/market-data";
+import { ControlledMarketDataStream } from "./support/controlled-market-data-stream";
 
 const market: TradingMarket = {
   code: "BTC-USD",
@@ -39,19 +36,10 @@ const ticker: TradeTickerSnapshot = {
   quoteVolume: "500",
 };
 
-const request = vi.fn(() => Promise.reject(new Error("Unexpected HTTP request")));
-
 describe("TradeTickerPanel", () => {
   it("renders exact trade values, asset units, and lag", async () => {
-    const loader = vi.fn<TradeTickerLoader>().mockResolvedValue(ticker);
-    render(
-      <TradeTickerPanel
-        request={request}
-        market={market}
-        loader={loader}
-        pollIntervalMs={60_000}
-      />,
-    );
+    const stream = new ControlledMarketDataStream({ ticker });
+    render(<TradeTickerPanel stream={stream} market={market} />);
 
     const panel = await screen.findByRole("region", {
       name: "BTC-USD rolling 24-hour ticker",
@@ -67,24 +55,19 @@ describe("TradeTickerPanel", () => {
   });
 
   it("shows truthful empty-window values without inventing a price", async () => {
-    const loader = vi.fn<TradeTickerLoader>().mockResolvedValue({
-      ...ticker,
-      lastPrice: null,
-      lastQuantity: null,
-      lastExecutedAt: null,
-      highPrice: null,
-      lowPrice: null,
-      baseVolume: "0",
-      quoteVolume: "0",
+    const stream = new ControlledMarketDataStream({
+      ticker: {
+        ...ticker,
+        lastPrice: null,
+        lastQuantity: null,
+        lastExecutedAt: null,
+        highPrice: null,
+        lowPrice: null,
+        baseVolume: "0",
+        quoteVolume: "0",
+      },
     });
-    render(
-      <TradeTickerPanel
-        request={request}
-        market={market}
-        loader={loader}
-        pollIntervalMs={60_000}
-      />,
-    );
+    render(<TradeTickerPanel stream={stream} market={market} />);
 
     expect(
       await screen.findByText("No committed trades in the rolling 24-hour window."),
@@ -95,23 +78,18 @@ describe("TradeTickerPanel", () => {
     expect(panel).toHaveTextContent(/Quote volume.*0.*USD/i);
   });
 
-  it("offers explicit recovery after an initial failure", async () => {
-    const loader = vi
-      .fn<TradeTickerLoader>()
-      .mockRejectedValueOnce(new Error("offline"))
-      .mockResolvedValueOnce(ticker);
+  it("offers explicit recovery after an initial stream failure", async () => {
+    const stream = new ControlledMarketDataStream();
     const user = userEvent.setup();
-    render(
-      <TradeTickerPanel
-        request={request}
-        market={market}
-        loader={loader}
-        pollIntervalMs={60_000}
-      />,
-    );
-
+    render(<TradeTickerPanel stream={stream} market={market} />);
+    await waitFor(() => expect(stream.activeSubscriptions).toHaveLength(1));
+    act(() => stream.makeUnavailable("ticker"));
     expect(await screen.findByText("Trade ticker is unavailable.")).toBeInTheDocument();
+
     await user.click(screen.getByRole("button", { name: "Retry ticker" }));
+    act(() => stream.emitTicker(ticker));
+
     await waitFor(() => expect(screen.getByRole("heading", { name: "50000" })).toBeInTheDocument());
+    expect(stream.retryCount).toBe(1);
   });
 });

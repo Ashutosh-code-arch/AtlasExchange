@@ -1,14 +1,14 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { MarketDataCandle, TradingMarket } from "@atlas/contracts";
 
 import {
   buildCandleChartModel,
   CandlestickChart,
-  type CandleHistoryLoader,
   type CandleHistorySnapshot,
 } from "../src/features/market-data";
+import { ControlledMarketDataStream } from "./support/controlled-market-data-stream";
 
 const market: TradingMarket = {
   code: "BTC-USD",
@@ -76,19 +76,10 @@ function snapshot(interval: CandleHistorySnapshot["interval"] = "5m"): CandleHis
   };
 }
 
-const request = vi.fn(() => Promise.reject(new Error("Unexpected HTTP request")));
-
 describe("CandlestickChart", () => {
   it("renders sparse time positions, OHLCV, lag, and a distinct open candle", async () => {
-    const loader = vi.fn<CandleHistoryLoader>().mockResolvedValue(snapshot());
-    const { container } = render(
-      <CandlestickChart
-        request={request}
-        market={market}
-        loader={loader}
-        pollIntervalMs={60_000}
-      />,
-    );
+    const stream = new ControlledMarketDataStream({ candles: snapshot() });
+    const { container } = render(<CandlestickChart stream={stream} market={market} />);
 
     const chart = await screen.findByRole("img", { name: "BTC-USD 5m price and volume chart" });
     expect(chart).toBeInTheDocument();
@@ -108,73 +99,46 @@ describe("CandlestickChart", () => {
   });
 
   it("changes intervals without displaying the previous interval snapshot", async () => {
-    let resolveHourly: ((value: CandleHistorySnapshot) => void) | undefined;
-    const hourlyResponse = new Promise<CandleHistorySnapshot>((resolve) => {
-      resolveHourly = resolve;
-    });
-    const loader = vi
-      .fn<CandleHistoryLoader>()
-      .mockImplementation((_client, input) =>
-        input.interval === "1h" ? hourlyResponse : Promise.resolve(snapshot(input.interval)),
-      );
+    const stream = new ControlledMarketDataStream({ candles: snapshot() });
     const user = userEvent.setup();
-    render(
-      <CandlestickChart
-        request={request}
-        market={market}
-        loader={loader}
-        pollIntervalMs={60_000}
-      />,
-    );
+    render(<CandlestickChart stream={stream} market={market} />);
     await screen.findByRole("img", { name: "BTC-USD 5m price and volume chart" });
     await user.click(screen.getByRole("button", { name: "1h" }));
 
     expect(screen.getByText("Loading BTC-USD 1h candles…")).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /5m price/i })).not.toBeInTheDocument();
-    resolveHourly?.(snapshot("1h"));
+    act(() => stream.emitCandles(snapshot("1h")));
     expect(
       await screen.findByText("No committed trades in this chart window."),
     ).toBeInTheDocument();
-    expect(loader).toHaveBeenLastCalledWith(expect.any(Object), {
-      marketCode: "BTC-USD",
-      interval: "1h",
-      limit: 120,
-    });
+    expect(stream.activeSubscriptions).toEqual([
+      { topic: "candles", marketCode: "BTC-USD", interval: "1h", limit: 120 },
+    ]);
   });
 
-  it("keeps the last chart on a failed refresh and offers recovery", async () => {
-    const loader = vi
-      .fn<CandleHistoryLoader>()
-      .mockResolvedValueOnce({
-        ...snapshot(),
-        lag: "0",
-        freshness: "current",
-        publishedSequence: "8",
-      })
-      .mockRejectedValueOnce(new Error("offline"))
-      .mockResolvedValueOnce({
-        ...snapshot(),
-        lag: "0",
-        freshness: "current",
-        publishedSequence: "8",
-      });
+  it("offers recovery when the selected interval has no live stream", async () => {
+    const current = {
+      ...snapshot(),
+      lag: "0" as const,
+      freshness: "current" as const,
+      publishedSequence: "8",
+    };
+    const stream = new ControlledMarketDataStream({ candles: current });
     const user = userEvent.setup();
-    render(
-      <CandlestickChart
-        request={request}
-        market={market}
-        loader={loader}
-        pollIntervalMs={60_000}
-      />,
-    );
+    render(<CandlestickChart stream={stream} market={market} />);
     await screen.findByRole("img", { name: /5m price/i });
-    // A selected-interval click is an explicit refresh because the state value is unchanged only in React.
-    // Use the public retry path after forcing the next request through interval switching.
     await user.click(screen.getByRole("button", { name: "1h" }));
+    act(() => stream.makeUnavailable("candles"));
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent("Price history is unavailable."),
     );
+
     await user.click(screen.getByRole("button", { name: "Retry chart" }));
-    await waitFor(() => expect(loader).toHaveBeenCalledTimes(3));
+    act(() => stream.emitCandles({ ...current, interval: "1h", candles: [] }));
+
+    await waitFor(() =>
+      expect(screen.getByText("No committed trades in this chart window.")).toBeInTheDocument(),
+    );
+    expect(stream.retryCount).toBe(1);
   });
 });

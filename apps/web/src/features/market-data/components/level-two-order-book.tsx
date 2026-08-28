@@ -1,19 +1,13 @@
 import type { CSSProperties } from "react";
 import type { MarketDataOrderBookLevel, TradingMarket } from "@atlas/contracts";
 
-import type { MarketDataHttpClient, LevelTwoOrderBookLoader } from "../api/market-data-api";
-import {
-  defaultOrderBookDepth,
-  defaultOrderBookPollIntervalMs,
-  useLevelTwoOrderBook,
-} from "../state/use-level-two-order-book";
+import type { MarketDataSubscriptionClient } from "../state/market-data-stream-client";
+import { defaultOrderBookDepth, useLevelTwoOrderBook } from "../state/use-level-two-order-book";
 
 export interface LevelTwoOrderBookProps {
-  readonly request: MarketDataHttpClient["request"];
+  readonly stream: MarketDataSubscriptionClient;
   readonly market?: TradingMarket;
-  readonly loader?: LevelTwoOrderBookLoader;
   readonly depth?: number;
-  readonly pollIntervalMs?: number;
 }
 
 interface DepthStyle extends CSSProperties {
@@ -59,18 +53,14 @@ function BookRow({
 }
 
 export function LevelTwoOrderBook({
-  request,
+  stream,
   market,
-  loader,
   depth = defaultOrderBookDepth,
-  pollIntervalMs = defaultOrderBookPollIntervalMs,
 }: LevelTwoOrderBookProps): React.JSX.Element {
   const controller = useLevelTwoOrderBook({
-    request,
+    stream,
     depth,
-    pollIntervalMs,
     ...(market === undefined ? {} : { marketCode: market.code }),
-    ...(loader === undefined ? {} : { loader }),
   });
   const snapshot = controller.snapshot?.marketCode === market?.code ? controller.snapshot : null;
   const allLevels = snapshot === null ? [] : [...snapshot.bids, ...snapshot.asks];
@@ -100,7 +90,7 @@ export function LevelTwoOrderBook({
           <span>{statusLabel}</span>
           <small>
             {snapshot === null
-              ? `${pollIntervalMs / 1_000}s REST refresh`
+              ? "Live WebSocket"
               : `Seq ${snapshot.sequence} · ${displaySnapshotTime(snapshot.asOf)}`}
           </small>
         </div>
@@ -121,7 +111,7 @@ export function LevelTwoOrderBook({
         <>
           {controller.status === "stale" ? (
             <div className="order-book__notice" role="alert">
-              <span>Snapshot refresh failed. Displayed levels may be stale.</span>
+              <span>Live stream interrupted. Displayed levels may be stale.</span>
               <button className="text-button" type="button" onClick={controller.refresh}>
                 Retry
               </button>

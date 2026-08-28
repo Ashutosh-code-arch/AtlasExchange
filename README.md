@@ -3,7 +3,7 @@
 Atlas Exchange is a production-inspired centralized-exchange learning platform. The repository is
 being delivered incrementally so every phase leaves behind a runnable, tested system.
 
-## Current phase: Market Data
+## Latest completed phase: Market Data
 
 The implemented foundation, Identity, Financial, and Trading phases provide:
 
@@ -23,7 +23,7 @@ The implemented foundation, Identity, Financial, and Trading phases provide:
 - exact spot limit orders, durable reservation, deterministic price-time matching, immutable trades,
   atomic four-wallet settlement, owner-scoped history, and a responsive exchange-style Trading desk.
 
-The active phase derives truthful Market Data from committed Atlas Trading facts. It now provides
+The completed Market Data phase derives truthful views from committed Atlas Trading facts. It provides
 sequence-aware public level-two order-book and rolling 24-hour ticker views plus responsive web
 depth, ticker, and candlestick panels. An independently checkpointed candle projection adds exact
 sparse UTC OHLCV for six accepted intervals and runs under the managed projection worker with a
@@ -31,18 +31,19 @@ coherent cursor-based internal history reader and anonymous bounded REST history
 chart preserves real time gaps, distinguishes open candles, exposes freshness, and safely refreshes
 the active market and interval. A strict versioned WebSocket gateway now delivers bounded full
 replacement snapshots for book, ticker, and candles with grouped refreshes, heartbeat detection,
-backpressure, and graceful shutdown. Browser subscription and reconnect recovery remain the final
-Phase 5 increment. Market Data is never part of
+backpressure, and graceful shutdown. The Trading workspace multiplexes all three views over one
+browser connection, pauses it while hidden, resubscribes after bounded reconnect, rejects mismatched
+snapshots, and retains last-valid data as visibly stale during interruption. Market Data is never part of
 matching or settlement authority, and external prices and fabricated liquidity remain out of scope.
 The Trading boundary publishes private-safe, versioned final-state facts under a durable per-market
 sequence. Market Data now consumes that boundary into generation-aware checkpoints, private active
 order state, and exact deterministic level-two aggregates with replay and gap protection. A managed
 per-market worker continuously advances those projections with bounded polling, retry/backoff,
 graceful shutdown, and structured sequence-lag diagnostics.
-The public REST snapshots expose exact decimal depth, committed-trade ticker values, and sparse
-candle history with sequence freshness, short caching, and rate limiting. The web workspace polls
-depth and ticker state safely, pauses in hidden tabs, and keeps stale state visibly distinct from a
-current snapshot.
+The public REST snapshots remain bounded diagnostic and direct-consumer boundaries with exact
+decimal depth, committed-trade ticker values, sparse candle history, sequence freshness, short
+caching, and rate limiting. Phase 6 product surfaces—portfolio, notifications, and administration—
+are next.
 
 ## Prerequisites
 

@@ -1,11 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import {
-  useLevelTwoOrderBook,
-  type LevelTwoOrderBookLoader,
-  type LevelTwoOrderBookSnapshot,
-} from "../src/features/market-data";
+import { useLevelTwoOrderBook, type LevelTwoOrderBookSnapshot } from "../src/features/market-data";
+import { ControlledMarketDataStream } from "./support/controlled-market-data-stream";
 
 function snapshot(marketCode = "BTC-USD", sequence = "1"): LevelTwoOrderBookSnapshot {
   return {
@@ -22,96 +19,51 @@ function snapshot(marketCode = "BTC-USD", sequence = "1"): LevelTwoOrderBookSnap
   };
 }
 
-const request = vi.fn(() => Promise.reject(new Error("Unexpected HTTP request")));
-
 describe("useLevelTwoOrderBook", () => {
-  it("loads public depth and retains it when a manual refresh fails", async () => {
-    const loader = vi
-      .fn<LevelTwoOrderBookLoader>()
-      .mockResolvedValueOnce(snapshot())
-      .mockRejectedValueOnce(new Error("offline"));
-    const { result } = renderHook(() =>
-      useLevelTwoOrderBook({
-        request,
-        marketCode: "BTC-USD",
-        loader,
-        pollIntervalMs: 60_000,
-      }),
-    );
-
+  it("accepts live depth and retains it when the stream becomes unavailable", async () => {
+    const stream = new ControlledMarketDataStream();
+    const { result } = renderHook(() => useLevelTwoOrderBook({ stream, marketCode: "BTC-USD" }));
+    act(() => stream.emitOrderBook(snapshot()));
     await waitFor(() => expect(result.current.status).toBe("ready"));
+
+    act(() => stream.makeUnavailable("order_book"));
+
+    expect(result.current.status).toBe("stale");
     expect(result.current.snapshot?.sequence).toBe("1");
     act(() => result.current.refresh());
-    await waitFor(() => expect(result.current.status).toBe("stale"));
-    expect(result.current.snapshot?.sequence).toBe("1");
-    expect(loader).toHaveBeenCalledTimes(2);
+    expect(stream.retryCount).toBe(1);
   });
 
-  it("discards a late response after the selected market changes", async () => {
-    let resolveBtc: ((value: LevelTwoOrderBookSnapshot) => void) | undefined;
-    const btcResponse = new Promise<LevelTwoOrderBookSnapshot>((resolve) => {
-      resolveBtc = resolve;
-    });
-    const loader = vi
-      .fn<LevelTwoOrderBookLoader>()
-      .mockImplementation((_client, input) =>
-        input.marketCode === "BTC-USD" ? btcResponse : Promise.resolve(snapshot("ETH-USD", "7")),
-      );
+  it("replaces the subscription and ignores an old-market callback", async () => {
+    const stream = new ControlledMarketDataStream();
     const { result, rerender } = renderHook(
-      ({ marketCode }) =>
-        useLevelTwoOrderBook({
-          request,
-          marketCode,
-          loader,
-          pollIntervalMs: 60_000,
-        }),
+      ({ marketCode }) => useLevelTwoOrderBook({ stream, marketCode }),
       { initialProps: { marketCode: "BTC-USD" } },
     );
-
-    await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+    const oldObserver = stream.historicalObserver("order_book", "BTC-USD");
     rerender({ marketCode: "ETH-USD" });
+    act(() => stream.emitOrderBook(snapshot("ETH-USD", "7")));
     await waitFor(() => expect(result.current.snapshot?.marketCode).toBe("ETH-USD"));
-    await act(async () => {
-      resolveBtc?.(snapshot("BTC-USD", "2"));
-      await btcResponse;
-    });
-    expect(result.current.snapshot?.marketCode).toBe("ETH-USD");
-    expect(result.current.snapshot?.sequence).toBe("7");
-  });
 
-  it("pauses while hidden and refreshes when the page becomes visible", async () => {
-    const originalVisibility = document.visibilityState;
-    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
-    const loader = vi.fn<LevelTwoOrderBookLoader>().mockResolvedValue(snapshot());
-    const { result } = renderHook(() =>
-      useLevelTwoOrderBook({
-        request,
-        marketCode: "BTC-USD",
-        loader,
-        pollIntervalMs: 60_000,
+    act(() =>
+      oldObserver?.onSnapshot({
+        type: "snapshot",
+        subscriptionId: "old",
+        topic: "order_book",
+        data: snapshot("BTC-USD", "8"),
       }),
     );
-    await act(async () => Promise.resolve());
-    expect(loader).not.toHaveBeenCalled();
 
-    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
-    document.dispatchEvent(new Event("visibilitychange"));
-    await waitFor(() => expect(result.current.status).toBe("ready"));
-    expect(loader).toHaveBeenCalledTimes(1);
-    Object.defineProperty(document, "visibilityState", {
-      configurable: true,
-      value: originalVisibility,
-    });
+    expect(result.current.snapshot?.marketCode).toBe("ETH-USD");
+    expect(stream.activeSubscriptions).toEqual([
+      { topic: "order_book", marketCode: "ETH-USD", depth: 15 },
+    ]);
   });
 
-  it("rejects unsafe polling configuration", () => {
+  it("rejects unsafe depth", () => {
+    const stream = new ControlledMarketDataStream();
     expect(() =>
-      renderHook(() => useLevelTwoOrderBook({ request, marketCode: "BTC-USD", depth: 0 })),
-    ).toThrow(RangeError);
-    expect(() =>
-      renderHook(() =>
-        useLevelTwoOrderBook({ request, marketCode: "BTC-USD", pollIntervalMs: 100 }),
-      ),
+      renderHook(() => useLevelTwoOrderBook({ stream, marketCode: "BTC-USD", depth: 0 })),
     ).toThrow(RangeError);
   });
 });

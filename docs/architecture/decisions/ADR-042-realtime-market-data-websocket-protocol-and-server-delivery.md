@@ -188,3 +188,4 @@ latency is materially below the accepted refresh cadence.
 - [ADR-037 — Public Trade Ticker HTTP Contract](ADR-037-public-trade-ticker-http-contract.md)
 - [ADR-040 — Public Candle History HTTP Delivery](ADR-040-public-candle-history-http-delivery.md)
 - [ADR-041 — Candlestick Chart and Polling Delivery](ADR-041-candlestick-chart-and-polling-delivery.md)
+- [ADR-043 — Browser Market Data Streaming and Recovery](ADR-043-browser-market-data-streaming-and-recovery.md)

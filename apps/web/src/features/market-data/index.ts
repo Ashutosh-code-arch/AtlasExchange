@@ -22,8 +22,16 @@ export { CandlestickChart, type CandlestickChartProps } from "./components/candl
 export { LevelTwoOrderBook, type LevelTwoOrderBookProps } from "./components/level-two-order-book";
 export { TradeTickerPanel, type TradeTickerPanelProps } from "./components/trade-ticker-panel";
 export {
+  BrowserMarketDataStreamClient,
+  marketDataStreamUrl,
+  type BrowserMarketDataStreamClientOptions,
+  type MarketDataStreamObserver,
+  type MarketDataStreamSubscriptionHandle,
+  type MarketDataStreamSubscriptionInput,
+  type MarketDataSubscriptionClient,
+} from "./state/market-data-stream-client";
+export {
   defaultCandleHistoryLimit,
-  defaultCandlePollIntervalMs,
   useCandleHistory,
   type CandleHistoryController,
   type CandleHistoryStatus,
@@ -31,14 +39,12 @@ export {
 } from "./state/use-candle-history";
 export {
   defaultOrderBookDepth,
-  defaultOrderBookPollIntervalMs,
   useLevelTwoOrderBook,
   type LevelTwoOrderBookController,
   type LevelTwoOrderBookStatus,
   type UseLevelTwoOrderBookOptions,
 } from "./state/use-level-two-order-book";
 export {
-  defaultTickerPollIntervalMs,
   useTradeTicker,
   type TradeTickerController,
   type TradeTickerStatus,

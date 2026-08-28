@@ -17,6 +17,7 @@ import {
 } from "../src/features/authentication";
 import { TradingWorkspace, type TradingWorkspaceProps } from "../src/features/trading";
 import { ApiHttpError, ApiTransportError } from "../src/shared/api/http-client";
+import { ControlledMarketDataStream } from "./support/controlled-market-data-stream";
 
 const currentUser: CurrentUser = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -80,9 +81,6 @@ type OrderLoader = NonNullable<TradingWorkspaceProps["orderLoader"]>;
 type TradeLoader = NonNullable<TradingWorkspaceProps["tradeLoader"]>;
 type OrderPlacer = NonNullable<TradingWorkspaceProps["orderPlacer"]>;
 type OrderCanceller = NonNullable<TradingWorkspaceProps["orderCanceller"]>;
-type OrderBookLoader = NonNullable<TradingWorkspaceProps["orderBookLoader"]>;
-type CandleHistoryLoader = NonNullable<TradingWorkspaceProps["candleHistoryLoader"]>;
-type TickerLoader = NonNullable<TradingWorkspaceProps["tickerLoader"]>;
 
 const orderBook: MarketDataOrderBookResponse["data"] = {
   marketCode: "BTC-USD",
@@ -131,7 +129,7 @@ const candleHistory: MarketDataCandlesResponse["data"] = {
 };
 
 function renderWorkspace(
-  props: TradingWorkspaceProps = {},
+  props: Partial<TradingWorkspaceProps> = {},
   authenticated = true,
 ): AuthenticationSessionClient {
   const client: AuthenticationSessionClient = {
@@ -139,6 +137,10 @@ function renderWorkspace(
     dispose: vi.fn(),
     announceAuthenticationLost: vi.fn(),
   };
+  const stream =
+    props.marketDataStreamClient ??
+    new ControlledMarketDataStream({ orderBook, ticker, candles: candleHistory });
+  const apiBaseUrl = props.apiBaseUrl ?? "http://api.test";
   render(
     <AuthenticationProvider
       apiBaseUrl="http://api.test"
@@ -149,14 +151,15 @@ function renderWorkspace(
           : Promise.reject(new ApiHttpError(401, "AUTHENTICATION_REQUIRED", "anonymous"))
       }
     >
-      <TradingWorkspace {...props} />
+      <TradingWorkspace {...props} apiBaseUrl={apiBaseUrl} marketDataStreamClient={stream} />
     </AuthenticationProvider>,
   );
   return client;
 }
 
-function standardProps(overrides: TradingWorkspaceProps = {}): TradingWorkspaceProps {
+function standardProps(overrides: Partial<TradingWorkspaceProps> = {}): TradingWorkspaceProps {
   return {
+    apiBaseUrl: "http://api.test",
     marketLoader: vi.fn<MarketLoader>().mockResolvedValue(markets),
     orderLoader: vi
       .fn<OrderLoader>()
@@ -164,12 +167,11 @@ function standardProps(overrides: TradingWorkspaceProps = {}): TradingWorkspaceP
     tradeLoader: vi
       .fn<TradeLoader>()
       .mockResolvedValue({ trades: [execution], page: { nextCursor: null } }),
-    orderBookLoader: vi.fn<OrderBookLoader>().mockResolvedValue(orderBook),
-    orderBookPollIntervalMs: 60_000,
-    tickerLoader: vi.fn<TickerLoader>().mockResolvedValue(ticker),
-    tickerPollIntervalMs: 60_000,
-    candleHistoryLoader: vi.fn<CandleHistoryLoader>().mockResolvedValue(candleHistory),
-    candlePollIntervalMs: 60_000,
+    marketDataStreamClient: new ControlledMarketDataStream({
+      orderBook,
+      ticker,
+      candles: candleHistory,
+    }),
     ...overrides,
   };
 }
@@ -179,20 +181,17 @@ describe("TradingWorkspace", () => {
     const marketLoader = vi.fn<MarketLoader>().mockResolvedValue(markets);
     const orderLoader = vi.fn<OrderLoader>();
     const tradeLoader = vi.fn<TradeLoader>();
-    const orderBookLoader = vi.fn<OrderBookLoader>().mockResolvedValue(orderBook);
-    const tickerLoader = vi.fn<TickerLoader>().mockResolvedValue(ticker);
-    const candleHistoryLoader = vi.fn<CandleHistoryLoader>().mockResolvedValue(candleHistory);
+    const stream = new ControlledMarketDataStream({
+      orderBook,
+      ticker,
+      candles: candleHistory,
+    });
     renderWorkspace(
       {
         marketLoader,
         orderLoader,
         tradeLoader,
-        orderBookLoader,
-        orderBookPollIntervalMs: 60_000,
-        tickerLoader,
-        tickerPollIntervalMs: 60_000,
-        candleHistoryLoader,
-        candlePollIntervalMs: 60_000,
+        marketDataStreamClient: stream,
       },
       false,
     );
@@ -213,19 +212,16 @@ describe("TradingWorkspace", () => {
     expect(marketLoader).toHaveBeenCalledTimes(1);
     expect(orderLoader).not.toHaveBeenCalled();
     expect(tradeLoader).not.toHaveBeenCalled();
-    expect(orderBookLoader).toHaveBeenCalledWith(expect.any(Object), {
-      marketCode: "BTC-USD",
-      depth: 15,
-    });
-    expect(tickerLoader).toHaveBeenCalledWith(expect.any(Object), { marketCode: "BTC-USD" });
     expect(screen.getByRole("region", { name: "BTC-USD candlestick chart" })).toHaveTextContent(
       /Price history.*No committed trades/i,
     );
-    expect(candleHistoryLoader).toHaveBeenCalledWith(expect.any(Object), {
-      marketCode: "BTC-USD",
-      interval: "5m",
-      limit: 120,
-    });
+    expect(stream.activeSubscriptions).toEqual(
+      expect.arrayContaining([
+        { topic: "order_book", marketCode: "BTC-USD", depth: 15 },
+        { topic: "ticker", marketCode: "BTC-USD" },
+        { topic: "candles", marketCode: "BTC-USD", interval: "5m", limit: 120 },
+      ]),
+    );
   });
 
   it("places a sell limit order from the selected market and shows server-confirmed success", async () => {

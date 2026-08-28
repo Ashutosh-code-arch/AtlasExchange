@@ -1,11 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import {
-  useCandleHistory,
-  type CandleHistoryLoader,
-  type CandleHistorySnapshot,
-} from "../src/features/market-data";
+import { useCandleHistory, type CandleHistorySnapshot } from "../src/features/market-data";
+import { ControlledMarketDataStream } from "./support/controlled-market-data-stream";
 
 function snapshot(
   marketCode = "BTC-USD",
@@ -27,91 +24,60 @@ function snapshot(
   };
 }
 
-const request = vi.fn(() => Promise.reject(new Error("Unexpected HTTP request")));
-
 describe("useCandleHistory", () => {
-  it("loads selected history and retains it visibly when a refresh fails", async () => {
-    const loader = vi
-      .fn<CandleHistoryLoader>()
-      .mockResolvedValueOnce(snapshot())
-      .mockRejectedValueOnce(new Error("offline"));
+  it("accepts live history and retains it visibly across interruption", async () => {
+    const stream = new ControlledMarketDataStream();
     const { result } = renderHook(() =>
-      useCandleHistory({
-        request,
-        marketCode: "BTC-USD",
-        interval: "5m",
-        loader,
-        pollIntervalMs: 60_000,
-      }),
+      useCandleHistory({ stream, marketCode: "BTC-USD", interval: "5m" }),
     );
-
+    act(() => stream.emitCandles(snapshot()));
     await waitFor(() => expect(result.current.status).toBe("ready"));
-    act(() => result.current.refresh());
-    await waitFor(() => expect(result.current.status).toBe("stale"));
+
+    act(() => stream.makeUnavailable("candles"));
+
+    expect(result.current.status).toBe("stale");
     expect(result.current.snapshot?.marketCode).toBe("BTC-USD");
-    expect(loader).toHaveBeenCalledTimes(2);
+    act(() => result.current.refresh());
+    expect(stream.retryCount).toBe(1);
   });
 
-  it("discards late responses across both market and interval changes", async () => {
-    let resolveOld: ((value: CandleHistorySnapshot) => void) | undefined;
-    const oldResponse = new Promise<CandleHistorySnapshot>((resolve) => {
-      resolveOld = resolve;
-    });
-    const loader = vi
-      .fn<CandleHistoryLoader>()
-      .mockImplementation((_client, input) =>
-        input.marketCode === "BTC-USD" && input.interval === "5m"
-          ? oldResponse
-          : Promise.resolve(snapshot("ETH-USD", "1h", "9")),
-      );
+  it("replaces both market and interval and ignores the old callback", async () => {
+    const stream = new ControlledMarketDataStream();
     const initialProps: { marketCode: string; interval: "5m" | "1h" } = {
       marketCode: "BTC-USD",
       interval: "5m",
     };
     const { result, rerender } = renderHook(
       ({ marketCode, interval }: { marketCode: string; interval: "5m" | "1h" }) =>
-        useCandleHistory({ request, marketCode, interval, loader, pollIntervalMs: 60_000 }),
+        useCandleHistory({ stream, marketCode, interval }),
       { initialProps },
     );
-
-    await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+    const oldObserver = stream.historicalObserver("candles", "BTC-USD");
     rerender({ marketCode: "ETH-USD", interval: "1h" });
+    act(() => stream.emitCandles(snapshot("ETH-USD", "1h", "9")));
     await waitFor(() => expect(result.current.snapshot?.sequence).toBe("9"));
-    await act(async () => {
-      resolveOld?.(snapshot("BTC-USD", "5m", "2"));
-      await oldResponse;
-    });
-    expect(result.current.snapshot?.marketCode).toBe("ETH-USD");
-    expect(result.current.snapshot?.interval).toBe("1h");
-  });
 
-  it("pauses while hidden, resumes when visible, and validates polling bounds", async () => {
-    const originalVisibility = document.visibilityState;
-    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
-    const loader = vi.fn<CandleHistoryLoader>().mockResolvedValue(snapshot());
-    const { result } = renderHook(() =>
-      useCandleHistory({
-        request,
-        marketCode: "BTC-USD",
-        interval: "5m",
-        loader,
-        pollIntervalMs: 60_000,
+    act(() =>
+      oldObserver?.onSnapshot({
+        type: "snapshot",
+        subscriptionId: "old",
+        topic: "candles",
+        data: snapshot("BTC-USD", "5m", "10"),
       }),
     );
-    await act(async () => Promise.resolve());
-    expect(loader).not.toHaveBeenCalled();
 
-    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
-    document.dispatchEvent(new Event("visibilitychange"));
-    await waitFor(() => expect(result.current.status).toBe("ready"));
-    Object.defineProperty(document, "visibilityState", {
-      configurable: true,
-      value: originalVisibility,
-    });
+    expect(result.current.snapshot?.marketCode).toBe("ETH-USD");
+    expect(result.current.snapshot?.interval).toBe("1h");
+    expect(stream.activeSubscriptions).toEqual([
+      { topic: "candles", marketCode: "ETH-USD", interval: "1h", limit: 120 },
+    ]);
+  });
 
+  it("rejects an unsafe history limit", () => {
+    const stream = new ControlledMarketDataStream();
     expect(() =>
       renderHook(() =>
-        useCandleHistory({ request, marketCode: "BTC-USD", interval: "5m", pollIntervalMs: 100 }),
+        useCandleHistory({ stream, marketCode: "BTC-USD", interval: "5m", limit: 0 }),
       ),
     ).toThrow(RangeError);
   });

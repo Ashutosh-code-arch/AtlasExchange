@@ -6,12 +6,8 @@ import {
   type TradingMarket,
 } from "@atlas/contracts";
 
-import type { CandleHistoryLoader, MarketDataHttpClient } from "../api/market-data-api";
-import {
-  defaultCandleHistoryLimit,
-  defaultCandlePollIntervalMs,
-  useCandleHistory,
-} from "../state/use-candle-history";
+import type { MarketDataSubscriptionClient } from "../state/market-data-stream-client";
+import { defaultCandleHistoryLimit, useCandleHistory } from "../state/use-candle-history";
 import {
   buildCandleChartModel,
   candleChartGeometry,
@@ -19,10 +15,8 @@ import {
 } from "./candle-chart-model";
 
 export interface CandlestickChartProps {
-  readonly request: MarketDataHttpClient["request"];
+  readonly stream: MarketDataSubscriptionClient;
   readonly market?: TradingMarket;
-  readonly loader?: CandleHistoryLoader;
-  readonly pollIntervalMs?: number;
   readonly limit?: number;
   readonly initialInterval?: MarketDataCandleInterval;
 }
@@ -120,21 +114,17 @@ function CandlePlot({
 }
 
 export function CandlestickChart({
-  request,
+  stream,
   market,
-  loader,
-  pollIntervalMs = defaultCandlePollIntervalMs,
   limit = defaultCandleHistoryLimit,
   initialInterval = "5m",
 }: CandlestickChartProps): React.JSX.Element {
   const [interval, setInterval] = useState<MarketDataCandleInterval>(initialInterval);
   const controller = useCandleHistory({
-    request,
+    stream,
     interval,
     limit,
-    pollIntervalMs,
     ...(market === undefined ? {} : { marketCode: market.code }),
-    ...(loader === undefined ? {} : { loader }),
   });
   const candidateSnapshot = controller.snapshot;
   const snapshot =
@@ -184,7 +174,7 @@ export function CandlestickChart({
             <span>{statusLabel}</span>
             <small>
               {snapshot === null
-                ? `${pollIntervalMs / 1_000}s REST refresh`
+                ? "Live WebSocket"
                 : `Seq ${snapshot.sequence} · ${displayGeneratedAt(snapshot.generatedAt)}`}
             </small>
           </div>
@@ -209,7 +199,7 @@ export function CandlestickChart({
         <>
           {controller.status === "stale" ? (
             <div className="candle-chart__notice" role="alert">
-              <span>Chart refresh failed. Displayed candles may be stale.</span>
+              <span>Live stream interrupted. Displayed candles may be stale.</span>
               <button className="text-button" type="button" onClick={controller.refresh}>
                 Retry
               </button>

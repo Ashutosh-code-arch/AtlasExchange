@@ -1,13 +1,11 @@
 import type { TradingMarket } from "@atlas/contracts";
 
-import type { MarketDataHttpClient, TradeTickerLoader } from "../api/market-data-api";
-import { defaultTickerPollIntervalMs, useTradeTicker } from "../state/use-trade-ticker";
+import type { MarketDataSubscriptionClient } from "../state/market-data-stream-client";
+import { useTradeTicker } from "../state/use-trade-ticker";
 
 export interface TradeTickerPanelProps {
-  readonly request: MarketDataHttpClient["request"];
+  readonly stream: MarketDataSubscriptionClient;
   readonly market?: TradingMarket;
-  readonly loader?: TradeTickerLoader;
-  readonly pollIntervalMs?: number;
 }
 
 function displayTime(value: string | null): string {
@@ -19,17 +17,10 @@ function displayTime(value: string | null): string {
   }).format(new Date(value));
 }
 
-export function TradeTickerPanel({
-  request,
-  market,
-  loader,
-  pollIntervalMs = defaultTickerPollIntervalMs,
-}: TradeTickerPanelProps): React.JSX.Element {
+export function TradeTickerPanel({ stream, market }: TradeTickerPanelProps): React.JSX.Element {
   const controller = useTradeTicker({
-    request,
-    pollIntervalMs,
+    stream,
     ...(market === undefined ? {} : { marketCode: market.code }),
-    ...(loader === undefined ? {} : { loader }),
   });
   const snapshot = controller.snapshot?.marketCode === market?.code ? controller.snapshot : null;
   const statusLabel =
@@ -65,7 +56,7 @@ export function TradeTickerPanel({
           <span>{statusLabel}</span>
           <small>
             {snapshot === null
-              ? `${pollIntervalMs / 1_000}s REST refresh`
+              ? "Live WebSocket"
               : `Seq ${snapshot.sequence} · ${displayTime(snapshot.asOf)}`}
           </small>
         </div>
@@ -86,7 +77,7 @@ export function TradeTickerPanel({
         <>
           {controller.status === "stale" ? (
             <div className="trade-ticker__notice" role="alert">
-              <span>Ticker refresh failed. Displayed trade values may be stale.</span>
+              <span>Live stream interrupted. Displayed trade values may be stale.</span>
               <button className="text-button" type="button" onClick={controller.refresh}>
                 Retry
               </button>
