@@ -533,6 +533,20 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   tests prove the Phase 6 boundaries, idempotency, privacy, stale recovery, and lifecycle behavior.
 - `pnpm verify`, `pnpm build`, and `pnpm test:e2e` pass at the phase boundary.
 
+## Pre–Phase 7 interface refinement
+
+- [ADR-055 — Light Product Interface and Visual System](../architecture/decisions/ADR-055-light-product-interface-and-visual-system.md)
+  replaces the original dark fluorescent engineering aesthetic with a light-first professional
+  product shell, semantic colour tokens, quiet work surfaces, disciplined information hierarchy,
+  visible focus, and responsive density rules.
+- The overview now precedes the capability workspaces and uses a truthful product preview instead
+  of a decorative architecture orbit. Identity, Portfolio, Trading, Financial, Notifications,
+  Administration, system status, and roadmap surfaces share the same grey canvas, white panels,
+  restrained blue action language, muted financial-state colours, radii, borders, and elevation.
+- The redesign changes no business contract or server authority. Existing type, lint, boundary,
+  unit, integration, component, production-build, and browser journeys remain the regression gate,
+  supplemented by desktop and mobile visual inspection.
+
 ## Phase transition rule
 
 Do not begin a later phase merely because folders can be scaffolded. Begin it when the preceding

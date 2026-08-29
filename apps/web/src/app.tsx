@@ -99,6 +99,7 @@ function OverviewRoute({
   return (
     <>
       <AuthenticationPanel />
+      <OverviewPage readiness={readiness} onRefresh={() => void refresh()} />
       <Suspense
         fallback={
           <section className="portfolio-workspace" aria-label="Portfolio">
@@ -127,7 +128,6 @@ function OverviewRoute({
         <FinancialWorkspace />
       </Suspense>
       <AdministrationRoute />
-      <OverviewPage readiness={readiness} onRefresh={() => void refresh()} />
     </>
   );
 }

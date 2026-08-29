@@ -25,7 +25,7 @@ export function OverviewPage({ readiness, onRefresh }: OverviewPageProps): React
           <h1>
             Build trust.
             <br />
-            <span>Then build trades.</span>
+            <span>Trade with clarity.</span>
           </h1>
           <p className="hero__summary">
             Atlas is a production-inspired exchange built one dependable boundary at a time. The
@@ -37,19 +37,47 @@ export function OverviewPage({ readiness, onRefresh }: OverviewPageProps): React
             <a className="primary-button" href="#roadmap">
               Explore the build
             </a>
-            <span className="release-tag">v0.6 · Administration console</span>
+            <span className="release-tag">v0.6 · Product workspace</span>
           </div>
         </div>
-        <div className="hero__visual" aria-label="Atlas foundation architecture">
-          <div className="orbit orbit--outer" />
-          <div className="orbit orbit--inner" />
-          <div className="atlas-mark">
-            <span>ATLAS</span>
-            <strong>01</strong>
+        <div className="hero__visual" aria-label="Atlas product workspace">
+          <div className="platform-preview">
+            <div className="platform-preview__heading">
+              <div>
+                <span>Atlas workspace</span>
+                <strong>Designed for disciplined execution</strong>
+              </div>
+              <span className="platform-preview__status">
+                <i aria-hidden="true" /> Platform ready
+              </span>
+            </div>
+            <div className="platform-preview__grid">
+              <article>
+                <span>Portfolio</span>
+                <strong>Exact balances</strong>
+                <small>Server-owned valuation</small>
+              </article>
+              <article>
+                <span>Execution</span>
+                <strong>Limit orders</strong>
+                <small>Atomic settlement</small>
+              </article>
+              <article>
+                <span>Market data</span>
+                <strong>Live depth</strong>
+                <small>Recoverable streams</small>
+              </article>
+              <article>
+                <span>Operations</span>
+                <strong>Controlled access</strong>
+                <small>Audited changes</small>
+              </article>
+            </div>
+            <div className="platform-preview__footer">
+              <span>Precision before velocity</span>
+              <span>Web · API · PostgreSQL</span>
+            </div>
           </div>
-          <div className="node node--web">WEB</div>
-          <div className="node node--api">API</div>
-          <div className="node node--db">DB</div>
         </div>
       </section>
 
