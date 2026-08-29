@@ -6,19 +6,19 @@ import {
   type HealthLiveResponse,
   type HealthReadyResponse,
 } from "@atlas/contracts";
-import cors from "cors";
 import express, { type ErrorRequestHandler, type Express, type Router } from "express";
-import helmet from "helmet";
 import type { Logger } from "pino";
 import { pinoHttp } from "pino-http";
 
 import { AppError } from "./http/errors/app-error.js";
 import type { LifecycleState } from "./platform/lifecycle/lifecycle-state.js";
+import { configureHttpSecurity } from "./platform/security/http-security.js";
 
 export interface CreateAppOptions {
   readonly lifecycle: LifecycleState;
   readonly logger: Logger;
   readonly webOrigin: string;
+  readonly secureTransport?: boolean;
   readonly identityRouter?: Router;
   readonly financialRouter?: Router;
   readonly tradingRouter?: Router;
@@ -69,15 +69,10 @@ function mapHttpError(error: unknown): AppError | undefined {
 export function createApp(options: CreateAppOptions): Express {
   const app = express();
 
-  app.disable("x-powered-by");
-  app.use(helmet());
-  app.use(
-    cors({
-      origin: options.webOrigin,
-      credentials: true,
-      allowedHeaders: ["Content-Type", "X-CSRF-Token", "Idempotency-Key", "X-Request-ID"],
-    }),
-  );
+  configureHttpSecurity(app, {
+    webOrigin: options.webOrigin,
+    secureTransport: options.secureTransport ?? false,
+  });
   app.use(
     pinoHttp({
       logger: options.logger,
@@ -175,7 +170,7 @@ export function createApp(options: CreateAppOptions): Express {
       request.log.error({ event: "http.request.failed", err: error }, "Unexpected request failure");
     }
 
-    response.status(statusCode).json(body);
+    response.setHeader("cache-control", "no-store").status(statusCode).json(body);
   };
   app.use(errorHandler);
 

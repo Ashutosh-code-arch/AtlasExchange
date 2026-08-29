@@ -13,6 +13,14 @@ describe("API configuration", () => {
     const config = parseApiConfig(validEnvironment);
 
     expect(config.http.port).toBe(3000);
+    expect(config.http.secureTransport).toBe(false);
+    expect(config.http.serverLimits).toEqual({
+      requestTimeoutMs: 30_000,
+      headersTimeoutMs: 10_000,
+      keepAliveTimeoutMs: 5_000,
+      maximumHeadersCount: 100,
+      maximumRequestsPerSocket: 1_000,
+    });
     expect(config.database.expectedSchemaVersion).toBe("15");
     expect(config.financial.simulatedFundingEnabled).toBe(true);
     expect(config.financial.simulatedWithdrawalsEnabled).toBe(true);
@@ -50,6 +58,7 @@ describe("API configuration", () => {
     ).toBeGreaterThanOrEqual(32);
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.database)).toBe(true);
+    expect(Object.isFrozen(config.http.serverLimits)).toBe(true);
     expect(Object.isFrozen(config.financial)).toBe(true);
     expect(Object.isFrozen(config.marketData.projection)).toBe(true);
     expect(Object.isFrozen(config.marketData.stream)).toBe(true);
@@ -63,6 +72,44 @@ describe("API configuration", () => {
 
   it("rejects invalid ports", () => {
     expect(() => parseApiConfig({ ...validEnvironment, API_PORT: "70000" })).toThrow(/API_PORT/);
+  });
+
+  it("validates explicit HTTP resource limits and their ordering", () => {
+    const config = parseApiConfig({
+      ...validEnvironment,
+      HTTP_REQUEST_TIMEOUT_MS: "45000",
+      HTTP_HEADERS_TIMEOUT_MS: "12000",
+      HTTP_KEEP_ALIVE_TIMEOUT_MS: "6000",
+      HTTP_MAX_HEADERS_COUNT: "80",
+      HTTP_MAX_REQUESTS_PER_SOCKET: "500",
+    });
+    expect(config.http.serverLimits).toEqual({
+      requestTimeoutMs: 45_000,
+      headersTimeoutMs: 12_000,
+      keepAliveTimeoutMs: 6_000,
+      maximumHeadersCount: 80,
+      maximumRequestsPerSocket: 500,
+    });
+
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        HTTP_HEADERS_TIMEOUT_MS: "5000",
+        HTTP_KEEP_ALIVE_TIMEOUT_MS: "5000",
+      }),
+    ).toThrowError(
+      new ConfigurationError(["HTTP_HEADERS_TIMEOUT_MS", "HTTP_KEEP_ALIVE_TIMEOUT_MS"]),
+    );
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        HTTP_REQUEST_TIMEOUT_MS: "9000",
+        HTTP_HEADERS_TIMEOUT_MS: "10000",
+      }),
+    ).toThrowError(new ConfigurationError(["HTTP_REQUEST_TIMEOUT_MS", "HTTP_HEADERS_TIMEOUT_MS"]));
+    expect(() =>
+      parseApiConfig({ ...validEnvironment, HTTP_MAX_HEADERS_COUNT: "201" }),
+    ).toThrowError(new ConfigurationError(["HTTP_MAX_HEADERS_COUNT"]));
   });
 
   it("validates explicit Market Data projection worker boundaries", () => {
@@ -185,6 +232,7 @@ describe("API configuration", () => {
     );
     expect(config.identity.emailDelivery.requireTls).toBe(true);
     expect(config.identity.sessionSecurity.secureCookies).toBe(true);
+    expect(config.http.secureTransport).toBe(true);
   });
 
   it("requires explicit SMTP routing in staging and production", () => {

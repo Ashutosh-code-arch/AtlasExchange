@@ -65,6 +65,9 @@ describe("Atlas overview", () => {
     expect(screen.getByText("Product surfaces").closest("li")).toHaveTextContent(
       /06\s*Product surfaces\s*Complete/i,
     );
+    expect(screen.getByText("Production readiness").closest("li")).toHaveTextContent(
+      /07\s*Production readiness\s*Current/i,
+    );
     expect(await screen.findByText("Operational")).toBeInTheDocument();
     expect(await screen.findByText(appUser.email)).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Notifications" })).toBeInTheDocument();

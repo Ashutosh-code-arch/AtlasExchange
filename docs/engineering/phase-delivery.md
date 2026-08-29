@@ -1,7 +1,7 @@
 # Atlas Exchange Phase Delivery
 
 **Status:** Active  
-**Last reviewed:** 2026-08-28
+**Last reviewed:** 2026-08-30
 
 This document translates the canonical product and sprint documents into small, demonstrable
 delivery increments. A phase is complete only after its acceptance checks pass.
@@ -13,8 +13,8 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 | 3. Financial foundation   | Assets, wallets, double-entry ledger, deposits, withdrawals      | Implemented |
 | 4. Trading                | Orders, reservation, matching, trades, atomic settlement         | Implemented |
 | 5. Market data            | Order-book views, tickers, candles, WebSocket streams            | Implemented |
-| 6. Product surfaces       | Portfolio, notifications, administration                         | In progress |
-| 7. Production readiness   | Security hardening, metrics, rate limits, performance            | Planned     |
+| 6. Product surfaces       | Portfolio, notifications, administration                         | Implemented |
+| 7. Production readiness   | Security hardening, metrics, rate limits, performance            | In progress |
 | 8. Deployment             | Deployment, runbooks, monitoring, interview evidence             | Planned     |
 
 ## Phase 1 acceptance criteria
@@ -546,6 +546,22 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - The redesign changes no business contract or server authority. Existing type, lint, boundary,
   unit, integration, component, production-build, and browser journeys remain the regression gate,
   supplemented by desktop and mobile visual inspection.
+
+## Phase 7 entry and delivery state
+
+- Phase 6 has passed its unit, integration, component, production-build, real-browser, and visual
+  acceptance checks. Production-readiness work can therefore harden measured cross-cutting
+  boundaries without compensating for unfinished product behavior.
+- [ADR-056 — Production HTTP Edge Security and Resource Boundary](../architecture/decisions/ADR-056-production-http-edge-security-and-resource-boundary.md)
+  defines the direct-client proxy trust boundary, exact-origin credentialed CORS, explicit API
+  security headers, managed-environment HSTS, non-cacheable errors, and bounded Node HTTP connection
+  resources.
+- The API now centralizes security composition, ignores forwarded identity until deployment defines
+  a trusted topology, grants browser access only to configured `WEB_ORIGIN`, and exposes only the
+  browser response headers required for correlation and retry. Validated startup configuration
+  bounds request/header/keep-alive time, header count, and requests per socket. Focused tests prove
+  local-versus-managed HSTS, header policy, hostile-origin containment, preflight scope,
+  configuration relationships, and applied server properties.
 
 ## Phase transition rule
 

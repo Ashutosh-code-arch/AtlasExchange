@@ -48,6 +48,7 @@ import {
   startRuntime,
 } from "./platform/lifecycle/process-lifecycle.js";
 import { createLogger } from "./platform/logging/logger.js";
+import { applyHttpServerLimits } from "./platform/security/http-server-limits.js";
 
 type AtlasDatabaseSchema = DatabaseSchema &
   AdministrationDatabaseSchema &
@@ -197,6 +198,7 @@ async function start(): Promise<RunningServer> {
       lifecycle,
       logger,
       webOrigin: config.http.webOrigin,
+      secureTransport: config.http.secureTransport,
       identityRouter,
       financialRouter,
       tradingRouter,
@@ -207,6 +209,7 @@ async function start(): Promise<RunningServer> {
       applicationVersion: config.logging.applicationVersion,
     });
     const server = createServer(app);
+    applyHttpServerLimits(server, config.http.serverLimits);
     const marketDataStream = config.marketData.stream.enabled
       ? createMarketDataStreamGateway({
           database: database.database,

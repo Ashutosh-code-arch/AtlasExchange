@@ -16,7 +16,7 @@ class ControlledDependency implements ReadinessDependency {
   }
 }
 
-function createTestApp(): {
+function createTestApp(options: { readonly secureTransport?: boolean } = {}): {
   app: ReturnType<typeof createApp>;
   lifecycle: LifecycleState;
   dependency: ControlledDependency;
@@ -27,6 +27,7 @@ function createTestApp(): {
     lifecycle,
     logger: pino({ enabled: false }),
     webOrigin: "http://localhost:5173",
+    secureTransport: options.secureTransport ?? false,
   });
   return { app, lifecycle, dependency };
 }
@@ -86,6 +87,7 @@ describe("API application", () => {
       },
     });
     expect(response.body).not.toHaveProperty("stack");
+    expect(response.headers["cache-control"]).toBe("no-store");
   });
 
   it("returns the request ID to callers", async () => {
@@ -95,5 +97,65 @@ describe("API application", () => {
       .set("x-request-id", "atlas-test-request");
 
     expect(response.headers["x-request-id"]).toBe("atlas-test-request");
+  });
+
+  it("applies an explicit API security-header policy without local HSTS", async () => {
+    const { app } = createTestApp();
+    const response = await request(app).get("/api/v1/status");
+
+    expect(response.headers["content-security-policy"]).toContain("default-src 'none'");
+    expect(response.headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+    expect(response.headers["cross-origin-opener-policy"]).toBe("same-origin");
+    expect(response.headers["cross-origin-resource-policy"]).toBe("same-site");
+    expect(response.headers["permissions-policy"]).toBe(
+      "camera=(), geolocation=(), microphone=(), payment=(), usb=()",
+    );
+    expect(response.headers["referrer-policy"]).toBe("no-referrer");
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["x-frame-options"]).toBe("DENY");
+    expect(response.headers["strict-transport-security"]).toBeUndefined();
+    expect(response.headers["x-powered-by"]).toBeUndefined();
+    expect(app.enabled("trust proxy")).toBe(false);
+  });
+
+  it("enables HSTS only when TLS transport is managed", async () => {
+    const { app } = createTestApp({ secureTransport: true });
+    const response = await request(app).get("/health/live");
+
+    expect(response.headers["strict-transport-security"]).toBe(
+      "max-age=31536000; includeSubDomains",
+    );
+  });
+
+  it("exposes credentialed responses only to the exact configured browser origin", async () => {
+    const { app } = createTestApp();
+    const allowed = await request(app).get("/api/v1/status").set("origin", "http://localhost:5173");
+    const denied = await request(app)
+      .get("/api/v1/status")
+      .set("origin", "https://hostile.example");
+
+    expect(allowed.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
+    expect(allowed.headers["access-control-allow-credentials"]).toBe("true");
+    expect(allowed.headers["access-control-expose-headers"]).toBe("X-Request-ID,Retry-After");
+    expect(allowed.headers.vary).toContain("Origin");
+    expect(denied.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(denied.headers["access-control-allow-credentials"]).toBeUndefined();
+  });
+
+  it("bounds accepted preflight methods, headers, and browser caching", async () => {
+    const { app } = createTestApp();
+    const response = await request(app)
+      .options("/api/v1/auth/session")
+      .set("origin", "http://localhost:5173")
+      .set("access-control-request-method", "PATCH");
+
+    expect(response.status).toBe(204);
+    expect(response.headers["access-control-allow-methods"]).toBe(
+      "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+    );
+    expect(response.headers["access-control-allow-headers"]).toBe(
+      "Content-Type,X-CSRF-Token,Idempotency-Key,X-Request-ID",
+    );
+    expect(response.headers["access-control-max-age"]).toBe("600");
   });
 });

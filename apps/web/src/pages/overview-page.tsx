@@ -12,7 +12,7 @@ const phases = [
   { number: "04", label: "Trading", state: "Complete" },
   { number: "05", label: "Market data", state: "Complete" },
   { number: "06", label: "Product surfaces", state: "Complete" },
-  { number: "07", label: "Production readiness", state: "Next" },
+  { number: "07", label: "Production readiness", state: "Current" },
   { number: "08", label: "Deployment", state: "Planned" },
 ];
 
@@ -37,7 +37,7 @@ export function OverviewPage({ readiness, onRefresh }: OverviewPageProps): React
             <a className="primary-button" href="#roadmap">
               Explore the build
             </a>
-            <span className="release-tag">v0.6 · Product workspace</span>
+            <span className="release-tag">v0.7 · Production hardening</span>
           </div>
         </div>
         <div className="hero__visual" aria-label="Atlas product workspace">

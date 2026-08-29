@@ -24,6 +24,26 @@ const apiEnvironmentSchema = z.object({
     .pipe(z.number().int().min(1).max(65_535)),
   DATABASE_URL: z.string().url().startsWith("postgresql://"),
   WEB_ORIGIN: z.string().url().default("http://localhost:5173"),
+  HTTP_REQUEST_TIMEOUT_MS: integerString
+    .default("30000")
+    .transform(Number)
+    .pipe(z.number().int().min(1_000).max(120_000)),
+  HTTP_HEADERS_TIMEOUT_MS: integerString
+    .default("10000")
+    .transform(Number)
+    .pipe(z.number().int().min(1_000).max(60_000)),
+  HTTP_KEEP_ALIVE_TIMEOUT_MS: integerString
+    .default("5000")
+    .transform(Number)
+    .pipe(z.number().int().min(1_000).max(30_000)),
+  HTTP_MAX_HEADERS_COUNT: integerString
+    .default("100")
+    .transform(Number)
+    .pipe(z.number().int().min(16).max(200)),
+  HTTP_MAX_REQUESTS_PER_SOCKET: integerString
+    .default("1000")
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(10_000)),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   ATLAS_ENV: z.enum(["local", "test", "ci", "staging", "production"]).default("local"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
@@ -105,6 +125,14 @@ export interface ApiConfig {
     port: number;
     shutdownTimeoutMs: number;
     webOrigin: string;
+    secureTransport: boolean;
+    serverLimits: Readonly<{
+      requestTimeoutMs: number;
+      headersTimeoutMs: number;
+      keepAliveTimeoutMs: number;
+      maximumHeadersCount: number;
+      maximumRequestsPerSocket: number;
+    }>;
   }>;
   readonly database: Readonly<{
     url: string;
@@ -198,6 +226,12 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
       "MARKET_DATA_PROJECTION_RETRY_MAXIMUM_DELAY_MS",
     ]);
   }
+  if (values.HTTP_HEADERS_TIMEOUT_MS <= values.HTTP_KEEP_ALIVE_TIMEOUT_MS) {
+    throw new ConfigurationError(["HTTP_HEADERS_TIMEOUT_MS", "HTTP_KEEP_ALIVE_TIMEOUT_MS"]);
+  }
+  if (values.HTTP_REQUEST_TIMEOUT_MS < values.HTTP_HEADERS_TIMEOUT_MS) {
+    throw new ConfigurationError(["HTTP_REQUEST_TIMEOUT_MS", "HTTP_HEADERS_TIMEOUT_MS"]);
+  }
   if (
     (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
     (values.SMTP_HOST === undefined || values.SMTP_FROM === undefined)
@@ -216,6 +250,14 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
       port: values.API_PORT,
       shutdownTimeoutMs: values.SHUTDOWN_TIMEOUT_MS,
       webOrigin: values.WEB_ORIGIN,
+      secureTransport: values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production",
+      serverLimits: Object.freeze({
+        requestTimeoutMs: values.HTTP_REQUEST_TIMEOUT_MS,
+        headersTimeoutMs: values.HTTP_HEADERS_TIMEOUT_MS,
+        keepAliveTimeoutMs: values.HTTP_KEEP_ALIVE_TIMEOUT_MS,
+        maximumHeadersCount: values.HTTP_MAX_HEADERS_COUNT,
+        maximumRequestsPerSocket: values.HTTP_MAX_REQUESTS_PER_SOCKET,
+      }),
     }),
     database: Object.freeze({
       url: values.DATABASE_URL,
