@@ -25,6 +25,7 @@ export interface CreateAppOptions {
   readonly marketDataRouter?: Router;
   readonly portfolioRouter?: Router;
   readonly notificationRouter?: Router;
+  readonly administrationRouter?: Router;
   readonly applicationVersion?: string;
 }
 
@@ -116,6 +117,9 @@ export function createApp(options: CreateAppOptions): Express {
   }
   if (options.notificationRouter !== undefined) {
     app.use("/api/v1", options.notificationRouter);
+  }
+  if (options.administrationRouter !== undefined) {
+    app.use("/api/v1", options.administrationRouter);
   }
 
   app.get("/health/live", (_request, response) => {

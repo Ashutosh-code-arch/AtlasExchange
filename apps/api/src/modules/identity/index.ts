@@ -59,6 +59,14 @@ export type { AuthenticateAccess } from "./application/authenticate-access.js";
 export type { SessionCsrfTokenService } from "./application/session-csrf-token-service.js";
 export { CryptoSessionCsrfTokenService } from "./infrastructure/security/crypto-session-csrf-token-service.js";
 export type { AuthenticatedContext, IdentityRole } from "./application/authenticated-context.js";
+export type {
+  IdentityAdministrationStore,
+  IdentityAdministrationUser,
+} from "./application/identity-administration-store.js";
+export {
+  PostgresIdentityAdministrationStore,
+  bindPostgresIdentityAdministrationStore,
+} from "./infrastructure/persistence/postgres-identity-administration-store.js";
 export {
   SmtpVerificationEmailDelivery,
   type SmtpVerificationEmailDeliveryOptions,

@@ -5,7 +5,10 @@ import type { Logger } from "pino";
 
 import { createApp } from "./app.js";
 import { parseApiConfig } from "./config/config.js";
-import type { AdministrationDatabaseSchema } from "./modules/administration/index.js";
+import {
+  createAdministrationModuleRouter,
+  type AdministrationDatabaseSchema,
+} from "./modules/administration/index.js";
 import {
   createAccessAuthentication,
   createIdentityModuleRouter,
@@ -177,6 +180,13 @@ async function start(): Promise<RunningServer> {
       secureCookies: config.identity.sessionSecurity.secureCookies,
       webOrigin: config.http.webOrigin,
     });
+    const administrationRouter = createAdministrationModuleRouter({
+      database: database.database,
+      authenticateAccess,
+      sessionCsrfTokenService,
+      secureCookies: config.identity.sessionSecurity.secureCookies,
+      webOrigin: config.http.webOrigin,
+    });
     if (marketDataWorker === undefined) {
       logger.info(
         { event: "market_data.projection_worker.disabled" },
@@ -193,6 +203,7 @@ async function start(): Promise<RunningServer> {
       marketDataRouter,
       portfolioRouter,
       notificationRouter,
+      administrationRouter,
       applicationVersion: config.logging.applicationVersion,
     });
     const server = createServer(app);

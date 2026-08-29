@@ -495,6 +495,18 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   reject malformed or changed retries, preserve identical retries, and bind to an existing
   transaction so a future Identity mutation and its evidence can commit or roll back together. No
   administration HTTP route or browser surface is exposed in this increment.
+- [ADR-053 — Administration User Management HTTP Contract](../architecture/decisions/ADR-053-administration-user-management-http-contract.md)
+  defines exact UUID user lookup, constrained active/suspended and admin-role changes, application
+  authorization, self-target protection, CSRF, UUID operation idempotency, target-session
+  invalidation, strict output containment, and separate actor-scoped read/mutation limits.
+- The composed API now serves one private Administration read and two privileged mutation routes.
+  Identity-owned adapters retain table ownership while the Administration transaction locks the
+  operation and target, applies one supported change, revokes the target's active sessions, and
+  appends its immutable audit fact before committing. Identical logical retries return the current
+  authoritative user without another event; changed retries conflict. Contract, application, HTTP,
+  and real-PostgreSQL tests prove authorization order, CSRF, self-protection, state conflicts,
+  atomic rollback, actor/session attribution, safe output, rate limiting, and grant/revoke behavior.
+  No migration or browser administration surface was added.
 
 ## Phase transition rule
 
