@@ -562,6 +562,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   bounds request/header/keep-alive time, header count, and requests per socket. Focused tests prove
   local-versus-managed HSTS, header policy, hostile-origin containment, preflight scope,
   configuration relationships, and applied server properties.
+- [ADR-057 — API Admission Rate Limiting and Abuse Protection](../architecture/decisions/ADR-057-api-admission-rate-limiting-and-abuse-protection.md)
+  defines separate coarse read and mutation budgets, direct-peer identity, bounded fail-closed
+  tracking, health-check independence, safe retryable rejection, and the continuing authority of
+  stricter module-owned limits.
+- Every `/api/v1` request now passes a process-local admission boundary after correlation and before
+  body parsing, authentication, or module routing. Validated configuration controls the shared
+  window, read and mutation budgets, and tracked-client cap. Rejections return the established
+  no-store `RATE_LIMITED` envelope with `Retry-After` and emit address-free structured security
+  evidence. Deterministic limiter and HTTP tests prove window reset, client isolation, capacity
+  exhaustion, method-class independence, forwarded-header resistance, and health-route isolation.
 
 ## Phase transition rule
 

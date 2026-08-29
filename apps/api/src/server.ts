@@ -49,6 +49,7 @@ import {
 } from "./platform/lifecycle/process-lifecycle.js";
 import { createLogger } from "./platform/logging/logger.js";
 import { applyHttpServerLimits } from "./platform/security/http-server-limits.js";
+import { InMemoryHttpRequestRateLimiter } from "./platform/security/http-request-rate-limiter.js";
 
 type AtlasDatabaseSchema = DatabaseSchema &
   AdministrationDatabaseSchema &
@@ -199,6 +200,18 @@ async function start(): Promise<RunningServer> {
       logger,
       webOrigin: config.http.webOrigin,
       secureTransport: config.http.secureTransport,
+      requestRateLimiters: {
+        read: new InMemoryHttpRequestRateLimiter({
+          maximumRequests: config.http.requestRateLimits.readMaximumRequests,
+          windowMilliseconds: config.http.requestRateLimits.windowMilliseconds,
+          maximumTrackedClients: config.http.requestRateLimits.maximumTrackedClients,
+        }),
+        mutation: new InMemoryHttpRequestRateLimiter({
+          maximumRequests: config.http.requestRateLimits.mutationMaximumRequests,
+          windowMilliseconds: config.http.requestRateLimits.windowMilliseconds,
+          maximumTrackedClients: config.http.requestRateLimits.maximumTrackedClients,
+        }),
+      },
       identityRouter,
       financialRouter,
       tradingRouter,

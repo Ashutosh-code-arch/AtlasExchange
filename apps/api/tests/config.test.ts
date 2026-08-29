@@ -21,6 +21,12 @@ describe("API configuration", () => {
       maximumHeadersCount: 100,
       maximumRequestsPerSocket: 1_000,
     });
+    expect(config.http.requestRateLimits).toEqual({
+      windowMilliseconds: 60_000,
+      readMaximumRequests: 600,
+      mutationMaximumRequests: 120,
+      maximumTrackedClients: 10_000,
+    });
     expect(config.database.expectedSchemaVersion).toBe("15");
     expect(config.financial.simulatedFundingEnabled).toBe(true);
     expect(config.financial.simulatedWithdrawalsEnabled).toBe(true);
@@ -59,6 +65,7 @@ describe("API configuration", () => {
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.database)).toBe(true);
     expect(Object.isFrozen(config.http.serverLimits)).toBe(true);
+    expect(Object.isFrozen(config.http.requestRateLimits)).toBe(true);
     expect(Object.isFrozen(config.financial)).toBe(true);
     expect(Object.isFrozen(config.marketData.projection)).toBe(true);
     expect(Object.isFrozen(config.marketData.stream)).toBe(true);
@@ -110,6 +117,38 @@ describe("API configuration", () => {
     expect(() =>
       parseApiConfig({ ...validEnvironment, HTTP_MAX_HEADERS_COUNT: "201" }),
     ).toThrowError(new ConfigurationError(["HTTP_MAX_HEADERS_COUNT"]));
+  });
+
+  it("validates explicit HTTP admission budgets and their ordering", () => {
+    const config = parseApiConfig({
+      ...validEnvironment,
+      HTTP_RATE_LIMIT_WINDOW_MS: "120000",
+      HTTP_READ_RATE_LIMIT_MAX_REQUESTS: "900",
+      HTTP_MUTATION_RATE_LIMIT_MAX_REQUESTS: "180",
+      HTTP_RATE_LIMIT_MAX_TRACKED_CLIENTS: "20000",
+    });
+    expect(config.http.requestRateLimits).toEqual({
+      windowMilliseconds: 120_000,
+      readMaximumRequests: 900,
+      mutationMaximumRequests: 180,
+      maximumTrackedClients: 20_000,
+    });
+
+    expect(() =>
+      parseApiConfig({ ...validEnvironment, HTTP_RATE_LIMIT_WINDOW_MS: "999" }),
+    ).toThrowError(new ConfigurationError(["HTTP_RATE_LIMIT_WINDOW_MS"]));
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        HTTP_READ_RATE_LIMIT_MAX_REQUESTS: "100",
+        HTTP_MUTATION_RATE_LIMIT_MAX_REQUESTS: "101",
+      }),
+    ).toThrowError(
+      new ConfigurationError([
+        "HTTP_READ_RATE_LIMIT_MAX_REQUESTS",
+        "HTTP_MUTATION_RATE_LIMIT_MAX_REQUESTS",
+      ]),
+    );
   });
 
   it("validates explicit Market Data projection worker boundaries", () => {

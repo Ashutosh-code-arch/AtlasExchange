@@ -12,6 +12,11 @@ import { pinoHttp } from "pino-http";
 
 import { AppError } from "./http/errors/app-error.js";
 import type { LifecycleState } from "./platform/lifecycle/lifecycle-state.js";
+import {
+  createHttpAdmissionRateLimit,
+  type HttpAdmissionRateLimiters,
+} from "./platform/security/http-admission-rate-limit.js";
+import { InMemoryHttpRequestRateLimiter } from "./platform/security/http-request-rate-limiter.js";
 import { configureHttpSecurity } from "./platform/security/http-security.js";
 
 export interface CreateAppOptions {
@@ -19,6 +24,7 @@ export interface CreateAppOptions {
   readonly logger: Logger;
   readonly webOrigin: string;
   readonly secureTransport?: boolean;
+  readonly requestRateLimiters?: HttpAdmissionRateLimiters;
   readonly identityRouter?: Router;
   readonly financialRouter?: Router;
   readonly tradingRouter?: Router;
@@ -68,6 +74,18 @@ function mapHttpError(error: unknown): AppError | undefined {
 
 export function createApp(options: CreateAppOptions): Express {
   const app = express();
+  const requestRateLimiters = options.requestRateLimiters ?? {
+    read: new InMemoryHttpRequestRateLimiter({
+      maximumRequests: 600,
+      windowMilliseconds: 60_000,
+      maximumTrackedClients: 10_000,
+    }),
+    mutation: new InMemoryHttpRequestRateLimiter({
+      maximumRequests: 120,
+      windowMilliseconds: 60_000,
+      maximumTrackedClients: 10_000,
+    }),
+  };
 
   configureHttpSecurity(app, {
     webOrigin: options.webOrigin,
@@ -89,6 +107,7 @@ export function createApp(options: CreateAppOptions): Express {
       customErrorMessage: () => "HTTP request failed",
     }),
   );
+  app.use("/api/v1", createHttpAdmissionRateLimit(requestRateLimiters));
   app.use("/api/v1/auth", (_request, response, next) => {
     response.setHeader("cache-control", "no-store");
     next();

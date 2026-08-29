@@ -44,6 +44,22 @@ const apiEnvironmentSchema = z.object({
     .default("1000")
     .transform(Number)
     .pipe(z.number().int().min(1).max(10_000)),
+  HTTP_RATE_LIMIT_WINDOW_MS: integerString
+    .default("60000")
+    .transform(Number)
+    .pipe(z.number().int().min(1_000).max(3_600_000)),
+  HTTP_READ_RATE_LIMIT_MAX_REQUESTS: integerString
+    .default("600")
+    .transform(Number)
+    .pipe(z.number().int().min(10).max(100_000)),
+  HTTP_MUTATION_RATE_LIMIT_MAX_REQUESTS: integerString
+    .default("120")
+    .transform(Number)
+    .pipe(z.number().int().min(5).max(20_000)),
+  HTTP_RATE_LIMIT_MAX_TRACKED_CLIENTS: integerString
+    .default("10000")
+    .transform(Number)
+    .pipe(z.number().int().min(100).max(100_000)),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   ATLAS_ENV: z.enum(["local", "test", "ci", "staging", "production"]).default("local"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
@@ -132,6 +148,12 @@ export interface ApiConfig {
       keepAliveTimeoutMs: number;
       maximumHeadersCount: number;
       maximumRequestsPerSocket: number;
+    }>;
+    requestRateLimits: Readonly<{
+      windowMilliseconds: number;
+      readMaximumRequests: number;
+      mutationMaximumRequests: number;
+      maximumTrackedClients: number;
     }>;
   }>;
   readonly database: Readonly<{
@@ -232,6 +254,12 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   if (values.HTTP_REQUEST_TIMEOUT_MS < values.HTTP_HEADERS_TIMEOUT_MS) {
     throw new ConfigurationError(["HTTP_REQUEST_TIMEOUT_MS", "HTTP_HEADERS_TIMEOUT_MS"]);
   }
+  if (values.HTTP_READ_RATE_LIMIT_MAX_REQUESTS < values.HTTP_MUTATION_RATE_LIMIT_MAX_REQUESTS) {
+    throw new ConfigurationError([
+      "HTTP_READ_RATE_LIMIT_MAX_REQUESTS",
+      "HTTP_MUTATION_RATE_LIMIT_MAX_REQUESTS",
+    ]);
+  }
   if (
     (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
     (values.SMTP_HOST === undefined || values.SMTP_FROM === undefined)
@@ -257,6 +285,12 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
         keepAliveTimeoutMs: values.HTTP_KEEP_ALIVE_TIMEOUT_MS,
         maximumHeadersCount: values.HTTP_MAX_HEADERS_COUNT,
         maximumRequestsPerSocket: values.HTTP_MAX_REQUESTS_PER_SOCKET,
+      }),
+      requestRateLimits: Object.freeze({
+        windowMilliseconds: values.HTTP_RATE_LIMIT_WINDOW_MS,
+        readMaximumRequests: values.HTTP_READ_RATE_LIMIT_MAX_REQUESTS,
+        mutationMaximumRequests: values.HTTP_MUTATION_RATE_LIMIT_MAX_REQUESTS,
+        maximumTrackedClients: values.HTTP_RATE_LIMIT_MAX_TRACKED_CLIENTS,
       }),
     }),
     database: Object.freeze({

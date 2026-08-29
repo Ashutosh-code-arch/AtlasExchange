@@ -7,6 +7,8 @@ import {
   LifecycleState,
   type ReadinessDependency,
 } from "../src/platform/lifecycle/lifecycle-state.js";
+import type { HttpAdmissionRateLimiters } from "../src/platform/security/http-admission-rate-limit.js";
+import { InMemoryHttpRequestRateLimiter } from "../src/platform/security/http-request-rate-limiter.js";
 
 class ControlledDependency implements ReadinessDependency {
   public isAvailable = true;
@@ -16,7 +18,12 @@ class ControlledDependency implements ReadinessDependency {
   }
 }
 
-function createTestApp(options: { readonly secureTransport?: boolean } = {}): {
+function createTestApp(
+  options: {
+    readonly secureTransport?: boolean;
+    readonly requestRateLimiters?: HttpAdmissionRateLimiters;
+  } = {},
+): {
   app: ReturnType<typeof createApp>;
   lifecycle: LifecycleState;
   dependency: ControlledDependency;
@@ -28,6 +35,9 @@ function createTestApp(options: { readonly secureTransport?: boolean } = {}): {
     logger: pino({ enabled: false }),
     webOrigin: "http://localhost:5173",
     secureTransport: options.secureTransport ?? false,
+    ...(options.requestRateLimiters === undefined
+      ? {}
+      : { requestRateLimiters: options.requestRateLimiters }),
   });
   return { app, lifecycle, dependency };
 }
@@ -158,4 +168,71 @@ describe("API application", () => {
     );
     expect(response.headers["access-control-max-age"]).toBe("600");
   });
+
+  it("returns a safe retryable error when the API read admission budget is exhausted", async () => {
+    const requestRateLimiters = createTestRateLimiters(1);
+    const { app } = createTestApp({ requestRateLimiters });
+
+    expect((await request(app).get("/api/v1/status")).status).toBe(200);
+    const response = await request(app)
+      .get("/api/v1/status")
+      .set("x-request-id", "atlas-limited-request");
+
+    expect(response.status).toBe(429);
+    expect(response.headers["retry-after"]).toBe("60");
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.body).toEqual({
+      success: false,
+      error: {
+        code: "RATE_LIMITED",
+        message: "Request rate limit exceeded.",
+        requestId: "atlas-limited-request",
+      },
+    });
+  });
+
+  it("keeps read and mutation budgets independent", async () => {
+    const { app } = createTestApp({ requestRateLimiters: createTestRateLimiters(1) });
+
+    expect((await request(app).get("/api/v1/status")).status).toBe(200);
+    expect((await request(app).get("/api/v1/status")).status).toBe(429);
+    expect((await request(app).post("/api/v1/missing")).status).toBe(404);
+    expect((await request(app).post("/api/v1/missing")).status).toBe(429);
+  });
+
+  it("does not allow forwarded headers to evade admission limits", async () => {
+    const { app } = createTestApp({ requestRateLimiters: createTestRateLimiters(1) });
+
+    expect(
+      (await request(app).get("/api/v1/status").set("x-forwarded-for", "198.51.100.10")).status,
+    ).toBe(200);
+    expect(
+      (await request(app).get("/api/v1/status").set("x-forwarded-for", "203.0.113.20")).status,
+    ).toBe(429);
+  });
+
+  it("keeps liveness and readiness independent of public API admission capacity", async () => {
+    const { app, lifecycle } = createTestApp({ requestRateLimiters: createTestRateLimiters(1) });
+    lifecycle.markStartupComplete();
+
+    expect((await request(app).get("/health/live")).status).toBe(200);
+    expect((await request(app).get("/health/live")).status).toBe(200);
+    expect((await request(app).get("/health/ready")).status).toBe(200);
+    expect((await request(app).get("/api/v1/status")).status).toBe(200);
+  });
 });
+
+function createTestRateLimiters(maximumRequests: number): HttpAdmissionRateLimiters {
+  return {
+    read: new InMemoryHttpRequestRateLimiter({
+      maximumRequests,
+      windowMilliseconds: 60_000,
+      maximumTrackedClients: 10,
+    }),
+    mutation: new InMemoryHttpRequestRateLimiter({
+      maximumRequests,
+      windowMilliseconds: 60_000,
+      maximumTrackedClients: 10,
+    }),
+  };
+}
