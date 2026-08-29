@@ -5,6 +5,7 @@ import type { Logger } from "pino";
 
 import { createApp } from "./app.js";
 import { parseApiConfig } from "./config/config.js";
+import type { AdministrationDatabaseSchema } from "./modules/administration/index.js";
 import {
   createAccessAuthentication,
   createIdentityModuleRouter,
@@ -46,6 +47,7 @@ import {
 import { createLogger } from "./platform/logging/logger.js";
 
 type AtlasDatabaseSchema = DatabaseSchema &
+  AdministrationDatabaseSchema &
   IdentityDatabaseSchema &
   FinancialDatabaseSchema &
   TradingDatabaseSchema &

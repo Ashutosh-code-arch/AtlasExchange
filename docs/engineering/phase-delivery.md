@@ -484,6 +484,17 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   component tests cover malformed output, large counts, pagination overlap, safe errors, and
   anonymous isolation; an isolated browser journey proves deposit capture, inbox delivery,
   acknowledgement, and read persistence across reload.
+- [ADR-052 — Administration Authorization and Audit Foundation](../architecture/decisions/ADR-052-administration-authorization-and-audit-foundation.md)
+  defines an explicit admin-only permission vocabulary, deny-by-default application enforcement,
+  actor/session/target attribution, typed privileged Identity facts, immutable operation-idempotent
+  persistence, and same-transaction audit requirements before any administration transport exists.
+- Migration 0015 advances schema compatibility to version 15 and provisions an append-only
+  Administration audit log with strict action details, actor-session ownership, target references,
+  reason and request constraints, UUIDv7 records, and actor/target timelines. The framework-neutral
+  policy denies ordinary users and unknown permissions; the typed domain and PostgreSQL writer
+  reject malformed or changed retries, preserve identical retries, and bind to an existing
+  transaction so a future Identity mutation and its evidence can commit or roll back together. No
+  administration HTTP route or browser surface is exposed in this increment.
 
 ## Phase transition rule
 
