@@ -11,7 +11,7 @@ const phases = [
   { number: "03", label: "Financial core", state: "Complete" },
   { number: "04", label: "Trading", state: "Complete" },
   { number: "05", label: "Market data", state: "Complete" },
-  { number: "06", label: "Product surfaces", state: "Current" },
+  { number: "06", label: "Product surfaces", state: "Complete" },
   { number: "07", label: "Production readiness", state: "Next" },
   { number: "08", label: "Deployment", state: "Planned" },
 ];
@@ -37,7 +37,7 @@ export function OverviewPage({ readiness, onRefresh }: OverviewPageProps): React
             <a className="primary-button" href="#roadmap">
               Explore the build
             </a>
-            <span className="release-tag">v0.6 · Portfolio workspace</span>
+            <span className="release-tag">v0.6 · Administration console</span>
           </div>
         </div>
         <div className="hero__visual" aria-label="Atlas foundation architecture">

@@ -507,6 +507,31 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   and real-PostgreSQL tests prove authorization order, CSRF, self-protection, state conflicts,
   atomic rollback, actor/session attribution, safe output, rate limiting, and grant/revoke behavior.
   No migration or browser administration surface was added.
+- [ADR-054 — Browser Administration Console](../architecture/decisions/ADR-054-browser-administration-console.md)
+  defines admin-only composition, exact-UUID lookup, reviewed mutation intent, self-protection,
+  server-confirmed state, same-intent idempotency retry, stale-record containment, lifecycle reset,
+  safe errors, and responsive accessibility.
+- The overview now exposes a restricted Administration console only to authenticated administrators.
+  It performs no automatic discovery, renders only the strict user contract, disables changes for
+  self or stale targets, and supports the accepted active/suspended and admin-role transitions with
+  explicit reasons. Successful responses replace local state and communicate target-session
+  revocation; failed unchanged retries retain their operation UUID. Browser API, component,
+  composition, and real-stack tests prove privilege gating, exact lookup, mutations, audit evidence,
+  safe failures, and private lifecycle behavior.
+
+## Phase 6 acceptance criteria
+
+- Portfolio composes owner-scoped Financial balances with committed Market Data valuation through
+  public module interfaces and exact arithmetic, while labelling incomplete totals honestly.
+- Durable owner-scoped Notifications are captured atomically with Financial completion, exposed
+  through private paginated HTTP contracts, and acknowledged monotonically through the browser.
+- Administration permissions deny by default, privileged Identity changes commit atomically with
+  immutable actor-attributed evidence, and every accepted security change revokes target sessions.
+- The responsive browser exposes Portfolio, Notifications, and a strictly admin-only exact-user
+  console without leaking private data, inventing analytics, or weakening server authority.
+- Unit, contract, application, real-PostgreSQL, HTTP, component, composition, and isolated browser
+  tests prove the Phase 6 boundaries, idempotency, privacy, stale recovery, and lifecycle behavior.
+- `pnpm verify`, `pnpm build`, and `pnpm test:e2e` pass at the phase boundary.
 
 ## Phase transition rule
 

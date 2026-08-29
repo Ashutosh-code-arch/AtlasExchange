@@ -23,6 +23,7 @@ function renderApp(
     readonly initialRoute?: ApplicationRoute;
     readonly emailVerifier?: NonNullable<AuthenticationProviderProps["emailVerifier"]>;
     readonly passwordResetter?: NonNullable<AuthenticationProviderProps["passwordResetter"]>;
+    readonly currentUser?: CurrentUser;
   } = {},
 ): void {
   const client: AuthenticationSessionClient = {
@@ -34,7 +35,7 @@ function renderApp(
     <AuthenticationProvider
       apiBaseUrl="http://api.test"
       clientFactory={() => client}
-      currentUserLoader={() => Promise.resolve(appUser)}
+      currentUserLoader={() => Promise.resolve(options.currentUser ?? appUser)}
       {...(options.emailVerifier === undefined ? {} : { emailVerifier: options.emailVerifier })}
       {...(options.passwordResetter === undefined
         ? {}
@@ -62,11 +63,30 @@ describe("Atlas overview", () => {
     );
     expect(screen.getByText("Trading").closest("li")).toHaveTextContent(/04\s*Trading\s*Complete/i);
     expect(screen.getByText("Product surfaces").closest("li")).toHaveTextContent(
-      /06\s*Product surfaces\s*Current/i,
+      /06\s*Product surfaces\s*Complete/i,
     );
     expect(await screen.findByText("Operational")).toBeInTheDocument();
     expect(await screen.findByText(appUser.email)).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Notifications" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Administration console" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("composes the Administration console only for an administrator", async () => {
+    renderApp(() => Promise.resolve({ status: "ready" }), {
+      currentUser: { ...appUser, roles: ["user", "admin"] },
+    });
+
+    expect(await screen.findByRole("link", { name: "Admin" })).toHaveAttribute(
+      "href",
+      "#administration",
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Administration console" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No identity selected")).toBeInTheDocument();
   });
 
   it("shows a safe offline state when readiness cannot be loaded", async () => {

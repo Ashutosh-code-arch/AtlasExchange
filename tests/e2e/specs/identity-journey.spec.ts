@@ -1,3 +1,6 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
 import { expect, test, type APIRequestContext } from "@playwright/test";
 
 interface MailpitAddress {
@@ -7,6 +10,40 @@ interface MailpitAddress {
 interface MailpitMessage {
   readonly Text: string;
   readonly To: readonly MailpitAddress[];
+}
+
+const execFileAsync = promisify(execFile);
+
+function requiredEnvironment(name: string): string {
+  const value = process.env[name];
+  if (value === undefined || value.length === 0) {
+    throw new Error(`Missing E2E environment variable: ${name}`);
+  }
+  return value;
+}
+
+async function runPostgres(sql: string): Promise<string> {
+  const { stdout } = await execFileAsync("docker", [
+    "compose",
+    "-p",
+    requiredEnvironment("ATLAS_E2E_COMPOSE_PROJECT"),
+    "-f",
+    requiredEnvironment("ATLAS_E2E_COMPOSE_FILE"),
+    "exec",
+    "-T",
+    "postgres",
+    "psql",
+    "-U",
+    "atlas_e2e",
+    "-d",
+    requiredEnvironment("ATLAS_E2E_DATABASE_NAME"),
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-At",
+    "-c",
+    sql,
+  ]);
+  return stdout;
 }
 
 function mailpitOrigin(): string {
@@ -29,7 +66,7 @@ async function latestVerificationMessage(
   return message.To.some((recipient) => recipient.Address === email) ? message : undefined;
 }
 
-test("registers, verifies email, signs in, and moves simulated funds", async ({
+test("registers, moves simulated funds, and manages an exact identity", async ({
   page,
   request,
 }) => {
@@ -123,4 +160,55 @@ test("registers, verifies email, signs in, and moves simulated funds", async ({
   const bitcoinPosition = portfolio.getByRole("row").filter({ hasText: "Bitcoin" });
   await expect(bitcoinPosition).toContainText("0.75");
   await expect(bitcoinPosition).toContainText("No committed price");
+
+  const administrationTargetId = "00000000-0000-4000-8000-000000000954";
+  const administrationTargetEmail = "administration-target@atlas.test";
+  await runPostgres(`
+    INSERT INTO identity.user_roles (user_id, role_code)
+    SELECT id, 'admin'
+    FROM identity.users
+    WHERE normalized_email = '${email}'
+    ON CONFLICT DO NOTHING;
+
+    INSERT INTO identity.users (id, display_email, normalized_email, state)
+    VALUES (
+      '${administrationTargetId}',
+      '${administrationTargetEmail}',
+      '${administrationTargetEmail}',
+      'active'
+    );
+
+    INSERT INTO identity.user_roles (user_id, role_code)
+    VALUES ('${administrationTargetId}', 'user');
+  `);
+  await page.reload();
+
+  await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
+  const administration = page.getByRole("region", { name: "Administration console" });
+  await administration.getByLabel("Exact user ID").fill(administrationTargetId);
+  await administration.getByRole("button", { name: "Find user" }).click();
+  await expect(administration.getByText(administrationTargetEmail)).toBeVisible();
+  await expect(administration.getByText("active", { exact: true })).toBeVisible();
+  await expect(administration.getByText("user", { exact: true })).toBeVisible();
+
+  await administration.getByLabel("Reviewed reason").nth(1).fill("Approved E2E operational duty.");
+  await administration.getByRole("button", { name: "Confirm admin grant" }).click();
+  await expect(administration.getByText("user · admin")).toBeVisible();
+  await expect(administration.getByRole("status")).toContainText("target sessions were revoked");
+
+  await administration
+    .getByLabel("Reviewed reason")
+    .first()
+    .fill("Reviewed E2E security response.");
+  await administration.getByRole("button", { name: "Confirm suspension" }).click();
+  await expect(administration.getByText("suspended", { exact: true })).toBeVisible();
+  await expect(administration.getByRole("status")).toContainText("active sessions revoked");
+
+  const auditActions = await runPostgres(`
+    SELECT string_agg(action, ',' ORDER BY occurred_at)
+    FROM administration.audit_events
+    WHERE target_user_id = '${administrationTargetId}';
+  `);
+  expect(auditActions).toContain("identity.admin_role_granted");
+  expect(auditActions).toContain("identity.user_suspended");
 });

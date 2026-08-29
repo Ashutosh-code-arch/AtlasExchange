@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 
 import type { ApplicationRoute } from "./app/initial-route";
 import { getReadiness, type ReadinessView } from "./features/system-status";
-import { AuthenticationPanel } from "./features/authentication";
+import { AuthenticationPanel, useAuthenticationSession } from "./features/authentication";
 import { OverviewPage } from "./pages/overview-page";
 import { ResetPasswordPage } from "./pages/reset-password-page";
 import { VerifyEmailPage } from "./pages/verify-email-page";
@@ -26,6 +26,34 @@ const NotificationCenter = lazy(async () => {
   const notifications = await import("./features/notifications");
   return { default: notifications.NotificationCenter };
 });
+
+const AdministrationWorkspace = lazy(async () => {
+  const administration = await import("./features/administration");
+  return { default: administration.AdministrationWorkspace };
+});
+
+function AdministrationNavigationLink(): React.JSX.Element | null {
+  const { state } = useAuthenticationSession();
+  return state.status === "authenticated" && state.user.roles.includes("admin") ? (
+    <a href="#administration">Admin</a>
+  ) : null;
+}
+
+function AdministrationRoute(): React.JSX.Element | null {
+  const { state } = useAuthenticationSession();
+  if (state.status !== "authenticated" || !state.user.roles.includes("admin")) return null;
+  return (
+    <Suspense
+      fallback={
+        <section className="administration-workspace" aria-label="Administration console">
+          <p className="administration-workspace__gate">Loading the Administration console…</p>
+        </section>
+      }
+    >
+      <AdministrationWorkspace />
+    </Suspense>
+  );
+}
 
 interface AppProps {
   readonly apiBaseUrl: string;
@@ -98,6 +126,7 @@ function OverviewRoute({
       >
         <FinancialWorkspace />
       </Suspense>
+      <AdministrationRoute />
       <OverviewPage readiness={readiness} onRefresh={() => void refresh()} />
     </>
   );
@@ -126,6 +155,7 @@ export function App({
             )}
             {initialRoute.name === "overview" ? <a href="#trading">Trade</a> : null}
             {initialRoute.name === "overview" ? <a href="#financial">Funds</a> : null}
+            {initialRoute.name === "overview" ? <AdministrationNavigationLink /> : null}
             {initialRoute.name === "overview" ? <a href="#roadmap">Roadmap</a> : null}
             <a
               href="https://github.com/Ashutosh-code-arch/AtlasExchange"

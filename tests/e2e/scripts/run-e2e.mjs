@@ -74,6 +74,8 @@ const environment = {
   SMTP_SECURE: "false",
   SMTP_FROM: "Atlas E2E <no-reply@atlas.test>",
   ATLAS_E2E_DATABASE_NAME: databaseName,
+  ATLAS_E2E_COMPOSE_FILE: composeFile,
+  ATLAS_E2E_COMPOSE_PROJECT: composeProject,
   ATLAS_E2E_POSTGRES_PORT: String(postgresPort),
   ATLAS_E2E_MAILPIT_SMTP_PORT: String(mailpitSmtpPort),
   ATLAS_E2E_MAILPIT_HTTP_PORT: String(mailpitHttpPort),
