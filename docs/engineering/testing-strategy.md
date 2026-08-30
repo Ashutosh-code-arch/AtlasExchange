@@ -1145,7 +1145,22 @@ Real PostgreSQL is required when transaction or locking semantics are part of th
 
 Performance testing is a cross-cutting validation dimension.
 
-As Atlas develops measurable requirements, define:
+The initial canonical performance command is:
+
+~~~bash
+pnpm test:performance
+~~~
+
+It runs the bounded HTTP process-edge scenario accepted by
+[ADR-059 — HTTP Performance Baseline and Load-Testing Policy](../architecture/decisions/ADR-059-http-performance-baseline-and-load-testing-policy.md).
+The harness uses real loopback HTTP, controlled concurrency, warm-up traffic, request timeouts,
+machine-readable results, explicit p95/p99 and throughput objectives, and remote-target safeguards.
+
+Performance timing is intentionally separate from `pnpm verify`. Ordinary tests validate the
+harness's deterministic statistics, request counts, failure classification, and configuration
+boundaries without asserting host speed.
+
+Every performance scenario must define:
 
 * latency objectives;
 * throughput objectives;
@@ -1154,7 +1169,9 @@ As Atlas develops measurable requirements, define:
 * representative workloads;
 * CI execution policy.
 
-No performance-testing tool is currently canonical.
+Performance evidence must record the environment and must not claim capacity for excluded database,
+network, business, or deployment boundaries. Financial and Trading scenarios must reconcile
+correctness invariants and authoritative final state after load.
 
 ---
 

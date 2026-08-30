@@ -581,6 +581,18 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   secret is configured; successful scrapes are non-cacheable and are excluded from application
   traffic. Registry and HTTP tests prove fixed label normalization, deterministic buckets, escaping,
   private-value exclusion, authentication, admission observation, and startup validation.
+- [ADR-059 — HTTP Performance Baseline and Load-Testing Policy](../architecture/decisions/ADR-059-http-performance-baseline-and-load-testing-policy.md)
+  defines the initial process-edge scenario, conservative regression objectives, bounded execution,
+  remote-target safeguards, separate CI policy, interpretation limits, and required future stateful
+  scenarios.
+- `pnpm test:performance` now runs 200 warm-up and 2,000 measured loopback status requests at
+  concurrency 25 through the real HTTP security, correlation, logging, metrics, admission, and
+  routing stack. The dependency-free harness emits environment, workload, failures, throughput, and
+  nearest-rank latency percentiles as JSON and fails unmet objectives. Deterministic tests cover
+  statistics, exact concurrency workload, failure classification, and invalid bounds without
+  asserting machine speed. The recorded Apple M4 development baseline passed with zero failures,
+  14,699.24 requests/second, 2.32 ms p95, and 2.57 ms p99; it is explicitly not production or
+  database-backed capacity evidence.
 
 ## Phase transition rule
 

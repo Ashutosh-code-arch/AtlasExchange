@@ -18,6 +18,7 @@
     "format:check": "prettier --check .",
     "test": "pnpm --filter @atlas/contracts build && pnpm --filter @atlas/contracts test && pnpm --filter @atlas/api test && pnpm --filter @atlas/web test",
     "test:e2e": "pnpm --filter @atlas/e2e test",
+    "test:performance": "pnpm --filter @atlas/api test:performance",
     "verify": "pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm format:check && pnpm test",
     "db:up": "docker compose -f infra/compose.yaml up -d postgres",
     "db:down": "docker compose -f infra/compose.yaml down",

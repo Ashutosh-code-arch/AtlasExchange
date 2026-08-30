@@ -15,6 +15,7 @@
     "test": "vitest run",
     "lint": "eslint src tests scripts --max-warnings 0",
     "benchmark:password": "tsx scripts/benchmark-password-hashing.ts",
+    "test:performance": "tsx scripts/run-http-performance-baseline.ts",
     "db:migrate": "node --env-file-if-exists=.env --import tsx src/platform/database/migrate.ts"
   },
   "dependencies": {
