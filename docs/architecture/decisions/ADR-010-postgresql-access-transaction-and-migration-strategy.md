@@ -663,6 +663,10 @@ Testing architecture is established by:
 
 [ADR-004 — Testing Architecture](ADR-004-testing-architecture.md)
 
+PostgreSQL backup, restore, and post-restore validation are established by:
+
+[ADR-064 — PostgreSQL Backup, Restore, and Recovery Validation](ADR-064-postgresql-backup-restore-and-recovery-validation.md)
+
 Workspace and package-management decisions are established by:
 
 [ADR-003 — Workspace and Package Management Strategy](ADR-003-workspace-and-package-management-strategy.md)

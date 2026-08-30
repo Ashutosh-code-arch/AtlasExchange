@@ -194,6 +194,10 @@ Removing the development volume must require an explicit destructive command.
 
 A Docker volume is not a backup.
 
+ADR-064 defines the production recovery layers and the isolated local logical restore drill. Docker
+Compose does not schedule or retain backups; it only supplies the pinned PostgreSQL client/server
+used by that local tooling check.
+
 Database-dependent integration tests build their schema from the committed migration history using real PostgreSQL, consistent with ADR-004.
 
 ## 10. Migration Startup Behavior
@@ -353,7 +357,8 @@ The following are intentionally not selected by this ADR:
 - Fully containerized local development.
 - Production container orchestration and registry selection.
 - Production database hosting.
-- Production backup architecture.
+- Production provider, encrypted backup storage, and PITR implementation. The required recovery
+  architecture and validation contract are defined by ADR-064.
 - Production observability architecture.
 - PostgreSQL 19 adoption.
 - Detailed PostgreSQL transaction isolation policy.
@@ -381,3 +386,4 @@ Reconsider this ADR when:
 - [ADR-006 — Node.js Runtime Baseline](ADR-006-nodejs-runtime-baseline.md)
 - [ADR-004 — Testing Architecture](ADR-004-testing-architecture.md)
 - [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)
+- [ADR-064 — PostgreSQL Backup, Restore, and Recovery Validation](ADR-064-postgresql-backup-restore-and-recovery-validation.md)

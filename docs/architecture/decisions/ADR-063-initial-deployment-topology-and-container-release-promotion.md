@@ -189,9 +189,10 @@ release record still treats their source version and digests as one reviewed pai
 
 ## 8. Production prerequisites not satisfied here
 
-Publishing images does not declare Atlas ready for real money or public customers. Before production
-traffic, Atlas still requires a selected runtime and database, tested backup/restore, secret storage
-and rotation, DNS/certificate ownership, monitoring collection and alerting, capacity validation,
+Publishing images does not declare Atlas ready for real money or public customers. ADR-064 now
+defines the backup/restore contract and local logical drill, but before production traffic Atlas
+still requires a selected runtime and database, a timed provider PITR drill, secret storage and
+rotation, DNS/certificate ownership, monitoring collection and alerting, capacity validation,
 vulnerability response, and operational runbooks.
 
 Simulated funding and withdrawals remain off by default in managed environments. This topology does
@@ -268,3 +269,4 @@ signatures, or adds automated staging/production deployment.
 - [ADR-057 — API Admission Rate Limiting and Abuse Protection](ADR-057-api-admission-rate-limiting-and-abuse-protection.md)
 - [ADR-060 — PostgreSQL Runtime Capacity, Timeout, and Saturation Policy](ADR-060-postgresql-runtime-capacity-timeout-and-saturation-policy.md)
 - [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)
+- [ADR-064 — PostgreSQL Backup, Restore, and Recovery Validation](ADR-064-postgresql-backup-restore-and-recovery-validation.md)

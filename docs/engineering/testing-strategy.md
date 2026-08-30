@@ -1016,6 +1016,13 @@ This includes applicable:
 
 Do not create PostgreSQL tests before there is PostgreSQL-dependent behavior to test.
 
+Recovery testing must remain separate from ordinary migration-from-empty testing. A recovery drill
+must restore a real archive into an isolated target and validate the matching schema version,
+immutable migration names/checksums, wallet account pairs, journal structure, per-asset journal
+balance, and non-negative user account balances. Connectivity or successful `pg_restore` alone is
+not sufficient. Local logical drills are regression evidence; the selected production provider's
+PITR path requires its own timed drill and evidence under ADR-064.
+
 ---
 
 ### React

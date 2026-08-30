@@ -8,6 +8,7 @@
     "dev:once": "node --env-file-if-exists=.env --import tsx src/server.ts",
     "start": "node --enable-source-maps dist/server.js",
     "migrate:production": "node --enable-source-maps dist/platform/database/migrate.js",
+    "verify-recovery:production": "node --enable-source-maps dist/platform/database/verify-recovery.js",
     "prebuild": "pnpm --filter @atlas/contracts build",
     "build": "tsc -p tsconfig.build.json",
     "pretypecheck": "pnpm --filter @atlas/contracts build",
@@ -17,7 +18,8 @@
     "lint": "eslint src tests scripts --max-warnings 0",
     "benchmark:password": "tsx scripts/benchmark-password-hashing.ts",
     "test:performance": "tsx scripts/run-http-performance-baseline.ts",
-    "db:migrate": "node --env-file-if-exists=.env --import tsx src/platform/database/migrate.ts"
+    "db:migrate": "node --env-file-if-exists=.env --import tsx src/platform/database/migrate.ts",
+    "db:verify-recovery": "node --env-file-if-exists=.env --import tsx src/platform/database/verify-recovery.ts"
   },
   "dependencies": {
     "@atlas/contracts": "workspace:*",

@@ -74,7 +74,8 @@ Example files are documentation only and must not be supplied as production secr
 Record the API and web digests, source revision, version, target environment, schema version, and
 previous known-good digests. Then:
 
-1. verify recovery prerequisites and database capacity;
+1. verify a recent recovery point, successful backup evidence, latest accepted restore drill, and
+   database capacity under ADR-064;
 2. run the API image migration entry point once using the API digest;
 3. start the API digest without public traffic;
 4. wait for `/health/live` and `/health/ready`;
@@ -83,6 +84,11 @@ previous known-good digests. Then:
 7. smoke-test health, session establishment, and public Market Data.
 
 Do not run migrations from ordinary API startup and do not run concurrent migration jobs.
+
+Before the first production-like deployment, and after a material backup/provider change, complete
+the provider PITR procedure in the
+[database recovery runbook](database-recovery.md). The local logical drill is useful regression
+evidence but does not satisfy the production PITR requirement.
 
 ## Rollback
 

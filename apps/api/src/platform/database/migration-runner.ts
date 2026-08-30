@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { Pool, type PoolClient } from "pg";
 
-interface AppliedMigration {
+export interface MigrationManifestEntry {
   readonly name: string;
   readonly checksum: string;
 }
@@ -24,6 +24,23 @@ async function ensureMigrationTable(client: PoolClient): Promise<void> {
   `);
 }
 
+export async function readMigrationManifest(
+  migrationsDirectory = defaultMigrationsDirectory,
+): Promise<readonly MigrationManifestEntry[]> {
+  const files = (await readdir(migrationsDirectory))
+    .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/.test(name))
+    .sort();
+
+  return Promise.all(
+    files.map(async (name) => ({
+      name,
+      checksum: createHash("sha256")
+        .update(await readFile(join(migrationsDirectory, name), "utf8"))
+        .digest("hex"),
+    })),
+  );
+}
+
 export async function applyMigrations(
   databaseUrl: string,
   migrationsDirectory = defaultMigrationsDirectory,
@@ -37,17 +54,13 @@ export async function applyMigrations(
     await client.query("SELECT pg_advisory_xact_lock($1)", [7_283_651]);
     await ensureMigrationTable(client);
 
-    const result = await client.query<AppliedMigration>(
+    const result = await client.query<MigrationManifestEntry>(
       "SELECT name, checksum FROM atlas_schema_migrations ORDER BY name",
     );
     const applied = new Map(result.rows.map((migration) => [migration.name, migration.checksum]));
-    const files = (await readdir(migrationsDirectory))
-      .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/.test(name))
-      .sort();
+    const migrations = await readMigrationManifest(migrationsDirectory);
 
-    for (const name of files) {
-      const migrationSql = await readFile(join(migrationsDirectory, name), "utf8");
-      const checksum = createHash("sha256").update(migrationSql).digest("hex");
+    for (const { name, checksum } of migrations) {
       const existingChecksum = applied.get(name);
 
       if (existingChecksum !== undefined) {
@@ -57,6 +70,7 @@ export async function applyMigrations(
         continue;
       }
 
+      const migrationSql = await readFile(join(migrationsDirectory, name), "utf8");
       await client.query(migrationSql);
       await client.query("INSERT INTO atlas_schema_migrations (name, checksum) VALUES ($1, $2)", [
         name,

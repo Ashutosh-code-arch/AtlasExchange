@@ -89,6 +89,7 @@ pnpm dev            # run API and web development servers
 pnpm db:up          # start the local PostgreSQL container
 pnpm mail:up        # start the local SMTP capture inbox
 pnpm db:migrate     # apply committed migrations
+pnpm db:recovery:drill:local # prove an isolated local dump/restore and financial validation
 pnpm verify         # typecheck, lint, format-check, and test
 pnpm test:e2e       # run the isolated full-stack browser journeys
 pnpm build          # create production artifacts
@@ -107,6 +108,12 @@ Stable published GitHub Releases produce signed, SBOM-attached AMD64/ARM64 image
 must use `vMAJOR.MINOR.PATCH`, match the root package version, and point to `main`; environments
 promote the resulting API and web digests rather than mutable tags. See the
 [release and deployment runbook](docs/engineering/release-and-deployment.md).
+
+PostgreSQL recovery requires managed point-in-time recovery plus separately encrypted portable
+archives; creating a backup is not accepted as proof until an isolated restore passes migration and
+Financial invariant validation. The local recovery command restores only into a generated
+`atlas_recovery_drill_*` database and deletes its temporary archive. See the
+[database recovery runbook](docs/engineering/database-recovery.md).
 
 The E2E command provisions its own ephemeral PostgreSQL and Mailpit services through Docker
 Compose, starts the API and web application on available ports, and removes the test services when

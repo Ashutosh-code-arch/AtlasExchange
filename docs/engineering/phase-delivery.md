@@ -632,6 +632,17 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   a `main`-reachable commit publish AMD64/ARM64 API and web images to GHCR with version and full-SHA
   tags, BuildKit SBOM/provenance, and signed GitHub provenance. Deployment remains a deliberate later
   action by digest.
+- [ADR-064 — PostgreSQL Backup, Restore, and Recovery Validation](../architecture/decisions/ADR-064-postgresql-backup-restore-and-recovery-validation.md)
+  defines layered managed PITR plus portable logical archives, initial RPO/RTO and retention
+  requirements, isolated restoration, privacy-safe evidence, drill cadence, and post-restore schema
+  and Financial acceptance checks.
+- The API now exposes a read-only recovery validator that compares the restored schema and exact
+  migration checksums with the matching source and verifies wallet account pairs, journal posting
+  structure, per-asset double-entry balance, and non-negative user accounts on one repeatable-read
+  snapshot. A safe local command creates a PostgreSQL custom archive, restores only into a generated
+  disposable database, emits aggregate evidence, and removes both target and temporary archive. A
+  real drill against PostgreSQL 18.4 completed successfully; provider PITR selection and timed
+  production-environment evidence remain deployment prerequisites.
 
 ## Phase transition rule
 

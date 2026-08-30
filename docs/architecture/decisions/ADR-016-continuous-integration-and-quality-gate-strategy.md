@@ -332,3 +332,4 @@ Splitting jobs is an optimization decision, not an architectural requirement for
 - [ADR-013 — Static Analysis, Formatting, and Git-Hook Strategy](ADR-013-static-analysis-formatting-and-git-hook-strategy.md)
 - [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)
 - [ADR-063 — Initial Deployment Topology and Container Release Promotion](ADR-063-initial-deployment-topology-and-container-release-promotion.md)
+- [ADR-064 — PostgreSQL Backup, Restore, and Recovery Validation](ADR-064-postgresql-backup-restore-and-recovery-validation.md)
