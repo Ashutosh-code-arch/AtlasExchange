@@ -31,7 +31,20 @@ RUN --mount=type=cache,id=atlas-pnpm,target=/pnpm/store \
 
 FROM node:24.19.0-bookworm-slim AS runtime
 
-ENV NODE_ENV=production
+ARG ATLAS_IMAGE_VERSION=0.1.0-local
+ARG ATLAS_IMAGE_REVISION=unknown
+ARG ATLAS_IMAGE_CREATED=1970-01-01T00:00:00.000Z
+ARG ATLAS_IMAGE_SOURCE=https://github.com/Ashutosh-code-arch/AtlasExchange
+
+LABEL org.opencontainers.image.title="Atlas API" \
+      org.opencontainers.image.description="Atlas Exchange HTTP API and managed market-data runtime" \
+      org.opencontainers.image.source="${ATLAS_IMAGE_SOURCE}" \
+      org.opencontainers.image.version="${ATLAS_IMAGE_VERSION}" \
+      org.opencontainers.image.revision="${ATLAS_IMAGE_REVISION}" \
+      org.opencontainers.image.created="${ATLAS_IMAGE_CREATED}"
+
+ENV NODE_ENV=production \
+    ATLAS_APPLICATION_VERSION="${ATLAS_IMAGE_VERSION}"
 
 WORKDIR /app
 

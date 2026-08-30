@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ashutosh-code-arch/AtlasExchange.git"
+  },
   "packageManager": "pnpm@11.20.0",
   "engines": {
     "node": "24.19.0"
@@ -16,10 +20,11 @@
     "lint:fix": "pnpm lint --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "pnpm --filter @atlas/contracts build && pnpm --filter @atlas/contracts test && pnpm --filter @atlas/api test && pnpm --filter @atlas/web test",
+    "test": "pnpm test:repository && pnpm --filter @atlas/contracts build && pnpm --filter @atlas/contracts test && pnpm --filter @atlas/api test && pnpm --filter @atlas/web test",
+    "test:repository": "node --test scripts/containers/build-images.test.mjs scripts/release/prepare-release.test.mjs",
     "test:e2e": "pnpm --filter @atlas/e2e test",
     "test:performance": "pnpm --filter @atlas/api test:performance",
-    "containers:build": "docker build --file apps/api/Dockerfile --tag atlas-api:local . && docker build --file apps/web/Dockerfile --tag atlas-web:local .",
+    "containers:build": "node scripts/containers/build-images.mjs",
     "verify": "pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm format:check && pnpm test",
     "db:up": "docker compose -f infra/compose.yaml up -d postgres",
     "db:down": "docker compose -f infra/compose.yaml down",

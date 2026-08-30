@@ -33,6 +33,8 @@ The initial validation contract is:
 ```text
 checkout
     ↓
+lint GitHub workflows with digest-pinned actionlint
+    ↓
 install approved Node version
     ↓
 install approved pnpm version
@@ -66,8 +68,8 @@ push to main
 workflow_dispatch
 ```
 
-Scheduled, deployment, image-publication, and release workflows are deferred until a demonstrated
-requirement exists.
+Scheduled and deployment workflows are deferred until a demonstrated requirement exists. ADR-063
+adds a separate release-publication workflow for stable published GitHub Releases.
 
 Pull-request runs should use concurrency cancellation so superseded commits do not consume unnecessary CI resources. Main-branch validation should not be casually cancelled.
 
@@ -227,7 +229,22 @@ The workflow must:
 - avoid interpolating untrusted pull-request metadata directly into shell commands;
 - avoid write permissions for the validation workflow.
 
+Workflow syntax and expressions are checked by the version-and-digest-pinned official actionlint
+container before dependency installation. This keeps release-authority changes inside the same
+reviewed quality boundary without adding actionlint to application dependencies.
+
 A full commit SHA is preferred because it provides an immutable action reference.
+
+### Release publication
+
+The release workflow is not a pull-request validation path. It runs only for a published,
+non-prerelease GitHub Release, repeats frozen installation, migrations, `pnpm verify`, and
+`pnpm build`, then publishes both images from the tagged source.
+
+The release tag must be stable semantic `vMAJOR.MINOR.PATCH`, match the root package version, and
+resolve to a commit reachable from `origin/main`. Publication actions are pinned by full SHA. Only
+the publishing matrix receives `packages: write`, `id-token: write`, and `attestations: write`; the
+quality workflow remains read-only.
 
 ## 11. Runner Strategy
 
@@ -314,3 +331,4 @@ Splitting jobs is an optimization decision, not an architectural requirement for
 - [ADR-012 — Configuration, Environment, and Secrets Strategy](ADR-012-configuration-environment-and-secrets-strategy.md)
 - [ADR-013 — Static Analysis, Formatting, and Git-Hook Strategy](ADR-013-static-analysis-formatting-and-git-hook-strategy.md)
 - [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)
+- [ADR-063 — Initial Deployment Topology and Container Release Promotion](ADR-063-initial-deployment-topology-and-container-release-promotion.md)

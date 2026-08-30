@@ -27,7 +27,20 @@ RUN pnpm --filter @atlas/web build
 
 FROM node:24.19.0-bookworm-slim AS runtime
 
+ARG ATLAS_IMAGE_VERSION=0.1.0-local
+ARG ATLAS_IMAGE_REVISION=unknown
+ARG ATLAS_IMAGE_CREATED=1970-01-01T00:00:00.000Z
+ARG ATLAS_IMAGE_SOURCE=https://github.com/Ashutosh-code-arch/AtlasExchange
+
+LABEL org.opencontainers.image.title="Atlas Web" \
+      org.opencontainers.image.description="Atlas Exchange browser application and production static server" \
+      org.opencontainers.image.source="${ATLAS_IMAGE_SOURCE}" \
+      org.opencontainers.image.version="${ATLAS_IMAGE_VERSION}" \
+      org.opencontainers.image.revision="${ATLAS_IMAGE_REVISION}" \
+      org.opencontainers.image.created="${ATLAS_IMAGE_CREATED}"
+
 ENV NODE_ENV=production \
+    ATLAS_APPLICATION_VERSION="${ATLAS_IMAGE_VERSION}" \
     ATLAS_WEB_PORT=8080
 
 WORKDIR /app

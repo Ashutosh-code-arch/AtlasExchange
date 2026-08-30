@@ -95,10 +95,10 @@ At process startup the server requires:
 ATLAS_WEB_API_BASE_URL=https://api.example.test
 ```
 
-It validates an HTTP(S) URL without credentials, query, or fragment and serves it through the
-non-cacheable `/runtime-config.js` document. The document assigns an immutable public configuration
-object before the application module executes. Browser code parses the object through the existing
-strict runtime schema.
+It validates an HTTPS production URL without credentials, query, or fragment and serves it through
+the non-cacheable `/runtime-config.js` document. Local/test execution may use HTTP. The document
+assigns an immutable public configuration object before the application module executes. Browser
+code parses the object through the existing strict runtime schema.
 
 `ATLAS_WEB_API_BASE_URL` is public configuration, never a secret. The web artifact must not receive
 database credentials, session secrets, metrics tokens, or other server authority. API CORS,
@@ -140,10 +140,12 @@ atlas-web:local
 artifact gates. Static-server tests verify validation, escaping, caching, headers, SPA fallback,
 method restrictions, and liveness.
 
-Production publishing must assign immutable source-derived metadata and deploy by immutable digest.
-The source Dockerfiles currently pin exact version tags rather than platform-specific digests because
-the registry and multi-architecture publication pipeline are not yet selected. That selection must
-define digest maintenance and provenance before production release.
+Local builds assign deterministic source, revision, commit-time, and version labels; a dirty local
+context is visibly marked in its version. ADR-063 publishes release images to GHCR for Linux AMD64
+and ARM64, attaches SBOM and provenance, and requires deployment by immutable digest.
+
+The source Dockerfiles still pin the exact cross-platform Node version tag rather than one
+platform-specific base digest. Base-image digest automation remains a separate maintenance decision.
 
 ## Alternatives Considered
 
@@ -190,12 +192,12 @@ dependency ownership, and increases artifact size and attack surface.
 - pnpm injected workspace dependencies add workspace configuration and synchronization behavior.
 - Atlas owns a small production static server and must maintain its security and caching behavior.
 - Node remains present in the web runtime even though the browser bundle itself is static.
-- Exact base-image digest pinning and published image provenance remain unresolved.
+- Exact per-platform base-image digest maintenance remains unresolved.
 
 ## Reconsider When
 
-Review this decision when Atlas selects a registry or deployment platform, publishes multi-architecture
-images, needs signed provenance or SBOM policy, adopts a CDN or object storage, observes material web
+Review this decision when Atlas changes registry or selects a deployment platform, adopts a CDN or
+object storage, observes material web
 serving load, requires a platform-specific process contract, changes the Node baseline, or splits the
 projection worker from the command API.
 
@@ -211,3 +213,4 @@ projection worker from the command API.
 - [ADR-015 — API Health, Readiness, and Process Lifecycle Strategy](ADR-015-api-health-readiness-and-process-lifecycle-strategy.md)
 - [ADR-016 — Continuous Integration and Quality Gate Strategy](ADR-016-continuous-integration-and-quality-gate-strategy.md)
 - [ADR-056 — Production HTTP Edge Security and Resource Boundary](ADR-056-production-http-edge-security-and-resource-boundary.md)
+- [ADR-063 — Initial Deployment Topology and Container Release Promotion](ADR-063-initial-deployment-topology-and-container-release-promotion.md)

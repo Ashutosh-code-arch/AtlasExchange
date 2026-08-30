@@ -14,6 +14,7 @@ describe("API configuration", () => {
 
     expect(config.http.port).toBe(3000);
     expect(config.http.secureTransport).toBe(false);
+    expect(config.http.trustedProxyHops).toBe(0);
     expect(config.http.serverLimits).toEqual({
       requestTimeoutMs: 30_000,
       headersTimeoutMs: 10_000,
@@ -180,6 +181,23 @@ describe("API configuration", () => {
     ).toThrowError(new ConfigurationError(["HTTP_MAX_HEADERS_COUNT"]));
   });
 
+  it("validates bounded ingress proxy trust and the application version", () => {
+    const config = parseApiConfig({
+      ...validEnvironment,
+      HTTP_TRUST_PROXY_HOPS: "2",
+      ATLAS_APPLICATION_VERSION: "1.2.3+release.7",
+    });
+
+    expect(config.http.trustedProxyHops).toBe(2);
+    expect(config.logging.applicationVersion).toBe("1.2.3+release.7");
+    expect(() => parseApiConfig({ ...validEnvironment, HTTP_TRUST_PROXY_HOPS: "4" })).toThrowError(
+      new ConfigurationError(["HTTP_TRUST_PROXY_HOPS"]),
+    );
+    expect(() =>
+      parseApiConfig({ ...validEnvironment, ATLAS_APPLICATION_VERSION: "invalid version" }),
+    ).toThrowError(new ConfigurationError(["ATLAS_APPLICATION_VERSION"]));
+  });
+
   it("validates explicit HTTP admission budgets and their ordering", () => {
     const config = parseApiConfig({
       ...validEnvironment,
@@ -304,6 +322,8 @@ describe("API configuration", () => {
     const managedEnvironment = {
       ...validEnvironment,
       ATLAS_ENV: "staging",
+      WEB_ORIGIN: "https://app.example.com",
+      HTTP_TRUST_PROXY_HOPS: "1",
       PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
       SMTP_HOST: "smtp.example.com",
       SMTP_FROM: "Atlas Exchange <no-reply@example.com>",
@@ -345,6 +365,8 @@ describe("API configuration", () => {
       ...validEnvironment,
       ATLAS_ENV: "production",
       NODE_ENV: "production",
+      WEB_ORIGIN: "https://app.example.com",
+      HTTP_TRUST_PROXY_HOPS: "1",
       PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
       SMTP_HOST: "smtp.example.com",
       SMTP_FROM: "Atlas Exchange <no-reply@example.com>",
@@ -363,6 +385,8 @@ describe("API configuration", () => {
       parseApiConfig({
         ...validEnvironment,
         ATLAS_ENV: "staging",
+        WEB_ORIGIN: "https://app.example.com",
+        HTTP_TRUST_PROXY_HOPS: "1",
         PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
       }),
     ).toThrowError(new ConfigurationError(["SMTP_HOST", "SMTP_FROM"]));
@@ -372,6 +396,8 @@ describe("API configuration", () => {
     const managedEnvironment = {
       ...validEnvironment,
       ATLAS_ENV: "staging",
+      WEB_ORIGIN: "https://app.example.com",
+      HTTP_TRUST_PROXY_HOPS: "1",
       PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
       SMTP_HOST: "smtp.example.com",
       SMTP_FROM: "Atlas Exchange <no-reply@example.com>",
@@ -383,6 +409,26 @@ describe("API configuration", () => {
     expect(() =>
       parseApiConfig({ ...managedEnvironment, CSRF_HMAC_KEY: "too-short" }),
     ).toThrowError(new ConfigurationError(["CSRF_HMAC_KEY"]));
+  });
+
+  it("requires a trusted ingress hop and HTTPS browser origin in managed environments", () => {
+    const managedEnvironment = {
+      ...validEnvironment,
+      ATLAS_ENV: "staging",
+      WEB_ORIGIN: "https://app.example.com",
+      HTTP_TRUST_PROXY_HOPS: "1",
+      PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
+      SMTP_HOST: "smtp.example.com",
+      SMTP_FROM: "Atlas Exchange <no-reply@example.com>",
+      CSRF_HMAC_KEY: "a".repeat(43),
+    };
+
+    expect(() =>
+      parseApiConfig({ ...managedEnvironment, HTTP_TRUST_PROXY_HOPS: "0" }),
+    ).toThrowError(new ConfigurationError(["HTTP_TRUST_PROXY_HOPS"]));
+    expect(() =>
+      parseApiConfig({ ...managedEnvironment, WEB_ORIGIN: "http://app.example.com" }),
+    ).toThrowError(new ConfigurationError(["WEB_ORIGIN"]));
   });
 
   it("requires SMTP credentials as a pair and keeps them out of errors", () => {

@@ -40,14 +40,21 @@ The HTTP boundary should:
 Atlas will establish an explicit HTTP edge-security and connection-resource baseline at the API
 composition boundary.
 
-## 1. Direct-client trust boundary
+## 1. Deployment-aware client trust boundary
 
-Express `trust proxy` remains explicitly disabled. `request.ip` represents the direct peer, and
-Atlas ignores `Forwarded` and `X-Forwarded-For` when deriving process-local resource keys.
+Express `trust proxy` is disabled when `HTTP_TRUST_PROXY_HOPS=0`. In local, test, and direct
+topologies, `request.ip` represents the direct peer and Atlas ignores `X-Forwarded-For` when deriving
+process-local resource keys.
 
-This is safe for the current direct local/test topology. A future deployment may enable a fixed
-proxy hop count or a narrowly defined trusted proxy range only after the ingress topology is known.
-Atlas will not set `trust proxy` to a blanket truth value merely because a load balancer exists.
+ADR-063 defines one private managed ingress hop for the initial deployment. That topology sets
+`HTTP_TRUST_PROXY_HOPS=1`; Express then derives the client address across only that exact hop.
+Configuration accepts zero through three so a later fixed topology can be represented, but staging
+and production reject zero. Atlas never sets `trust proxy` to blanket truth.
+
+Numeric hop trust is safe only while the API has no direct public route and every path contains the
+configured number of proxies. Network reachability and hop count are therefore one deployment
+invariant. A topology with variable-length routes must replace this policy with explicit trusted
+networks or another reviewed edge identity contract.
 
 Application authentication and authorization never depend on client IP.
 
@@ -106,7 +113,7 @@ Local, test, and CI HTTP responses do not emit HSTS. Atlas derives this decision
 environment identity, never from a request's forwarded protocol header.
 
 TLS termination, redirect-to-HTTPS behavior, certificate ownership, and preload eligibility belong
-to the deployment ingress decision.
+to ADR-063's managed ingress and its eventual platform implementation.
 
 ## 5. Node HTTP connection limits
 
@@ -139,10 +146,10 @@ Unexpected errors remain generic to clients and detailed only in redacted struct
 
 ## 7. Scope
 
-This slice does not introduce TLS termination, a trusted proxy, a WAF, distributed rate limiting,
-DDoS protection, dependency scanning, container hardening, secret rotation, static-web hosting
-headers, penetration testing, vulnerability disclosure, security dashboards, or deployment ingress
-configuration. Each requires a later focused Phase 7 or Phase 8 decision.
+This slice does not introduce a WAF, distributed rate limiting, DDoS protection, dependency
+scanning, secret rotation, penetration testing, vulnerability disclosure, or security dashboards.
+ADR-062 owns static-web headers and container hardening; ADR-063 owns the initial trusted ingress and
+release boundary.
 
 ## Alternatives Considered
 
@@ -189,13 +196,12 @@ misconfigured deployment behavior bounded.
 - New legitimate browser origins require an explicit configuration-policy change.
 - Conservative timeouts may require measurement and tuning under real load.
 - One exact web origin does not yet support preview deployments or multiple frontends.
-- Direct-peer rate-limit identity will group traffic when Atlas is later placed behind a proxy until
-  the trusted topology is configured.
-- The static web application still requires deployment-owned security headers.
+- Incorrect network reachability or hop-count configuration could make a spoofed forwarded address
+  appear authoritative.
 
 ## Reconsider When
 
-Review this decision when Atlas selects an ingress, supports multiple web origins, deploys multiple
+Review this decision when Atlas changes ingress, supports multiple web origins, deploys multiple
 API replicas, introduces long-running HTTP uploads, measures different connection behavior under
 load, enables an additional browser capability, or establishes a static-asset CSP and trusted proxy
 policy.
@@ -208,3 +214,5 @@ policy.
 - [ADR-017 — Identity and Session Security Strategy](ADR-017-identity-and-session-security-strategy.md)
 - [ADR-019 — Identity HTTP API, Cookie, CSRF, and Error Contract](ADR-019-identity-http-api-cookie-csrf-and-error-contract.md)
 - [ADR-042 — Realtime Market Data WebSocket Protocol and Server Delivery](ADR-042-realtime-market-data-websocket-protocol-and-server-delivery.md)
+- [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)
+- [ADR-063 — Initial Deployment Topology and Container Release Promotion](ADR-063-initial-deployment-topology-and-container-release-promotion.md)

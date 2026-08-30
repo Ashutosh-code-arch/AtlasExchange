@@ -22,6 +22,7 @@ class ControlledDependency implements ReadinessDependency {
 function createTestApp(
   options: {
     readonly secureTransport?: boolean;
+    readonly trustedProxyHops?: number;
     readonly requestRateLimiters?: HttpAdmissionRateLimiters;
     readonly metrics?: Readonly<{
       collector: ApplicationMetrics;
@@ -40,6 +41,7 @@ function createTestApp(
     logger: pino({ enabled: false }),
     webOrigin: "http://localhost:5173",
     secureTransport: options.secureTransport ?? false,
+    trustedProxyHops: options.trustedProxyHops ?? 0,
     ...(options.requestRateLimiters === undefined
       ? {}
       : { requestRateLimiters: options.requestRateLimiters }),
@@ -214,6 +216,24 @@ describe("API application", () => {
     ).toBe(200);
     expect(
       (await request(app).get("/api/v1/status").set("x-forwarded-for", "203.0.113.20")).status,
+    ).toBe(429);
+  });
+
+  it("uses forwarded client identity only through the configured ingress hop", async () => {
+    const { app } = createTestApp({
+      trustedProxyHops: 1,
+      requestRateLimiters: createTestRateLimiters(1),
+    });
+
+    expect(app.get("trust proxy")).toBe(1);
+    expect(
+      (await request(app).get("/api/v1/status").set("x-forwarded-for", "198.51.100.10")).status,
+    ).toBe(200);
+    expect(
+      (await request(app).get("/api/v1/status").set("x-forwarded-for", "203.0.113.20")).status,
+    ).toBe(200);
+    expect(
+      (await request(app).get("/api/v1/status").set("x-forwarded-for", "198.51.100.10")).status,
     ).toBe(429);
   });
 

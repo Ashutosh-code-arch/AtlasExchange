@@ -229,6 +229,7 @@ async function start(): Promise<RunningServer> {
       logger,
       webOrigin: config.http.webOrigin,
       secureTransport: config.http.secureTransport,
+      trustedProxyHops: config.http.trustedProxyHops,
       requestRateLimiters: {
         read: new InMemoryHttpRequestRateLimiter({
           maximumRequests: config.http.requestRateLimits.readMaximumRequests,

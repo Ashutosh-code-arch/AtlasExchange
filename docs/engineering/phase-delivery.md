@@ -622,6 +622,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   liveness, and a no-store runtime configuration document. Image builds run in CI; container smoke
   checks prove the runtime API origin is injected without rebuilding and both images run as the
   unprivileged Node user.
+- [ADR-063 — Initial Deployment Topology and Container Release Promotion](../architecture/decisions/ADR-063-initial-deployment-topology-and-container-release-promotion.md)
+  defines one private ingress hop, one initial API replica, same-site HTTPS web/API origins, managed
+  PostgreSQL, immutable digest promotion, and stable GitHub Release publication without selecting a
+  runtime vendor.
+- Managed API configuration now requires HTTPS `WEB_ORIGIN` and a bounded non-zero proxy hop count;
+  local direct traffic continues to distrust forwarded headers. Container builds attach deterministic
+  OCI source, version, revision, and creation metadata. Stable releases matching the root package and
+  a `main`-reachable commit publish AMD64/ARM64 API and web images to GHCR with version and full-SHA
+  tags, BuildKit SBOM/provenance, and signed GitHub provenance. Deployment remains a deliberate later
+  action by digest.
 
 ## Phase transition rule
 

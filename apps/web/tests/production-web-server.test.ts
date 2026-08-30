@@ -53,6 +53,18 @@ describe("production web server", () => {
     ).toThrow(/ATLAS_WEB_API_BASE_URL/);
     expect(() =>
       parseProductionWebConfig({
+        ATLAS_WEB_API_BASE_URL: "http://api.atlas.test",
+        NODE_ENV: "production",
+      }),
+    ).toThrow(/ATLAS_WEB_API_BASE_URL/);
+    expect(
+      parseProductionWebConfig({
+        ATLAS_WEB_API_BASE_URL: "http://127.0.0.1:3000",
+        NODE_ENV: "test",
+      }).apiBaseUrl,
+    ).toBe("http://127.0.0.1:3000");
+    expect(() =>
+      parseProductionWebConfig({
         ATLAS_WEB_API_BASE_URL: "https://api.atlas.test",
         ATLAS_WEB_PORT: "0",
       }),

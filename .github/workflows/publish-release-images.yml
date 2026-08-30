@@ -1,0 +1,139 @@
+name: Publish release images
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-images-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.event.release.prerelease == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_DB: atlas_test
+          POSTGRES_USER: atlas_test
+          POSTGRES_PASSWORD: atlas_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U atlas_test -d atlas_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      NODE_ENV: test
+      ATLAS_ENV: ci
+      DATABASE_URL: postgresql://atlas_test:atlas_test_only@localhost:5432/atlas_test
+      WEB_ORIGIN: http://localhost:5173
+      VITE_API_BASE_URL: http://localhost:3000
+      ATLAS_RELEASE_TAG: ${{ github.event.release.tag_name }}
+    outputs:
+      created: ${{ steps.release.outputs.created }}
+      registry_namespace: ${{ steps.release.outputs.registry_namespace }}
+      revision: ${{ steps.release.outputs.revision }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2
+        with:
+          version: 11.20.0
+          runtime: node@24.19.0
+          cache: true
+          install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      - name: Verify release source
+        run: pnpm verify
+
+      - name: Build production artifacts
+        run: pnpm build
+
+      - name: Validate release identity
+        id: release
+        run: node scripts/release/prepare-release.mjs
+
+  publish:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - application: api
+            image: atlas-api
+          - application: web
+            image: atlas-web
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish ${{ matrix.application }} image
+        id: publish
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          context: .
+          file: apps/${{ matrix.application }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ needs.prepare.outputs.registry_namespace }}/${{ matrix.image }}:${{ needs.prepare.outputs.version }}
+            ghcr.io/${{ needs.prepare.outputs.registry_namespace }}/${{ matrix.image }}:sha-${{ needs.prepare.outputs.revision }}
+          build-args: |
+            ATLAS_IMAGE_VERSION=${{ needs.prepare.outputs.version }}
+            ATLAS_IMAGE_REVISION=${{ needs.prepare.outputs.revision }}
+            ATLAS_IMAGE_CREATED=${{ needs.prepare.outputs.created }}
+            ATLAS_IMAGE_SOURCE=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=release-${{ matrix.application }}
+          cache-to: type=gha,mode=max,scope=release-${{ matrix.application }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Sign release provenance
+        uses: actions/attest@c32b4b8b198b65d0bd9d63490e847ff7b53989d4 # v4.0.0
+        with:
+          subject-name: ghcr.io/${{ needs.prepare.outputs.registry_namespace }}/${{ matrix.image }}
+          subject-digest: ${{ steps.publish.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false

@@ -55,6 +55,9 @@ export function parseProductionWebConfig(environment) {
   ) {
     throw configurationError(["ATLAS_WEB_API_BASE_URL"]);
   }
+  if (environment.NODE_ENV === "production" && apiUrl.protocol !== "https:") {
+    throw configurationError(["ATLAS_WEB_API_BASE_URL"]);
+  }
 
   const portVariable = environment.PORT === undefined ? "ATLAS_WEB_PORT" : "PORT";
   const portValue = environment.PORT ?? environment.ATLAS_WEB_PORT ?? "8080";

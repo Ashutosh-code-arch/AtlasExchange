@@ -18,9 +18,9 @@ unknown routes, low-cost public routes, or request floods spread across modules.
 HTTP parsing, routing, authentication, and application-specific limit evaluation without first
 passing a process-wide resource budget.
 
-ADR-056 deliberately leaves forwarded identity untrusted and notes that process-local controls are
-not distributed DDoS protection. This decision adds bounded defense in depth for the current direct
-connection topology without replacing the more precise module-owned policies.
+ADR-056 treats forwarded identity as deployment-controlled and notes that process-local controls are
+not distributed DDoS protection. This decision adds bounded defense in depth without replacing the
+more precise module-owned policies.
 
 ## Decision Drivers
 
@@ -28,7 +28,7 @@ The admission boundary should:
 
 1. bound HTTP work before JSON parsing, authentication, or module routing;
 2. prevent high-volume reads from consuming the complete mutation budget and vice versa;
-3. derive identity only from the direct peer while proxy trust is disabled;
+3. derive identity from the direct peer or the exact accepted ingress topology;
 4. keep memory use bounded under high-cardinality traffic;
 5. fail safely and return deterministic retry guidance;
 6. preserve health checks and browser preflight behavior;
@@ -69,18 +69,18 @@ independent so orchestrator health decisions cannot be exhausted by public API t
 connections retain the connection, per-client, subscription, message, heartbeat, and backpressure
 limits accepted by ADR-042.
 
-## 3. Direct-peer identity
+## 3. Deployment-scoped network identity
 
 The key is Express's direct `request.ip`, with the socket address as a defensive fallback. Because
-`trust proxy` is explicitly disabled, `Forwarded` and `X-Forwarded-For` cannot create or select a
+`trust proxy` is disabled by default, forwarded headers cannot create or select a local/test
 rate-limit identity.
 
 Atlas does not use this identity for authentication, authorization, financial ownership, or audit
 attribution. It is only a transient process-resource key.
 
-A deployment behind a reverse proxy will initially aggregate requests under the direct proxy peer.
-Phase 8 must define exact trusted hops or networks before Atlas derives client identity from a
-forwarded header.
+ADR-063's initial managed deployment has exactly one private ingress hop and configures that hop
+explicitly. Only then does Express use the forwarded client address. Direct public reachability to
+the API container is prohibited because it would allow a caller to bypass the trusted path.
 
 ## 4. Bounded fixed-window storage
 
@@ -158,9 +158,9 @@ count an identical retry because it protects process work rather than new busine
 ## 8. Scope
 
 This decision does not add distributed coordination, account billing quotas, adaptive risk scoring,
-CAPTCHA, IP reputation, geographic policy, automated account suspension, a reverse-proxy trust
-configuration, WAF rules, CDN controls, or volumetric DDoS mitigation. It also does not make
-process-local request counts a durable audit record.
+CAPTCHA, IP reputation, geographic policy, automated account suspension, WAF rules, CDN controls, or
+volumetric DDoS mitigation. It also does not make process-local request counts a durable audit
+record.
 
 ## Alternatives Considered
 
@@ -206,7 +206,7 @@ Distributed coordination belongs with the deployment architecture and measured s
 - Fixed windows permit a burst near a window boundary.
 - Process-local counters reset on restart and are not coordinated across replicas.
 - A full tracking store temporarily rejects previously unseen peers.
-- Direct peers behind an untrusted proxy are aggregated until deployment defines trusted forwarding.
+- Deployment must preserve the configured proxy-hop and private-network invariant.
 - Default budgets require performance evidence and operational tuning.
 
 ## Reconsider When
@@ -224,3 +224,4 @@ quotas, or requires coordinated abuse response across processes and regions.
 - [ADR-029 — Public Trading HTTP API and Read Contract](ADR-029-public-trading-http-api-and-read-contract.md)
 - [ADR-042 — Realtime Market Data WebSocket Protocol and Server Delivery](ADR-042-realtime-market-data-websocket-protocol-and-server-delivery.md)
 - [ADR-056 — Production HTTP Edge Security and Resource Boundary](ADR-056-production-http-edge-security-and-resource-boundary.md)
+- [ADR-063 — Initial Deployment Topology and Container Release Promotion](ADR-063-initial-deployment-topology-and-container-release-promotion.md)

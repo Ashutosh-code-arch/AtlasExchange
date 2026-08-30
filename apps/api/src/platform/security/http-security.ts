@@ -5,6 +5,7 @@ import helmet from "helmet";
 export interface HttpSecurityOptions {
   readonly webOrigin: string;
   readonly secureTransport: boolean;
+  readonly trustedProxyHops: number;
 }
 
 const browserPermissionsPolicy = [
@@ -17,7 +18,7 @@ const browserPermissionsPolicy = [
 
 export function configureHttpSecurity(app: Express, options: HttpSecurityOptions): void {
   app.disable("x-powered-by");
-  app.set("trust proxy", false);
+  app.set("trust proxy", options.trustedProxyHops === 0 ? false : options.trustedProxyHops);
   app.use(
     helmet({
       contentSecurityPolicy: {

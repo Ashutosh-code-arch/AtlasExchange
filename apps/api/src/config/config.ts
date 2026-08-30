@@ -56,6 +56,10 @@ const apiEnvironmentSchema = z.object({
     .transform(Number)
     .pipe(z.number().int().min(100).max(10_000)),
   WEB_ORIGIN: z.string().url().default("http://localhost:5173"),
+  HTTP_TRUST_PROXY_HOPS: integerString
+    .default("0")
+    .transform(Number)
+    .pipe(z.number().int().min(0).max(3)),
   HTTP_REQUEST_TIMEOUT_MS: integerString
     .default("30000")
     .transform(Number)
@@ -95,6 +99,10 @@ const apiEnvironmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   ATLAS_ENV: z.enum(["local", "test", "ci", "staging", "production"]).default("local"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
+  ATLAS_APPLICATION_VERSION: z
+    .string()
+    .regex(/^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/)
+    .default("0.1.0"),
   METRICS_ENABLED: booleanString.default(false),
   METRICS_BEARER_TOKEN: z.string().min(32).max(256).optional(),
   EXPECTED_SCHEMA_VERSION: integerString.default("15"),
@@ -176,6 +184,7 @@ export interface ApiConfig {
     shutdownTimeoutMs: number;
     webOrigin: string;
     secureTransport: boolean;
+    trustedProxyHops: number;
     serverLimits: Readonly<{
       requestTimeoutMs: number;
       headersTimeoutMs: number;
@@ -336,6 +345,18 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   ) {
     throw new ConfigurationError(["CSRF_HMAC_KEY"]);
   }
+  if (
+    (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
+    values.HTTP_TRUST_PROXY_HOPS === 0
+  ) {
+    throw new ConfigurationError(["HTTP_TRUST_PROXY_HOPS"]);
+  }
+  if (
+    (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
+    new URL(values.WEB_ORIGIN).protocol !== "https:"
+  ) {
+    throw new ConfigurationError(["WEB_ORIGIN"]);
+  }
 
   return Object.freeze({
     http: Object.freeze({
@@ -343,6 +364,7 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
       shutdownTimeoutMs: values.SHUTDOWN_TIMEOUT_MS,
       webOrigin: values.WEB_ORIGIN,
       secureTransport: values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production",
+      trustedProxyHops: values.HTTP_TRUST_PROXY_HOPS,
       serverLimits: Object.freeze({
         requestTimeoutMs: values.HTTP_REQUEST_TIMEOUT_MS,
         headersTimeoutMs: values.HTTP_HEADERS_TIMEOUT_MS,
@@ -374,7 +396,7 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     logging: Object.freeze({
       level: values.LOG_LEVEL,
       environment: values.ATLAS_ENV,
-      applicationVersion: "0.1.0",
+      applicationVersion: values.ATLAS_APPLICATION_VERSION,
     }),
     observability: Object.freeze({
       metrics:

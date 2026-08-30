@@ -103,6 +103,11 @@ deployment step and never run implicitly at API startup. See
 [ADR-062](docs/architecture/decisions/ADR-062-production-application-packaging-and-runtime-web-configuration.md)
 for the complete packaging boundary.
 
+Stable published GitHub Releases produce signed, SBOM-attached AMD64/ARM64 images in GHCR. Releases
+must use `vMAJOR.MINOR.PATCH`, match the root package version, and point to `main`; environments
+promote the resulting API and web digests rather than mutable tags. See the
+[release and deployment runbook](docs/engineering/release-and-deployment.md).
+
 The E2E command provisions its own ephemeral PostgreSQL and Mailpit services through Docker
 Compose, starts the API and web application on available ports, and removes the test services when
 the run finishes. It does not reuse or modify the normal local-development database.

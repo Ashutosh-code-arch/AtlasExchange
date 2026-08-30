@@ -29,6 +29,7 @@ export interface CreateAppOptions {
   readonly logger: Logger;
   readonly webOrigin: string;
   readonly secureTransport?: boolean;
+  readonly trustedProxyHops?: number;
   readonly requestRateLimiters?: HttpAdmissionRateLimiters;
   readonly metrics?: Readonly<{
     collector: ApplicationMetrics;
@@ -99,6 +100,7 @@ export function createApp(options: CreateAppOptions): Express {
   configureHttpSecurity(app, {
     webOrigin: options.webOrigin,
     secureTransport: options.secureTransport ?? false,
+    trustedProxyHops: options.trustedProxyHops ?? 0,
   });
   app.use(
     pinoHttp({

@@ -3,7 +3,7 @@
 **Classification:** Canonical  
 **Status:** Accepted  
 **Date:** 2026-08-18  
-**Last reviewed:** 2026-08-18  
+**Last reviewed:** 2026-08-30  
 **Canonical owner/source:** ADR-012
 
 ## 1. Context
@@ -50,23 +50,34 @@ Configuration is loaded and validated once during process startup. Atlas does no
 
 ### Frontend configuration
 
-The frontend has a separate build-time configuration boundary.
+The frontend has separate development and production runtime configuration adapters.
 
 ```text
-environment values
-        ↓
-Vite build/dev
-        ↓
+local Vite environment ─┐
+                       ├─→ validated immutable frontend configuration
+runtime-config.js ──────┘
+                                      ↓
+                               browser application
+```
+
+Vite serves `VITE_API_BASE_URL` only during local development and tests. The production web server
+serves a no-store runtime document from `ATLAS_WEB_API_BASE_URL` before the application module runs:
+
+```text
+production process environment
+        ↓ startup validation
+public runtime-config.js
+        ↓ strict browser validation
 validated immutable frontend configuration
-        ↓
-browser bundle
 ```
 
 Only the frontend configuration boundary may directly read `import.meta.env`.
 
 It selects declared public variables, validates and converts them once, and exposes an immutable typed frontend configuration object. Components, hooks, pages, and features must not independently read `import.meta.env`.
 
-Invalid frontend configuration must fail Vite development startup or the production build rather than produce a bundle with invalid configuration.
+Invalid local configuration fails browser startup during development. Invalid production
+configuration prevents the static server from starting or fails browser startup if a deployment
+edge replaces the runtime document with an invalid shape.
 
 Browser configuration is public and untrusted. Backend authentication, authorization, and financial decisions must never trust a `VITE_*` value.
 
@@ -124,7 +135,13 @@ VITE_PRIVATE_API_KEY
 
 Changing the prefix does not make a value secret.
 
-The initial strategy is build-time frontend configuration. Runtime browser configuration, such as a fetched `/config.json`, may be reconsidered if Atlas later requires one immutable frontend artifact to be promoted unchanged across multiple environments.
+Production uses `ATLAS_WEB_API_BASE_URL` to generate `/runtime-config.js` without rebuilding the
+browser assets. Both variable names represent public values. The runtime URL must use HTTPS in
+production and may use HTTP only in development/test; it must not contain credentials, a query, or
+a fragment.
+
+The production bundle contains no development API origin and requires the runtime document. This
+allows one content-identical web image to be promoted by digest through environments.
 
 ## 3. Environment taxonomy
 
@@ -277,7 +294,6 @@ The following remain intentionally deferred:
 - exact runtime-schema library;
 - exact API environment-file launcher scripts;
 - whether `ATLAS_ENV` is required in Sprint 1;
-- runtime browser configuration;
 - production secret-manager selection;
 - automated CI secret-scanning implementation;
 - exact configuration variable inventory beyond the currently required values.
@@ -298,7 +314,7 @@ The following remain intentionally deferred:
 
 - Each application has a separate configuration boundary.
 - Configuration schemas require maintenance.
-- Build-time frontend configuration can require separate artifacts per environment.
+- Development and production use different public-configuration adapters that must remain aligned.
 - Launcher-level environment-file handling must be documented.
 - Configuration validation adds startup/build work.
 
@@ -310,14 +326,10 @@ The following remain intentionally deferred:
 - [ADR-008 — Backend Application Architecture](ADR-008-backend-application-architecture.md)
 - [ADR-009 — Frontend Application Architecture](ADR-009-frontend-application-architecture.md)
 - [ADR-011 — PostgreSQL Runtime and Local Development Strategy](ADR-011-postgresql-runtime-and-local-development-strategy.md)
+- [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)
+- [ADR-063 — Initial Deployment Topology and Container Release Promotion](ADR-063-initial-deployment-topology-and-container-release-promotion.md)
 
 ## 12. References
 
 - [Node.js environment-variable documentation](https://nodejs.org/api/environment_variables.html)
 - [Vite environment and mode documentation](https://vite.dev/guide/env-and-mode.html)
-
-## Status summary
-
-**Status: Proposed**
-
-ADR-012 is ready for acceptance after the referenced ADR chain exists in the repository and all related links resolve.
