@@ -572,6 +572,15 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   no-store `RATE_LIMITED` envelope with `Retry-After` and emit address-free structured security
   evidence. Deterministic limiter and HTTP tests prove window reset, client isolation, capacity
   exhaustion, method-class independence, forwarded-header resistance, and health-route isolation.
+- [ADR-058 — Application Metrics and Protected Scrape Boundary](../architecture/decisions/ADR-058-application-metrics-and-protected-scrape-boundary.md)
+  defines the initial Prometheus-compatible metric catalogue, bounded labels, HTTP instrumentation
+  order, authenticated opt-in scrape route, signal separation, and future collector boundary.
+- The API can now export build, uptime, memory, completed-request counter and latency-histogram, and
+  admission-rejection metrics without raw paths, resource identifiers, market codes, peer addresses,
+  financial values, request data, or credentials. Metrics remain disabled until a dedicated bearer
+  secret is configured; successful scrapes are non-cacheable and are excluded from application
+  traffic. Registry and HTTP tests prove fixed label normalization, deterministic buckets, escaping,
+  private-value exclusion, authentication, admission observation, and startup validation.
 
 ## Phase transition rule
 

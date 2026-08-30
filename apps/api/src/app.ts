@@ -12,6 +12,11 @@ import { pinoHttp } from "pino-http";
 
 import { AppError } from "./http/errors/app-error.js";
 import type { LifecycleState } from "./platform/lifecycle/lifecycle-state.js";
+import type { ApplicationMetrics } from "./platform/observability/application-metrics.js";
+import {
+  createHttpMetricsInstrumentation,
+  createMetricsScrapeHandler,
+} from "./platform/observability/http-metrics.js";
 import {
   createHttpAdmissionRateLimit,
   type HttpAdmissionRateLimiters,
@@ -25,6 +30,10 @@ export interface CreateAppOptions {
   readonly webOrigin: string;
   readonly secureTransport?: boolean;
   readonly requestRateLimiters?: HttpAdmissionRateLimiters;
+  readonly metrics?: Readonly<{
+    collector: ApplicationMetrics;
+    bearerToken: string;
+  }>;
   readonly identityRouter?: Router;
   readonly financialRouter?: Router;
   readonly tradingRouter?: Router;
@@ -107,7 +116,25 @@ export function createApp(options: CreateAppOptions): Express {
       customErrorMessage: () => "HTTP request failed",
     }),
   );
-  app.use("/api/v1", createHttpAdmissionRateLimit(requestRateLimiters));
+  if (options.metrics !== undefined) {
+    app.get(
+      "/internal/metrics",
+      createMetricsScrapeHandler(options.metrics.collector, options.metrics.bearerToken),
+    );
+    app.use("/api/v1", createHttpMetricsInstrumentation(options.metrics.collector));
+  }
+  app.use(
+    "/api/v1",
+    createHttpAdmissionRateLimit(requestRateLimiters, {
+      ...(options.metrics === undefined
+        ? {}
+        : {
+            onRejected: (event) => {
+              options.metrics?.collector.recordAdmissionRejection(event);
+            },
+          }),
+    }),
+  );
   app.use("/api/v1/auth", (_request, response, next) => {
     response.setHeader("cache-control", "no-store");
     next();

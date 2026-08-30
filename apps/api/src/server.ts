@@ -48,6 +48,7 @@ import {
   startRuntime,
 } from "./platform/lifecycle/process-lifecycle.js";
 import { createLogger } from "./platform/logging/logger.js";
+import { ApplicationMetrics } from "./platform/observability/application-metrics.js";
 import { applyHttpServerLimits } from "./platform/security/http-server-limits.js";
 import { InMemoryHttpRequestRateLimiter } from "./platform/security/http-request-rate-limiter.js";
 
@@ -212,6 +213,16 @@ async function start(): Promise<RunningServer> {
           maximumTrackedClients: config.http.requestRateLimits.maximumTrackedClients,
         }),
       },
+      ...(config.observability.metrics.enabled
+        ? {
+            metrics: {
+              collector: new ApplicationMetrics({
+                applicationVersion: config.logging.applicationVersion,
+              }),
+              bearerToken: config.observability.metrics.bearerToken,
+            },
+          }
+        : {}),
       identityRouter,
       financialRouter,
       tradingRouter,

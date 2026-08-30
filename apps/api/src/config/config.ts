@@ -63,6 +63,8 @@ const apiEnvironmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   ATLAS_ENV: z.enum(["local", "test", "ci", "staging", "production"]).default("local"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
+  METRICS_ENABLED: booleanString.default(false),
+  METRICS_BEARER_TOKEN: z.string().min(32).max(256).optional(),
   EXPECTED_SCHEMA_VERSION: integerString.default("15"),
   MARKET_DATA_PROJECTION_ENABLED: booleanString.default(true),
   MARKET_DATA_PROJECTION_POLL_INTERVAL_MS: integerString
@@ -165,6 +167,14 @@ export interface ApiConfig {
     environment: "local" | "test" | "ci" | "staging" | "production";
     applicationVersion: string;
   }>;
+  readonly observability: Readonly<{
+    metrics:
+      | Readonly<{ enabled: false }>
+      | Readonly<{
+          enabled: true;
+          bearerToken: string;
+        }>;
+  }>;
   readonly identity: Readonly<{
     passwordBlocklistPath: string;
     emailDelivery: Readonly<{
@@ -260,6 +270,9 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
       "HTTP_MUTATION_RATE_LIMIT_MAX_REQUESTS",
     ]);
   }
+  if (values.METRICS_ENABLED && values.METRICS_BEARER_TOKEN === undefined) {
+    throw new ConfigurationError(["METRICS_BEARER_TOKEN"]);
+  }
   if (
     (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
     (values.SMTP_HOST === undefined || values.SMTP_FROM === undefined)
@@ -301,6 +314,12 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
       level: values.LOG_LEVEL,
       environment: values.ATLAS_ENV,
       applicationVersion: "0.1.0",
+    }),
+    observability: Object.freeze({
+      metrics:
+        values.METRICS_ENABLED && values.METRICS_BEARER_TOKEN !== undefined
+          ? Object.freeze({ enabled: true as const, bearerToken: values.METRICS_BEARER_TOKEN })
+          : Object.freeze({ enabled: false as const }),
     }),
     identity: Object.freeze({
       passwordBlocklistPath: values.PASSWORD_BLOCKLIST_PATH ?? developmentPasswordBlocklistPath,

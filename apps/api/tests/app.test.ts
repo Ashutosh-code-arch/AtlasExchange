@@ -7,6 +7,7 @@ import {
   LifecycleState,
   type ReadinessDependency,
 } from "../src/platform/lifecycle/lifecycle-state.js";
+import { ApplicationMetrics } from "../src/platform/observability/application-metrics.js";
 import type { HttpAdmissionRateLimiters } from "../src/platform/security/http-admission-rate-limit.js";
 import { InMemoryHttpRequestRateLimiter } from "../src/platform/security/http-request-rate-limiter.js";
 
@@ -22,6 +23,10 @@ function createTestApp(
   options: {
     readonly secureTransport?: boolean;
     readonly requestRateLimiters?: HttpAdmissionRateLimiters;
+    readonly metrics?: Readonly<{
+      collector: ApplicationMetrics;
+      bearerToken: string;
+    }>;
   } = {},
 ): {
   app: ReturnType<typeof createApp>;
@@ -38,6 +43,7 @@ function createTestApp(
     ...(options.requestRateLimiters === undefined
       ? {}
       : { requestRateLimiters: options.requestRateLimiters }),
+    ...(options.metrics === undefined ? {} : { metrics: options.metrics }),
   });
   return { app, lifecycle, dependency };
 }
@@ -219,6 +225,67 @@ describe("API application", () => {
     expect((await request(app).get("/health/live")).status).toBe(200);
     expect((await request(app).get("/health/ready")).status).toBe(200);
     expect((await request(app).get("/api/v1/status")).status).toBe(200);
+  });
+
+  it("protects the metrics scrape and excludes it from application request counts", async () => {
+    const collector = new ApplicationMetrics({ applicationVersion: "0.1.0" });
+    const bearerToken = "atlas-metrics-test-token-32-characters";
+    const { app } = createTestApp({ metrics: { collector, bearerToken } });
+
+    expect((await request(app).get("/api/v1/status")).status).toBe(200);
+    const missing = await request(app)
+      .get("/internal/metrics")
+      .set("x-request-id", "atlas-metrics-missing");
+    const incorrect = await request(app)
+      .get("/internal/metrics")
+      .set("authorization", "Bearer incorrect-monitoring-secret-value");
+    const scrape = await request(app)
+      .get("/internal/metrics")
+      .set("authorization", `Bearer ${bearerToken}`);
+
+    expect(missing.status).toBe(401);
+    expect(missing.headers["cache-control"]).toBe("no-store");
+    expect(missing.body).toEqual({
+      success: false,
+      error: {
+        code: "AUTHENTICATION_REQUIRED",
+        message: "Metrics authentication is required.",
+        requestId: "atlas-metrics-missing",
+      },
+    });
+    expect(incorrect.status).toBe(401);
+    expect(scrape.status).toBe(200);
+    expect(scrape.headers["content-type"]).toContain("text/plain");
+    expect(scrape.headers["content-type"]).toContain("version=0.0.4");
+    expect(scrape.headers["content-type"]).toContain("charset=utf-8");
+    expect(scrape.headers["cache-control"]).toBe("no-store");
+    expect(scrape.text).toContain(
+      'atlas_http_requests_total{method="GET",route_group="status",status_class="2xx"} 1',
+    );
+  });
+
+  it("records admission rejections without exposing client identity", async () => {
+    const collector = new ApplicationMetrics({ applicationVersion: "0.1.0" });
+    const bearerToken = "atlas-metrics-test-token-32-characters";
+    const { app } = createTestApp({
+      metrics: { collector, bearerToken },
+      requestRateLimiters: createTestRateLimiters(1),
+    });
+
+    expect(
+      (await request(app).get("/api/v1/status").set("x-forwarded-for", "198.51.100.25")).status,
+    ).toBe(200);
+    expect(
+      (await request(app).get("/api/v1/status").set("x-forwarded-for", "198.51.100.25")).status,
+    ).toBe(429);
+    const scrape = await request(app)
+      .get("/internal/metrics")
+      .set("authorization", `Bearer ${bearerToken}`);
+
+    expect(scrape.text).toContain(
+      'atlas_http_admission_rejections_total{reason="request_limit",request_class="read"} 1',
+    );
+    expect(scrape.text).not.toContain("198.51.100.25");
   });
 });
 

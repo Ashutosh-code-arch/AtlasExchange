@@ -8,13 +8,23 @@ export interface HttpAdmissionRateLimiters {
   readonly mutation: HttpRequestRateLimiter;
 }
 
+export interface HttpAdmissionRateLimitOptions {
+  readonly onRejected?: (event: {
+    readonly requestClass: AdmissionClass;
+    readonly reason: "request_limit" | "tracking_capacity";
+  }) => void;
+}
+
 type AdmissionClass = keyof HttpAdmissionRateLimiters;
 
 function admissionClass(method: string): AdmissionClass {
   return method === "GET" || method === "HEAD" ? "read" : "mutation";
 }
 
-export function createHttpAdmissionRateLimit(limiters: HttpAdmissionRateLimiters): RequestHandler {
+export function createHttpAdmissionRateLimit(
+  limiters: HttpAdmissionRateLimiters,
+  options: HttpAdmissionRateLimitOptions = {},
+): RequestHandler {
   return (request, response, next) => {
     const requestClass = admissionClass(request.method);
     const clientIdentity = request.ip ?? request.socket.remoteAddress ?? "unknown";
@@ -25,6 +35,7 @@ export function createHttpAdmissionRateLimit(limiters: HttpAdmissionRateLimiters
       return;
     }
 
+    options.onRejected?.({ requestClass, reason: decision.reason });
     response.setHeader("retry-after", String(decision.retryAfterSeconds));
     request.log.warn(
       {

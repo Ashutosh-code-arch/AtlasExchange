@@ -28,6 +28,7 @@ describe("API configuration", () => {
       maximumTrackedClients: 10_000,
     });
     expect(config.database.expectedSchemaVersion).toBe("15");
+    expect(config.observability.metrics).toEqual({ enabled: false });
     expect(config.financial.simulatedFundingEnabled).toBe(true);
     expect(config.financial.simulatedWithdrawalsEnabled).toBe(true);
     expect(config.marketData.projection).toEqual({
@@ -66,6 +67,8 @@ describe("API configuration", () => {
     expect(Object.isFrozen(config.database)).toBe(true);
     expect(Object.isFrozen(config.http.serverLimits)).toBe(true);
     expect(Object.isFrozen(config.http.requestRateLimits)).toBe(true);
+    expect(Object.isFrozen(config.observability)).toBe(true);
+    expect(Object.isFrozen(config.observability.metrics)).toBe(true);
     expect(Object.isFrozen(config.financial)).toBe(true);
     expect(Object.isFrozen(config.marketData.projection)).toBe(true);
     expect(Object.isFrozen(config.marketData.stream)).toBe(true);
@@ -149,6 +152,29 @@ describe("API configuration", () => {
         "HTTP_MUTATION_RATE_LIMIT_MAX_REQUESTS",
       ]),
     );
+  });
+
+  it("requires a dedicated bearer secret when metrics are enabled", () => {
+    expect(() => parseApiConfig({ ...validEnvironment, METRICS_ENABLED: "true" })).toThrowError(
+      new ConfigurationError(["METRICS_BEARER_TOKEN"]),
+    );
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        METRICS_ENABLED: "true",
+        METRICS_BEARER_TOKEN: "too-short",
+      }),
+    ).toThrowError(new ConfigurationError(["METRICS_BEARER_TOKEN"]));
+
+    const config = parseApiConfig({
+      ...validEnvironment,
+      METRICS_ENABLED: "true",
+      METRICS_BEARER_TOKEN: "atlas-dedicated-metrics-secret-value",
+    });
+    expect(config.observability.metrics).toEqual({
+      enabled: true,
+      bearerToken: "atlas-dedicated-metrics-secret-value",
+    });
   });
 
   it("validates explicit Market Data projection worker boundaries", () => {
