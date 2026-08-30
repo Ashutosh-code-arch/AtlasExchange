@@ -18,6 +18,7 @@ const base64UrlKey = z
   .refine((value) => Buffer.from(value, "base64url").length >= 32);
 
 const apiEnvironmentSchema = z.object({
+  PORT: integerString.transform(Number).pipe(z.number().int().min(1).max(65_535)).optional(),
   API_PORT: integerString
     .default("3000")
     .transform(Number)
@@ -360,7 +361,7 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
 
   return Object.freeze({
     http: Object.freeze({
-      port: values.API_PORT,
+      port: values.PORT ?? values.API_PORT,
       shutdownTimeoutMs: values.SHUTDOWN_TIMEOUT_MS,
       webOrigin: values.WEB_ORIGIN,
       secureTransport: values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production",

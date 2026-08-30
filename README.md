@@ -29,8 +29,12 @@ The implemented Atlas learning platform provides:
 
 Atlas remains a simulated centralized-exchange learning platform. Phase 7 completion means its
 production-readiness controls are defined and tested; it does **not** mean production traffic, real
-custody, external market execution, regulatory approval, or a selected hosting environment has been
-approved.
+custody, external market execution, regulatory approval, or a production hosting environment has
+been approved.
+
+Phase 8 has selected Render as the initial production-shaped staging target, subject to live cost
+approval, owned access-controlled domains, verified proxy semantics, and a later committed deployment
+manifest. No Render resource or production environment has been created.
 
 ## Prerequisites
 

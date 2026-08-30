@@ -692,6 +692,26 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - Phase completion does not claim production deployment, real-money custody, regulatory approval,
   selected infrastructure, or a production `go`; those require the external evidence ADR-066 names.
 
+## Phase 8 entry and delivery state
+
+- Phase 7 passed its deterministic, production-build, browser, performance, image, recovery, and
+  security boundaries. Phase 8 may now turn the vendor-neutral contracts into measured staging
+  evidence without treating provider selection as production approval.
+- [ADR-067 — Initial Staging Platform and Managed PostgreSQL Provider](../architecture/decisions/ADR-067-initial-staging-platform-and-managed-postgresql-provider.md)
+  selects Render for the first production-shaped staging environment, with one API service, one web
+  service, paid PostgreSQL 18, private database traffic, Singapore placement, immutable GHCR digest
+  promotion, and an initial measured resource envelope.
+- The selection is conditional on explicit live cost approval, an Atlas-owned access-controlled
+  same-site domain pair, seven-day PITR, private metrics collection, public-subdomain shutdown, and a
+  controlled proxy/forwarded-identity test. No account, paid resource, secret, domain, or deployment
+  is created by the decision.
+- The API now honors a platform-injected `PORT` ahead of local `API_PORT`, and its image health check
+  probes that same effective port. Focused configuration coverage prevents invalid or conflicting
+  platform port assumptions from reaching runtime.
+- The canonical Render staging runbook records the intended plans, configuration, secret boundary,
+  deployment order, required evidence, and stop conditions. A deployable Blueprint remains deferred
+  until the required external inputs exist; invented domains or credentials will not be committed.
+
 ## Phase transition rule
 
 Do not begin a later phase merely because folders can be scaffolded. Begin it when the preceding

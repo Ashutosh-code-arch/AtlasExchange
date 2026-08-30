@@ -94,6 +94,19 @@ describe("API configuration", () => {
 
   it("rejects invalid ports", () => {
     expect(() => parseApiConfig({ ...validEnvironment, API_PORT: "70000" })).toThrow(/API_PORT/);
+    expect(() => parseApiConfig({ ...validEnvironment, PORT: "70000" })).toThrowError(
+      new ConfigurationError(["PORT"]),
+    );
+  });
+
+  it("prefers a platform-provided port over the local API port", () => {
+    const config = parseApiConfig({
+      ...validEnvironment,
+      API_PORT: "3000",
+      PORT: "10000",
+    });
+
+    expect(config.http.port).toBe(10_000);
   });
 
   it("validates explicit PostgreSQL pool limits and timeout ordering", () => {
