@@ -2,7 +2,7 @@
 
 **Classification:** Canonical  
 **Status:** Active  
-**Last reviewed:** 2026-08-30
+**Last reviewed:** 2026-08-31
 
 This runbook implements ADR-063 without assuming a production runtime vendor.
 
@@ -19,6 +19,7 @@ This runbook implements ADR-063 without assuming a production runtime vendor.
    pnpm test:e2e
    pnpm test:performance
    pnpm containers:build
+   pnpm security:check
    ```
 
 4. Create and push an annotated `vMAJOR.MINOR.PATCH` tag at that commit.
@@ -26,7 +27,15 @@ This runbook implements ADR-063 without assuming a production runtime vendor.
 
 Publishing the GitHub Release starts `.github/workflows/publish-release-images.yml`. The workflow
 fails if the tag format is unstable, the root package version differs, or the tagged commit is not
-reachable from `origin/main`.
+reachable from `origin/main`. Before either publish job receives registry write authority, release
+preparation repeats tracked-secret scanning, the live workspace dependency audit, local production
+image builds, and High/Critical image scanning.
+
+The security checks require live advisory evidence. Do not bypass a failed lookup or a finding to
+make a release proceed. For a confirmed credential, revoke or rotate it before removing it from
+source. See
+[ADR-065](../architecture/decisions/ADR-065-software-supply-chain-vulnerability-and-secret-response.md)
+for response and exception rules.
 
 ## Published artifacts
 

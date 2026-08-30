@@ -3,7 +3,7 @@
 **Classification:** Canonical  
 **Status:** Accepted  
 **Date:** 2026-08-30  
-**Last reviewed:** 2026-08-30  
+**Last reviewed:** 2026-08-31
 **Canonical owner/source:** ADR-063
 
 ## Context
@@ -193,7 +193,8 @@ Publishing images does not declare Atlas ready for real money or public customer
 defines the backup/restore contract and local logical drill, but before production traffic Atlas
 still requires a selected runtime and database, a timed provider PITR drill, secret storage and
 rotation, DNS/certificate ownership, monitoring collection and alerting, capacity validation,
-vulnerability response, and operational runbooks.
+per-platform registry rescanning, and operational runbooks. ADR-065 defines the initial source,
+workspace-dependency, built-image, and finding-response boundary before publication.
 
 Simulated funding and withdrawals remain off by default in managed environments. This topology does
 not introduce real custody, external market connectivity, or regulatory readiness.
@@ -270,3 +271,4 @@ signatures, or adds automated staging/production deployment.
 - [ADR-060 — PostgreSQL Runtime Capacity, Timeout, and Saturation Policy](ADR-060-postgresql-runtime-capacity-timeout-and-saturation-policy.md)
 - [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)
 - [ADR-064 — PostgreSQL Backup, Restore, and Recovery Validation](ADR-064-postgresql-backup-restore-and-recovery-validation.md)
+- [ADR-065 — Software Supply-Chain, Vulnerability, and Secret Response](ADR-065-software-supply-chain-vulnerability-and-secret-response.md)

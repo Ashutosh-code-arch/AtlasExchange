@@ -15,7 +15,7 @@ jobs:
   prepare:
     if: github.event.release.prerelease == false
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:18.4
@@ -57,8 +57,14 @@ jobs:
           cache: true
           install: false
 
+      - name: Scan source for tracked secrets
+        run: pnpm security:secrets
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Audit workspace dependencies
+        run: pnpm security:dependencies
 
       - name: Apply migrations
         run: pnpm db:migrate
@@ -68,6 +74,12 @@ jobs:
 
       - name: Build production artifacts
         run: pnpm build
+
+      - name: Build production container images
+        run: pnpm containers:build
+
+      - name: Scan production container images
+        run: pnpm security:containers
 
       - name: Validate release identity
         id: release

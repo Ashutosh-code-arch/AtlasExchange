@@ -3,7 +3,7 @@
 **Classification:** Canonical  
 **Status:** Accepted  
 **Date:** 2026-08-18  
-**Last reviewed:** 2026-08-30  
+**Last reviewed:** 2026-08-31
 **Canonical owner/source:** ADR-012
 
 ## 1. Context
@@ -201,7 +201,8 @@ Rules:
 - API secrets never appear in the web example;
 - tests receive deterministic configuration from test setup;
 - tests do not silently load the developer's local environment;
-- automated secret scanning should be introduced in CI later.
+- source-control candidates are scanned for high-confidence credential material in CI under
+  ADR-065; runtime secret storage and rotation remain deployment responsibilities.
 
 A root environment file must not become an unstructured mixture of web, API, Compose, and deployment configuration.
 
@@ -328,6 +329,7 @@ The following remain intentionally deferred:
 - [ADR-011 — PostgreSQL Runtime and Local Development Strategy](ADR-011-postgresql-runtime-and-local-development-strategy.md)
 - [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)
 - [ADR-063 — Initial Deployment Topology and Container Release Promotion](ADR-063-initial-deployment-topology-and-container-release-promotion.md)
+- [ADR-065 — Software Supply-Chain, Vulnerability, and Secret Response](ADR-065-software-supply-chain-vulnerability-and-secret-response.md)
 
 ## 12. References
 

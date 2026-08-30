@@ -1,6 +1,10 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24.19.0-bookworm-slim AS build
+FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS secured-node
+
+RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0
+
+FROM secured-node AS build
 
 ENV HUSKY=0 \
     PNPM_HOME=/pnpm \
@@ -29,7 +33,7 @@ RUN pnpm --filter @atlas/api build
 RUN --mount=type=cache,id=atlas-pnpm,target=/pnpm/store \
     pnpm --filter @atlas/api deploy --prod /deploy/api
 
-FROM node:24.19.0-bookworm-slim AS runtime
+FROM secured-node AS runtime
 
 ARG ATLAS_IMAGE_VERSION=0.1.0-local
 ARG ATLAS_IMAGE_REVISION=unknown
@@ -47,6 +51,9 @@ ENV NODE_ENV=production \
     ATLAS_APPLICATION_VERSION="${ATLAS_IMAGE_VERSION}"
 
 WORKDIR /app
+
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 COPY --from=build --chown=node:node /deploy/api/package.json ./package.json
 COPY --from=build --chown=node:node /deploy/api/node_modules ./node_modules

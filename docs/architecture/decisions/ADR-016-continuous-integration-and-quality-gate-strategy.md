@@ -3,7 +3,7 @@
 **Classification:** Canonical  
 **Status:** Accepted  
 **Date:** 2026-08-19  
-**Last reviewed:** 2026-08-30  
+**Last reviewed:** 2026-08-31
 **Canonical owner/source:** ADR-016
 
 ## 1. Context
@@ -12,10 +12,13 @@ CI must reproduce the repository's documented verification contract rather than 
 
 Atlas CI must prove that a clean machine can:
 
+- reject likely credential material before dependency installation;
 - install the committed dependency graph;
+- audit the complete workspace graph against current advisories;
 - validate static quality rules;
 - compile every production artifact;
 - build both production application images;
+- scan both production images for known High and Critical vulnerabilities;
 - create PostgreSQL from committed migrations;
 - run non-E2E tests;
 - enforce architectural boundaries;
@@ -26,7 +29,8 @@ A local workflow that passes because of stale `node_modules`, generated `dist/`,
 ## 2. Decision
 
 Atlas uses one sequential CI quality-gate job plus a separate browser-system-test job for pull
-requests and pushes to `main`.
+requests and pushes to `main`. The quality job also runs weekly to refresh time-varying security
+evidence; the browser job is skipped on that schedule.
 
 The initial validation contract is:
 
@@ -39,9 +43,13 @@ install approved Node version
     ↓
 install approved pnpm version
     ↓
+pnpm security:secrets
+    ↓
 restore pnpm store cache
     ↓
 pnpm install --frozen-lockfile
+    ↓
+pnpm security:dependencies
     ↓
 wait for PostgreSQL service health
     ↓
@@ -52,6 +60,8 @@ pnpm verify
 pnpm build
     ↓
 pnpm containers:build
+    ↓
+pnpm security:containers
 
 parallel E2E job
     ↓
@@ -65,11 +75,12 @@ The workflow will initially run for:
 ```text
 pull_request
 push to main
+weekly security refresh
 workflow_dispatch
 ```
 
-Scheduled and deployment workflows are deferred until a demonstrated requirement exists. ADR-063
-adds a separate release-publication workflow for stable published GitHub Releases.
+ADR-063 adds a separate release-publication workflow for stable published GitHub Releases. Its
+preparation job repeats the security boundary before image-publication jobs receive write authority.
 
 Pull-request runs should use concurrency cancellation so superseded commits do not consume unnecessary CI resources. Main-branch validation should not be casually cancelled.
 
@@ -79,7 +90,7 @@ Atlas keeps static checks, non-E2E tests, production builds, and image builds in
 quality-gate job. Browser E2E runs separately because it owns Chromium plus isolated PostgreSQL and
 Mailpit infrastructure and is independently diagnosable.
 
-The repository is small, there is one primary developer, and the quality job has a fifteen-minute
+The repository is small, there is one primary developer, and the quality job has a twenty-minute
 timeout. It should be split further only when measurements demonstrate meaningful benefit.
 
 ## 4. Canonical Verification Contract
@@ -100,6 +111,7 @@ CI runs both:
 pnpm verify
 pnpm build
 pnpm containers:build
+pnpm security:containers
 ```
 
 The build remains separate because passing type checks and tests does not prove that Vite production bundling, API production emission, contracts compilation, and workspace build coordination succeed from a clean checkout.
@@ -107,6 +119,10 @@ The build remains separate because passing type checks and tests does not prove 
 The container build remains separate because ordinary build output does not prove that each
 Dockerfile can create its isolated, non-root runtime artifact from the committed lockfile and
 workspace dependency graph.
+
+The security commands remain separate from `pnpm verify` because registry advisories and the image
+scanner database are time-varying network evidence. ADR-065 owns their severity, scanner authority,
+schedule, and response policy.
 
 ## 5. Runtime Pinning
 
@@ -238,8 +254,9 @@ A full commit SHA is preferred because it provides an immutable action reference
 ### Release publication
 
 The release workflow is not a pull-request validation path. It runs only for a published,
-non-prerelease GitHub Release, repeats frozen installation, migrations, `pnpm verify`, and
-`pnpm build`, then publishes both images from the tagged source.
+non-prerelease GitHub Release, repeats source-secret scanning, frozen installation, dependency
+auditing, migrations, `pnpm verify`, `pnpm build`, production image builds, and image scanning, then
+publishes both images from the tagged source.
 
 The release tag must be stable semantic `vMAJOR.MINOR.PATCH`, match the root package version, and
 resolve to a commit reachable from `origin/main`. Publication actions are pinned by full SHA. Only
@@ -333,3 +350,4 @@ Splitting jobs is an optimization decision, not an architectural requirement for
 - [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)
 - [ADR-063 — Initial Deployment Topology and Container Release Promotion](ADR-063-initial-deployment-topology-and-container-release-promotion.md)
 - [ADR-064 — PostgreSQL Backup, Restore, and Recovery Validation](ADR-064-postgresql-backup-restore-and-recovery-validation.md)
+- [ADR-065 — Software Supply-Chain, Vulnerability, and Secret Response](ADR-065-software-supply-chain-vulnerability-and-secret-response.md)

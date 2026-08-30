@@ -3,7 +3,7 @@
 **Classification:** Canonical  
 **Status:** Accepted  
 **Date:** 2026-08-30  
-**Last reviewed:** 2026-08-30  
+**Last reviewed:** 2026-08-31
 **Canonical owner/source:** ADR-062
 
 ## Context
@@ -50,16 +50,20 @@ cross-module access remain governed by ADR-008.
 
 ## 1. Reproducible build baseline
 
-Both Dockerfiles use the exact accepted `node:24.19.0-bookworm-slim` base and activate pnpm
-`11.20.0` only in the build stage. Installation uses the committed root lockfile with
+Both Dockerfiles use the exact accepted `node:24.19.0-alpine3.23` base pinned by multi-platform
+digest. A shared secured stage pins any required base-package security update for both build and
+runtime; it does not run an unconstrained operating-system upgrade. Build stages activate pnpm
+`11.20.0`; runtime stages remove the unused bundled package managers so their transitive tooling
+cannot expand the serving attack surface. Installation uses the committed root lockfile with
 `--frozen-lockfile`.
 
 pnpm injected workspace dependencies and post-build synchronization allow `pnpm deploy --prod` to
 materialize the API's declared production graph. The runtime image does not depend on monorepo
 symlinks, root development tools, or another workspace's installation.
 
-The Debian slim variant is preferred over Alpine initially because Atlas uses native Node modules
-and has no measured size requirement that justifies another libc boundary.
+The Alpine variant is accepted only after the native Argon2 build, API runtime, web runtime, and
+container smoke checks pass on its musl boundary. It materially reduces the runtime package surface
+that must satisfy ADR-065 without changing Atlas's exact Node baseline.
 
 ## 2. API runtime image
 
@@ -214,3 +218,4 @@ projection worker from the command API.
 - [ADR-016 — Continuous Integration and Quality Gate Strategy](ADR-016-continuous-integration-and-quality-gate-strategy.md)
 - [ADR-056 — Production HTTP Edge Security and Resource Boundary](ADR-056-production-http-edge-security-and-resource-boundary.md)
 - [ADR-063 — Initial Deployment Topology and Container Release Promotion](ADR-063-initial-deployment-topology-and-container-release-promotion.md)
+- [ADR-065 — Software Supply-Chain, Vulnerability, and Secret Response](ADR-065-software-supply-chain-vulnerability-and-secret-response.md)

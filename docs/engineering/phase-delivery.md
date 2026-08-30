@@ -1,7 +1,7 @@
 # Atlas Exchange Phase Delivery
 
 **Status:** Active  
-**Last reviewed:** 2026-08-30
+**Last reviewed:** 2026-08-31
 
 This document translates the canonical product and sprint documents into small, demonstrable
 delivery increments. A phase is complete only after its acceptance checks pass.
@@ -643,6 +643,20 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   disposable database, emits aggregate evidence, and removes both target and temporary archive. A
   real drill against PostgreSQL 18.4 completed successfully; provider PITR selection and timed
   production-environment evidence remain deployment prerequisites.
+- [ADR-065 — Software Supply-Chain, Vulnerability, and Secret Response](../architecture/decisions/ADR-065-software-supply-chain-vulnerability-and-secret-response.md)
+  defines separate source-secret, complete workspace dependency, and built-image vulnerability
+  checks; High/Critical release blocking; immutable least-authority scanner execution; weekly
+  advisory refresh; and explicit credential and finding response.
+- CI and stable-release preparation now scan source before installation, fail the complete pnpm
+  graph on High/Critical advisories, build and archive-scan both production images without exposing
+  the Docker socket or repository to the scanner, and prevent publication until all checks pass.
+  Weekly Dependabot checks cover action and container-source updates, while a scheduled quality run
+  catches advisories published without a new Atlas commit.
+- The first strict image scan rejected the previous Debian runtime rather than suppressing its
+  findings. Both Dockerfiles now use the exact digest-pinned Node 24.19.0 Alpine 3.23 base, share a
+  pinned OpenSSL security-update stage, and remove unused runtime package managers. Native Argon2,
+  API/web non-root execution, runtime web configuration, and both image scans pass; the current
+  scanner reports only one non-blocking Medium BusyBox advisory and no High or Critical finding.
 
 ## Phase transition rule
 

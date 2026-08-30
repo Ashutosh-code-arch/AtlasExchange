@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 1 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -16,7 +18,7 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:18.4
@@ -57,8 +59,14 @@ jobs:
           cache: true
           install: false
 
+      - name: Scan source for tracked secrets
+        run: pnpm security:secrets
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Audit workspace dependencies
+        run: pnpm security:dependencies
 
       - name: Apply migrations
         run: pnpm db:migrate
@@ -72,7 +80,11 @@ jobs:
       - name: Build production container images
         run: pnpm containers:build
 
+      - name: Scan production container images
+        run: pnpm security:containers
+
   e2e:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

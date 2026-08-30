@@ -94,6 +94,10 @@ pnpm verify         # typecheck, lint, format-check, and test
 pnpm test:e2e       # run the isolated full-stack browser journeys
 pnpm build          # create production artifacts
 pnpm containers:build # build the API and web production images
+pnpm security:secrets # scan source-control candidates without printing credential values
+pnpm security:dependencies # fail on High/Critical workspace advisories
+pnpm security:containers # fail on High/Critical findings in both built images
+pnpm security:check # run all security checks; expects both local images to exist
 ```
 
 Production images are built independently as `atlas-api:local` and `atlas-web:local`. The web image
@@ -108,6 +112,12 @@ Stable published GitHub Releases produce signed, SBOM-attached AMD64/ARM64 image
 must use `vMAJOR.MINOR.PATCH`, match the root package version, and point to `main`; environments
 promote the resulting API and web digests rather than mutable tags. See the
 [release and deployment runbook](docs/engineering/release-and-deployment.md).
+
+CI and stable-release preparation scan source-control candidates for likely credentials, audit the
+complete workspace graph, and scan both built runtime images with a digest-pinned least-authority
+scanner. High or Critical findings block publication. The security evidence is deliberately
+separate from deterministic `pnpm verify`; see
+[ADR-065](docs/architecture/decisions/ADR-065-software-supply-chain-vulnerability-and-secret-response.md).
 
 PostgreSQL recovery requires managed point-in-time recovery plus separately encrypted portable
 archives; creating a backup is not accepted as proof until an isolated restore passes migration and

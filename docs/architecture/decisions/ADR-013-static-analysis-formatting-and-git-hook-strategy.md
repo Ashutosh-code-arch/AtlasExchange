@@ -3,7 +3,7 @@
 **Classification:** Canonical  
 **Status:** Accepted  
 **Date:** 2026-08-18  
-**Last reviewed:** 2026-08-18  
+**Last reviewed:** 2026-08-31
 **Canonical owner/source:** ADR-013
 
 ## 1. Context
@@ -338,7 +338,6 @@ The following are intentionally deferred:
 - a pre-push hook;
 - full tests or production builds in Git hooks;
 - additional repository-wide lint rules not justified by current code;
-- automated CI secret scanning;
 - exact versions of ESLint, Prettier, Husky, lint-staged, and related plugins.
 
 ## 13. Reconsideration criteria
@@ -353,6 +352,9 @@ Revisit this ADR when one or more of the following becomes true:
 - the current hook model creates measurable workflow or reliability problems.
 
 Any change to the selected architecture should be recorded through the ADR governance process.
+
+Automated source-secret detection is now defined separately by
+[ADR-065 — Software Supply-Chain, Vulnerability, and Secret Response](ADR-065-software-supply-chain-vulnerability-and-secret-response.md).
 
 ## 14. Related decisions
 
