@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 
+import { sql } from "kysely";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -57,14 +58,70 @@ describe("PostgreSQL foundation integration", () => {
     ]);
     await expect(applyMigrations(integrationDatabaseUrl)).resolves.toEqual([]);
 
-    const compatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "15");
+    let connectionEvents = 0;
+    let removalEvents = 0;
+    let observeRemoval: (() => void) | undefined;
+    const removalObserved = new Promise<void>((resolve) => {
+      observeRemoval = resolve;
+    });
+    const compatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "15", {
+      pool: {
+        maximumConnections: 3,
+        connectionTimeoutMs: 1_500,
+        idleTimeoutMs: 20_000,
+        maximumLifetimeSeconds: 120,
+        statementTimeoutMs: 4_321,
+        lockTimeoutMs: 1_234,
+        idleTransactionTimeoutMs: 8_765,
+        readinessTimeoutMs: 700,
+      },
+      onPoolConnect: () => {
+        connectionEvents += 1;
+      },
+      onPoolRemove: () => {
+        removalEvents += 1;
+        observeRemoval?.();
+      },
+    });
     const incompatibleDatabase = createDatabaseResources(integrationDatabaseUrl, "999");
 
     await expect(compatibleDatabase.checkReadiness()).resolves.toBe(true);
     await expect(incompatibleDatabase.checkReadiness()).resolves.toBe(false);
 
+    const sessionSettings = await sql<{
+      application_name: string;
+      idle_transaction_timeout_ms: number;
+      lock_timeout_ms: number;
+      statement_timeout_ms: number;
+    }>`
+      SELECT
+        current_setting('application_name') AS application_name,
+        (extract(epoch FROM current_setting('statement_timeout')::interval) * 1000)::integer
+          AS statement_timeout_ms,
+        (extract(epoch FROM current_setting('lock_timeout')::interval) * 1000)::integer
+          AS lock_timeout_ms,
+        (extract(epoch FROM current_setting('idle_in_transaction_session_timeout')::interval) * 1000)::integer
+          AS idle_transaction_timeout_ms
+    `.execute(compatibleDatabase.database);
+    expect(sessionSettings.rows[0]).toEqual({
+      application_name: "atlas-api",
+      statement_timeout_ms: 4_321,
+      lock_timeout_ms: 1_234,
+      idle_transaction_timeout_ms: 8_765,
+    });
+    expect(compatibleDatabase.poolSnapshot()).toEqual({
+      maximumConnections: 3,
+      totalConnections: 1,
+      idleConnections: 1,
+      activeConnections: 0,
+      waitingRequests: 0,
+    });
+    expect(connectionEvents).toBe(1);
+
     await compatibleDatabase.close();
     await incompatibleDatabase.close();
+    await removalObserved;
+    expect(removalEvents).toBe(1);
 
     const verificationPool = new Pool({ connectionString: integrationDatabaseUrl, max: 1 });
     const result = await verificationPool.query<{ count: string }>(

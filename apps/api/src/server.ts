@@ -96,25 +96,42 @@ async function closeServer(server: Server): Promise<void> {
 async function start(): Promise<RunningServer> {
   const config = parseApiConfig(process.env);
   const logger = createLogger(config.logging);
+  const metricsConfiguration = config.observability.metrics.enabled
+    ? {
+        collector: new ApplicationMetrics({
+          applicationVersion: config.logging.applicationVersion,
+        }),
+        bearerToken: config.observability.metrics.bearerToken,
+      }
+    : undefined;
+  const metrics = metricsConfiguration?.collector;
   logger.info({ event: "api.starting" }, "Atlas API starting");
 
   const database = createDatabaseResources<AtlasDatabaseSchema>(
     config.database.url,
     config.database.expectedSchemaVersion,
-    (error) => {
-      logger.error(
-        {
-          event: "database.connection.failed",
-          databaseError: {
-            name: error.name,
-            message: error.message,
-            code: "code" in error && typeof error.code === "string" ? error.code : "DATABASE_ERROR",
+    {
+      pool: config.database.pool,
+      onPoolConnect: () => metrics?.recordDatabasePoolEvent("connect"),
+      onPoolRemove: () => metrics?.recordDatabasePoolEvent("remove"),
+      onPoolError: (error) => {
+        metrics?.recordDatabasePoolEvent("error");
+        logger.error(
+          {
+            event: "database.connection.failed",
+            databaseError: {
+              name: error.name,
+              message: error.message,
+              code:
+                "code" in error && typeof error.code === "string" ? error.code : "DATABASE_ERROR",
+            },
           },
-        },
-        "Idle PostgreSQL connection failed",
-      );
+          "Idle PostgreSQL connection failed",
+        );
+      },
     },
   );
+  metrics?.setDatabasePoolSnapshotProvider(() => database.poolSnapshot());
   const lifecycle = new LifecycleState(database);
   let runtime: RunningServer | undefined;
 
@@ -213,16 +230,7 @@ async function start(): Promise<RunningServer> {
           maximumTrackedClients: config.http.requestRateLimits.maximumTrackedClients,
         }),
       },
-      ...(config.observability.metrics.enabled
-        ? {
-            metrics: {
-              collector: new ApplicationMetrics({
-                applicationVersion: config.logging.applicationVersion,
-              }),
-              bearerToken: config.observability.metrics.bearerToken,
-            },
-          }
-        : {}),
+      ...(metricsConfiguration === undefined ? {} : { metrics: metricsConfiguration }),
       identityRouter,
       financialRouter,
       tradingRouter,

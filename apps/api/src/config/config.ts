@@ -23,6 +23,38 @@ const apiEnvironmentSchema = z.object({
     .transform(Number)
     .pipe(z.number().int().min(1).max(65_535)),
   DATABASE_URL: z.string().url().startsWith("postgresql://"),
+  DATABASE_POOL_MAX_CONNECTIONS: integerString
+    .default("10")
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(100)),
+  DATABASE_POOL_CONNECTION_TIMEOUT_MS: integerString
+    .default("2000")
+    .transform(Number)
+    .pipe(z.number().int().min(100).max(30_000)),
+  DATABASE_POOL_IDLE_TIMEOUT_MS: integerString
+    .default("30000")
+    .transform(Number)
+    .pipe(z.number().int().min(1_000).max(300_000)),
+  DATABASE_POOL_MAX_LIFETIME_SECONDS: integerString
+    .default("300")
+    .transform(Number)
+    .pipe(z.number().int().min(30).max(86_400)),
+  DATABASE_STATEMENT_TIMEOUT_MS: integerString
+    .default("15000")
+    .transform(Number)
+    .pipe(z.number().int().min(100).max(120_000)),
+  DATABASE_LOCK_TIMEOUT_MS: integerString
+    .default("5000")
+    .transform(Number)
+    .pipe(z.number().int().min(100).max(60_000)),
+  DATABASE_IDLE_TRANSACTION_TIMEOUT_MS: integerString
+    .default("30000")
+    .transform(Number)
+    .pipe(z.number().int().min(1_000).max(300_000)),
+  DATABASE_READINESS_TIMEOUT_MS: integerString
+    .default("1000")
+    .transform(Number)
+    .pipe(z.number().int().min(100).max(10_000)),
   WEB_ORIGIN: z.string().url().default("http://localhost:5173"),
   HTTP_REQUEST_TIMEOUT_MS: integerString
     .default("30000")
@@ -161,6 +193,16 @@ export interface ApiConfig {
   readonly database: Readonly<{
     url: string;
     expectedSchemaVersion: string;
+    pool: Readonly<{
+      maximumConnections: number;
+      connectionTimeoutMs: number;
+      idleTimeoutMs: number;
+      maximumLifetimeSeconds: number;
+      statementTimeoutMs: number;
+      lockTimeoutMs: number;
+      idleTransactionTimeoutMs: number;
+      readinessTimeoutMs: number;
+    }>;
   }>;
   readonly logging: Readonly<{
     level: "trace" | "debug" | "info" | "warn" | "error" | "fatal";
@@ -273,6 +315,15 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   if (values.METRICS_ENABLED && values.METRICS_BEARER_TOKEN === undefined) {
     throw new ConfigurationError(["METRICS_BEARER_TOKEN"]);
   }
+  if (values.DATABASE_LOCK_TIMEOUT_MS >= values.DATABASE_STATEMENT_TIMEOUT_MS) {
+    throw new ConfigurationError(["DATABASE_LOCK_TIMEOUT_MS", "DATABASE_STATEMENT_TIMEOUT_MS"]);
+  }
+  if (values.DATABASE_READINESS_TIMEOUT_MS > values.DATABASE_STATEMENT_TIMEOUT_MS) {
+    throw new ConfigurationError([
+      "DATABASE_READINESS_TIMEOUT_MS",
+      "DATABASE_STATEMENT_TIMEOUT_MS",
+    ]);
+  }
   if (
     (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
     (values.SMTP_HOST === undefined || values.SMTP_FROM === undefined)
@@ -309,6 +360,16 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     database: Object.freeze({
       url: values.DATABASE_URL,
       expectedSchemaVersion: values.EXPECTED_SCHEMA_VERSION,
+      pool: Object.freeze({
+        maximumConnections: values.DATABASE_POOL_MAX_CONNECTIONS,
+        connectionTimeoutMs: values.DATABASE_POOL_CONNECTION_TIMEOUT_MS,
+        idleTimeoutMs: values.DATABASE_POOL_IDLE_TIMEOUT_MS,
+        maximumLifetimeSeconds: values.DATABASE_POOL_MAX_LIFETIME_SECONDS,
+        statementTimeoutMs: values.DATABASE_STATEMENT_TIMEOUT_MS,
+        lockTimeoutMs: values.DATABASE_LOCK_TIMEOUT_MS,
+        idleTransactionTimeoutMs: values.DATABASE_IDLE_TRANSACTION_TIMEOUT_MS,
+        readinessTimeoutMs: values.DATABASE_READINESS_TIMEOUT_MS,
+      }),
     }),
     logging: Object.freeze({
       level: values.LOG_LEVEL,

@@ -34,6 +34,16 @@ describe("ApplicationMetrics", () => {
       requestClass: "mutation",
       reason: "request_limit",
     });
+    metrics.setDatabasePoolSnapshotProvider(() => ({
+      maximumConnections: 10,
+      totalConnections: 7,
+      idleConnections: 2,
+      activeConnections: 5,
+      waitingRequests: 3,
+    }));
+    metrics.recordDatabasePoolEvent("connect");
+    metrics.recordDatabasePoolEvent("connect");
+    metrics.recordDatabasePoolEvent("error");
 
     const output = metrics.render();
     expect(output).toContain('atlas_build_info{version="0.1.0"} 1');
@@ -52,6 +62,14 @@ describe("ApplicationMetrics", () => {
     expect(output).toContain(
       'atlas_http_admission_rejections_total{reason="request_limit",request_class="mutation"} 1',
     );
+    expect(output).toContain('atlas_database_pool_connections{state="active"} 5');
+    expect(output).toContain('atlas_database_pool_connections{state="idle"} 2');
+    expect(output).toContain('atlas_database_pool_connections{state="total"} 7');
+    expect(output).toContain("atlas_database_pool_max_connections 10");
+    expect(output).toContain("atlas_database_pool_waiting_requests 3");
+    expect(output).toContain('atlas_database_pool_events_total{event="connect"} 2');
+    expect(output).toContain('atlas_database_pool_events_total{event="error"} 1');
+    expect(output).toContain('atlas_database_pool_events_total{event="remove"} 0');
     expect(output).not.toContain("private-owner-value");
     expect(output).not.toContain("00000000-0000-4000-8000-000000000001");
   });

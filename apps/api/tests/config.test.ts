@@ -28,6 +28,16 @@ describe("API configuration", () => {
       maximumTrackedClients: 10_000,
     });
     expect(config.database.expectedSchemaVersion).toBe("15");
+    expect(config.database.pool).toEqual({
+      maximumConnections: 10,
+      connectionTimeoutMs: 2_000,
+      idleTimeoutMs: 30_000,
+      maximumLifetimeSeconds: 300,
+      statementTimeoutMs: 15_000,
+      lockTimeoutMs: 5_000,
+      idleTransactionTimeoutMs: 30_000,
+      readinessTimeoutMs: 1_000,
+    });
     expect(config.observability.metrics).toEqual({ enabled: false });
     expect(config.financial.simulatedFundingEnabled).toBe(true);
     expect(config.financial.simulatedWithdrawalsEnabled).toBe(true);
@@ -65,6 +75,7 @@ describe("API configuration", () => {
     ).toBeGreaterThanOrEqual(32);
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.database)).toBe(true);
+    expect(Object.isFrozen(config.database.pool)).toBe(true);
     expect(Object.isFrozen(config.http.serverLimits)).toBe(true);
     expect(Object.isFrozen(config.http.requestRateLimits)).toBe(true);
     expect(Object.isFrozen(config.observability)).toBe(true);
@@ -82,6 +93,53 @@ describe("API configuration", () => {
 
   it("rejects invalid ports", () => {
     expect(() => parseApiConfig({ ...validEnvironment, API_PORT: "70000" })).toThrow(/API_PORT/);
+  });
+
+  it("validates explicit PostgreSQL pool limits and timeout ordering", () => {
+    const config = parseApiConfig({
+      ...validEnvironment,
+      DATABASE_POOL_MAX_CONNECTIONS: "20",
+      DATABASE_POOL_CONNECTION_TIMEOUT_MS: "3000",
+      DATABASE_POOL_IDLE_TIMEOUT_MS: "45000",
+      DATABASE_POOL_MAX_LIFETIME_SECONDS: "600",
+      DATABASE_STATEMENT_TIMEOUT_MS: "20000",
+      DATABASE_LOCK_TIMEOUT_MS: "4000",
+      DATABASE_IDLE_TRANSACTION_TIMEOUT_MS: "45000",
+      DATABASE_READINESS_TIMEOUT_MS: "1500",
+    });
+    expect(config.database.pool).toEqual({
+      maximumConnections: 20,
+      connectionTimeoutMs: 3_000,
+      idleTimeoutMs: 45_000,
+      maximumLifetimeSeconds: 600,
+      statementTimeoutMs: 20_000,
+      lockTimeoutMs: 4_000,
+      idleTransactionTimeoutMs: 45_000,
+      readinessTimeoutMs: 1_500,
+    });
+
+    expect(() =>
+      parseApiConfig({ ...validEnvironment, DATABASE_POOL_MAX_CONNECTIONS: "0" }),
+    ).toThrowError(new ConfigurationError(["DATABASE_POOL_MAX_CONNECTIONS"]));
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        DATABASE_STATEMENT_TIMEOUT_MS: "5000",
+        DATABASE_LOCK_TIMEOUT_MS: "5000",
+      }),
+    ).toThrowError(
+      new ConfigurationError(["DATABASE_LOCK_TIMEOUT_MS", "DATABASE_STATEMENT_TIMEOUT_MS"]),
+    );
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        DATABASE_STATEMENT_TIMEOUT_MS: "1000",
+        DATABASE_LOCK_TIMEOUT_MS: "500",
+        DATABASE_READINESS_TIMEOUT_MS: "1001",
+      }),
+    ).toThrowError(
+      new ConfigurationError(["DATABASE_READINESS_TIMEOUT_MS", "DATABASE_STATEMENT_TIMEOUT_MS"]),
+    );
   });
 
   it("validates explicit HTTP resource limits and their ordering", () => {

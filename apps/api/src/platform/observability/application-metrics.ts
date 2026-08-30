@@ -14,6 +14,7 @@ type HttpRouteGroup =
 type HttpStatusClass = "1xx" | "2xx" | "3xx" | "4xx" | "5xx" | "unknown";
 type AdmissionClass = "read" | "mutation";
 type AdmissionRejectionReason = "request_limit" | "tracking_capacity";
+type DatabasePoolEvent = "connect" | "error" | "remove";
 
 interface HttpSeries {
   count: number;
@@ -40,6 +41,14 @@ export interface HttpRequestMetric {
 export interface AdmissionRejectionMetric {
   readonly requestClass: AdmissionClass;
   readonly reason: AdmissionRejectionReason;
+}
+
+export interface DatabasePoolMetricSnapshot {
+  readonly maximumConnections: number;
+  readonly totalConnections: number;
+  readonly idleConnections: number;
+  readonly activeConnections: number;
+  readonly waitingRequests: number;
 }
 
 export const prometheusTextContentType = "text/plain; version=0.0.4; charset=utf-8";
@@ -105,8 +114,10 @@ function seriesKey(method: HttpMethod, group: HttpRouteGroup, result: HttpStatus
 export class ApplicationMetrics {
   private readonly httpSeries = new Map<string, HttpSeries>();
   private readonly admissionRejections = new Map<string, number>();
+  private readonly databasePoolEvents = new Map<DatabasePoolEvent, number>();
   private readonly uptimeSeconds: () => number;
   private readonly memoryUsage: () => NodeJS.MemoryUsage;
+  private databasePoolSnapshotProvider: (() => DatabasePoolMetricSnapshot) | undefined;
 
   public constructor(private readonly options: ApplicationMetricsOptions) {
     this.uptimeSeconds = options.uptimeSeconds ?? (() => process.uptime());
@@ -140,6 +151,14 @@ export class ApplicationMetrics {
   public recordAdmissionRejection(metric: AdmissionRejectionMetric): void {
     const key = `${metric.requestClass}|${metric.reason}`;
     this.admissionRejections.set(key, (this.admissionRejections.get(key) ?? 0) + 1);
+  }
+
+  public setDatabasePoolSnapshotProvider(provider: () => DatabasePoolMetricSnapshot): void {
+    this.databasePoolSnapshotProvider = provider;
+  }
+
+  public recordDatabasePoolEvent(event: DatabasePoolEvent): void {
+    this.databasePoolEvents.set(event, (this.databasePoolEvents.get(event) ?? 0) + 1);
   }
 
   public render(): string {
@@ -212,6 +231,30 @@ export class ApplicationMetrics {
       lines.push(
         `atlas_http_admission_rejections_total${labels({ reason, request_class: requestClass })} ${count}`,
       );
+    }
+
+    const databasePool = this.databasePoolSnapshotProvider?.();
+    if (databasePool !== undefined) {
+      lines.push(
+        "# HELP atlas_database_pool_connections PostgreSQL pool connections by state.",
+        "# TYPE atlas_database_pool_connections gauge",
+        `atlas_database_pool_connections${labels({ state: "active" })} ${databasePool.activeConnections}`,
+        `atlas_database_pool_connections${labels({ state: "idle" })} ${databasePool.idleConnections}`,
+        `atlas_database_pool_connections${labels({ state: "total" })} ${databasePool.totalConnections}`,
+        "# HELP atlas_database_pool_max_connections Configured PostgreSQL pool connection limit.",
+        "# TYPE atlas_database_pool_max_connections gauge",
+        `atlas_database_pool_max_connections ${databasePool.maximumConnections}`,
+        "# HELP atlas_database_pool_waiting_requests PostgreSQL requests waiting for a pooled connection.",
+        "# TYPE atlas_database_pool_waiting_requests gauge",
+        `atlas_database_pool_waiting_requests ${databasePool.waitingRequests}`,
+        "# HELP atlas_database_pool_events_total PostgreSQL pool lifecycle events.",
+        "# TYPE atlas_database_pool_events_total counter",
+      );
+      for (const event of ["connect", "error", "remove"] as const) {
+        lines.push(
+          `atlas_database_pool_events_total${labels({ event })} ${this.databasePoolEvents.get(event) ?? 0}`,
+        );
+      }
     }
 
     return `${lines.join("\n")}\n`;

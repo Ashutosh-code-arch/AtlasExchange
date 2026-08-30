@@ -593,6 +593,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   asserting machine speed. The recorded Apple M4 development baseline passed with zero failures,
   14,699.24 requests/second, 2.32 ms p95, and 2.57 ms p99; it is explicitly not production or
   database-backed capacity evidence.
+- [ADR-060 — PostgreSQL Runtime Capacity, Timeout, and Saturation Policy](../architecture/decisions/ADR-060-postgresql-runtime-capacity-timeout-and-saturation-policy.md)
+  defines per-process runtime connection capacity, acquisition and server-side execution limits,
+  read-only readiness deadlines, aggregate replica budgeting, migration-pool isolation, and a
+  privacy-safe saturation metric contract.
+- The API now validates and applies pool maximum, acquisition, idle, lifetime, statement, lock,
+  idle-transaction, and readiness limits. Readiness uses one schema-version query under a shorter
+  Kysely-owned read-only transaction-local deadline. The protected scrape exposes live active,
+  idle, total, maximum, waiting, and finite lifecycle-event series. Configuration, registry, and
+  real-PostgreSQL tests prove timeout ordering, immutable configuration, session settings, pool
+  counts, readiness compatibility, and connection lifecycle.
 
 ## Phase transition rule
 
