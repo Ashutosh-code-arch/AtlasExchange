@@ -711,6 +711,19 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - The canonical Render staging runbook records the intended plans, configuration, secret boundary,
   deployment order, required evidence, and stop conditions. A deployable Blueprint remains deferred
   until the required external inputs exist; invented domains or credentials will not be committed.
+- [ADR-068 — Staging Domain and Access-Control Boundary](../architecture/decisions/ADR-068-staging-domain-and-access-control-boundary.md)
+  selects one Cloudflare Access application protecting two concrete same-site staging hostnames. The
+  policy remains exact-email and deny-by-default, uses eager per-host cookies for the SPA/API flow,
+  passes unauthenticated preflight only to Atlas's strict CORS enforcement, and does not replace Atlas
+  identity.
+- API HTTP, API WebSocket upgrades, and the production web server now validate Cloudflare's signed
+  assertion at the Render origin using the exact issuer, audience, expiry, algorithm, and remotely
+  rotated keys. Staging configuration is required and paired; missing, invalid, expired, forged, or
+  incorrectly scoped assertions fail closed while lifecycle health and private bearer-protected
+  metrics retain narrow exceptions.
+- The canonical Cloudflare Access staging runbook records external inputs, activation order,
+  browser/CORS/WebSocket proof, direct-origin bypass tests, proxy evidence, rollback, and stop
+  conditions. No domain, DNS record, invited user, provider account, or deployment is created.
 
 ## Phase transition rule
 

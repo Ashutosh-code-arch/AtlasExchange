@@ -16,6 +16,26 @@ const base64UrlKey = z
   .string()
   .regex(/^[A-Za-z0-9_-]+$/)
   .refine((value) => Buffer.from(value, "base64url").length >= 32);
+const cloudflareAccessTeamDomain = z
+  .string()
+  .url()
+  .refine((value) => {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.username === "" &&
+      url.password === "" &&
+      url.pathname === "/" &&
+      url.search === "" &&
+      url.hash === "" &&
+      url.hostname.endsWith(".cloudflareaccess.com")
+    );
+  });
+const cloudflareAccessAudience = z
+  .string()
+  .min(32)
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/);
 
 const apiEnvironmentSchema = z.object({
   PORT: integerString.transform(Number).pipe(z.number().int().min(1).max(65_535)).optional(),
@@ -57,6 +77,8 @@ const apiEnvironmentSchema = z.object({
     .transform(Number)
     .pipe(z.number().int().min(100).max(10_000)),
   WEB_ORIGIN: z.string().url().default("http://localhost:5173"),
+  CLOUDFLARE_ACCESS_TEAM_DOMAIN: cloudflareAccessTeamDomain.optional(),
+  CLOUDFLARE_ACCESS_AUDIENCE: cloudflareAccessAudience.optional(),
   HTTP_TRUST_PROXY_HOPS: integerString
     .default("0")
     .transform(Number)
@@ -186,6 +208,13 @@ export interface ApiConfig {
     webOrigin: string;
     secureTransport: boolean;
     trustedProxyHops: number;
+    stagingAccess:
+      | Readonly<{ enabled: false }>
+      | Readonly<{
+          enabled: true;
+          teamDomain: string;
+          audience: string;
+        }>;
     serverLimits: Readonly<{
       requestTimeoutMs: number;
       headersTimeoutMs: number;
@@ -358,6 +387,19 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   ) {
     throw new ConfigurationError(["WEB_ORIGIN"]);
   }
+  if (
+    (values.CLOUDFLARE_ACCESS_TEAM_DOMAIN === undefined) !==
+    (values.CLOUDFLARE_ACCESS_AUDIENCE === undefined)
+  ) {
+    throw new ConfigurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]);
+  }
+  if (
+    values.ATLAS_ENV === "staging" &&
+    (values.CLOUDFLARE_ACCESS_TEAM_DOMAIN === undefined ||
+      values.CLOUDFLARE_ACCESS_AUDIENCE === undefined)
+  ) {
+    throw new ConfigurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]);
+  }
 
   return Object.freeze({
     http: Object.freeze({
@@ -366,6 +408,15 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
       webOrigin: values.WEB_ORIGIN,
       secureTransport: values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production",
       trustedProxyHops: values.HTTP_TRUST_PROXY_HOPS,
+      stagingAccess:
+        values.CLOUDFLARE_ACCESS_TEAM_DOMAIN === undefined ||
+        values.CLOUDFLARE_ACCESS_AUDIENCE === undefined
+          ? Object.freeze({ enabled: false as const })
+          : Object.freeze({
+              enabled: true as const,
+              teamDomain: new URL(values.CLOUDFLARE_ACCESS_TEAM_DOMAIN).origin,
+              audience: values.CLOUDFLARE_ACCESS_AUDIENCE,
+            }),
       serverLimits: Object.freeze({
         requestTimeoutMs: values.HTTP_REQUEST_TIMEOUT_MS,
         headersTimeoutMs: values.HTTP_HEADERS_TIMEOUT_MS,

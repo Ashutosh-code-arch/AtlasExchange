@@ -23,6 +23,8 @@ import {
 } from "./platform/security/http-admission-rate-limit.js";
 import { InMemoryHttpRequestRateLimiter } from "./platform/security/http-request-rate-limiter.js";
 import { configureHttpSecurity } from "./platform/security/http-security.js";
+import type { AccessTokenVerifier } from "./platform/security/cloudflare-access-token-verifier.js";
+import { createStagingAccessMiddleware } from "./platform/security/staging-access.js";
 
 export interface CreateAppOptions {
   readonly lifecycle: LifecycleState;
@@ -31,6 +33,7 @@ export interface CreateAppOptions {
   readonly secureTransport?: boolean;
   readonly trustedProxyHops?: number;
   readonly requestRateLimiters?: HttpAdmissionRateLimiters;
+  readonly stagingAccessTokenVerifier?: AccessTokenVerifier;
   readonly metrics?: Readonly<{
     collector: ApplicationMetrics;
     bearerToken: string;
@@ -118,6 +121,9 @@ export function createApp(options: CreateAppOptions): Express {
       customErrorMessage: () => "HTTP request failed",
     }),
   );
+  if (options.stagingAccessTokenVerifier !== undefined) {
+    app.use(createStagingAccessMiddleware(options.stagingAccessTokenVerifier));
+  }
   if (options.metrics !== undefined) {
     app.get(
       "/internal/metrics",

@@ -4,6 +4,8 @@ import type { Router } from "express";
 import type { Kysely } from "kysely";
 import type { Logger } from "pino";
 
+import type { AccessTokenVerifier } from "../../platform/security/cloudflare-access-token-verifier.js";
+
 import {
   PostgresTradingMarketReader,
   PostgresTradingPublicationFactReader,
@@ -78,6 +80,7 @@ export interface CreateMarketDataStreamGatewayOptions {
       | "maximumBufferedBytes"
     >
   >;
+  readonly stagingAccessTokenVerifier?: AccessTokenVerifier;
   readonly now?: () => Date;
 }
 
@@ -129,6 +132,9 @@ export function createMarketDataStreamGateway(
     maximumSubscriptionsPerConnection: options.stream.maximumSubscriptionsPerConnection,
     maximumMessageBytes: options.stream.maximumMessageBytes,
     maximumBufferedBytes: options.stream.maximumBufferedBytes,
+    ...(options.stagingAccessTokenVerifier === undefined
+      ? {}
+      : { stagingAccessTokenVerifier: options.stagingAccessTokenVerifier }),
     ...(options.now === undefined ? {} : { now: options.now }),
   });
 }

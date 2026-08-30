@@ -3,6 +3,13 @@ import type { Server } from "node:http";
 export interface ProductionWebConfig {
   readonly apiBaseUrl: string;
   readonly port: number;
+  readonly stagingAccess:
+    | Readonly<{ enabled: false }>
+    | Readonly<{
+        enabled: true;
+        teamDomain: string;
+        audience: string;
+      }>;
 }
 
 export interface ProductionWebServerOptions {
@@ -10,7 +17,13 @@ export interface ProductionWebServerOptions {
   readonly distributionDirectory?: string;
   readonly host?: string;
   readonly port?: number;
+  readonly stagingAccessTokenVerifier?: (token: string) => Promise<boolean>;
 }
+
+export function createCloudflareAccessTokenVerifier(options: {
+  readonly teamDomain: string;
+  readonly audience: string;
+}): (token: string) => Promise<boolean>;
 
 export function parseProductionWebConfig(environment: NodeJS.ProcessEnv): ProductionWebConfig;
 export function createRuntimeConfigScript(apiBaseUrl: string): string;

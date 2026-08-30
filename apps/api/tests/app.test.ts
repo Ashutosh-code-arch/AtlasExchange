@@ -1,6 +1,6 @@
 import pino from "pino";
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../src/app.js";
 import {
@@ -24,6 +24,7 @@ function createTestApp(
     readonly secureTransport?: boolean;
     readonly trustedProxyHops?: number;
     readonly requestRateLimiters?: HttpAdmissionRateLimiters;
+    readonly stagingAccessTokenVerifier?: (token: string) => Promise<boolean>;
     readonly metrics?: Readonly<{
       collector: ApplicationMetrics;
       bearerToken: string;
@@ -45,6 +46,9 @@ function createTestApp(
     ...(options.requestRateLimiters === undefined
       ? {}
       : { requestRateLimiters: options.requestRateLimiters }),
+    ...(options.stagingAccessTokenVerifier === undefined
+      ? {}
+      : { stagingAccessTokenVerifier: options.stagingAccessTokenVerifier }),
     ...(options.metrics === undefined ? {} : { metrics: options.metrics }),
   });
   return { app, lifecycle, dependency };
@@ -175,6 +179,40 @@ describe("API application", () => {
       "Content-Type,X-CSRF-Token,Idempotency-Key,X-Request-ID",
     );
     expect(response.headers["access-control-max-age"]).toBe("600");
+  });
+
+  it("enforces staging access before public routes while preserving health and CORS preflight", async () => {
+    const verifier = vi.fn((token: string) => Promise.resolve(token === "valid-access-token"));
+    const { app } = createTestApp({ stagingAccessTokenVerifier: verifier });
+
+    const missing = await request(app)
+      .get("/api/v1/status")
+      .set("x-request-id", "atlas-staging-missing");
+    const invalid = await request(app)
+      .get("/api/v1/status")
+      .set("cf-access-jwt-assertion", "invalid-access-token");
+    const valid = await request(app)
+      .get("/api/v1/status")
+      .set("cf-access-jwt-assertion", "valid-access-token");
+    const preflight = await request(app)
+      .options("/api/v1/status")
+      .set("origin", "http://localhost:5173")
+      .set("access-control-request-method", "GET");
+
+    expect(missing.status).toBe(403);
+    expect(missing.body).toEqual({
+      success: false,
+      error: {
+        code: "STAGING_ACCESS_DENIED",
+        message: "Staging access is required.",
+        requestId: "atlas-staging-missing",
+      },
+    });
+    expect(invalid.status).toBe(403);
+    expect(valid.status).toBe(200);
+    expect(preflight.status).toBe(204);
+    expect((await request(app).get("/health/live")).status).toBe(200);
+    expect(verifier).toHaveBeenCalledTimes(2);
   });
 
   it("returns a safe retryable error when the API read admission budget is exhausted", async () => {

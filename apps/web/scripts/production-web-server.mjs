@@ -4,6 +4,8 @@ import { createServer } from "node:http";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const defaultDistributionDirectory = resolve(scriptDirectory, "../dist");
 
@@ -63,10 +65,69 @@ export function parseProductionWebConfig(environment) {
   const portValue = environment.PORT ?? environment.ATLAS_WEB_PORT ?? "8080";
   if (typeof portValue !== "string") throw configurationError([portVariable]);
 
+  const atlasEnvironment = environment.ATLAS_ENV ?? "local";
+  if (!["local", "staging", "production"].includes(atlasEnvironment)) {
+    throw configurationError(["ATLAS_ENV"]);
+  }
+  const teamDomainValue = environment.CLOUDFLARE_ACCESS_TEAM_DOMAIN;
+  const audience = environment.CLOUDFLARE_ACCESS_AUDIENCE;
+  if ((teamDomainValue === undefined) !== (audience === undefined)) {
+    throw configurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]);
+  }
+  if (atlasEnvironment === "staging" && (teamDomainValue === undefined || audience === undefined)) {
+    throw configurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]);
+  }
+
+  let stagingAccess = Object.freeze({ enabled: false });
+  if (teamDomainValue !== undefined && audience !== undefined) {
+    let teamDomain;
+    try {
+      teamDomain = new URL(teamDomainValue);
+    } catch {
+      throw configurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN"]);
+    }
+    if (
+      teamDomain.protocol !== "https:" ||
+      teamDomain.username !== "" ||
+      teamDomain.password !== "" ||
+      teamDomain.pathname !== "/" ||
+      teamDomain.search !== "" ||
+      teamDomain.hash !== "" ||
+      !teamDomain.hostname.endsWith(".cloudflareaccess.com")
+    ) {
+      throw configurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN"]);
+    }
+    if (!/^[A-Za-z0-9_-]{32,128}$/.test(audience)) {
+      throw configurationError(["CLOUDFLARE_ACCESS_AUDIENCE"]);
+    }
+    stagingAccess = Object.freeze({
+      enabled: true,
+      teamDomain: teamDomain.origin,
+      audience,
+    });
+  }
+
   return Object.freeze({
     apiBaseUrl: apiUrl.href.replace(/\/$/, ""),
     port: parsePort(portValue, portVariable),
+    stagingAccess,
   });
+}
+
+export function createCloudflareAccessTokenVerifier(options) {
+  const keys = createRemoteJWKSet(new URL("/cdn-cgi/access/certs", options.teamDomain));
+  return async (token) => {
+    try {
+      await jwtVerify(token, keys, {
+        algorithms: ["RS256"],
+        issuer: options.teamDomain,
+        audience: options.audience,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
 }
 
 export function createRuntimeConfigScript(apiBaseUrl) {
@@ -155,6 +216,11 @@ export function createProductionWebServer(options = {}) {
   );
   const runtimeConfigScript = createRuntimeConfigScript(config.apiBaseUrl);
   const indexPath = resolve(distributionDirectory, "index.html");
+  const stagingAccessTokenVerifier =
+    options.stagingAccessTokenVerifier ??
+    (config.stagingAccess.enabled
+      ? createCloudflareAccessTokenVerifier(config.stagingAccess)
+      : undefined);
 
   const server = createServer((request, response) => {
     void (async () => {
@@ -183,6 +249,14 @@ export function createProductionWebServer(options = {}) {
         response.setHeader("Cache-Control", "no-store");
         sendText(response, 200, '{"status":"ok"}\n', "application/json; charset=utf-8", method);
         return;
+      }
+      if (stagingAccessTokenVerifier !== undefined) {
+        const assertion = request.headers["cf-access-jwt-assertion"];
+        const token = typeof assertion === "string" && assertion.length <= 16_384 ? assertion : "";
+        if (token === "" || !(await stagingAccessTokenVerifier(token))) {
+          sendText(response, 403, "Staging access required\n", "text/plain; charset=utf-8", method);
+          return;
+        }
       }
       if (pathname === "/runtime-config.js") {
         response.setHeader("Cache-Control", "no-store");

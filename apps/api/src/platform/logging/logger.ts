@@ -8,6 +8,7 @@ const REDACTED_PATHS = [
   "authorization",
   "req.headers.authorization",
   "req.headers.cookie",
+  'req.headers["cf-access-jwt-assertion"]',
   'req.headers["x-csrf-token"]',
   'req.headers["idempotency-key"]',
   "database.url",

@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createRuntimeConfigScript,
@@ -35,7 +35,11 @@ describe("production web server", () => {
         ATLAS_WEB_API_BASE_URL: "https://api.atlas.test/",
         ATLAS_WEB_PORT: "8081",
       }),
-    ).toEqual({ apiBaseUrl: "https://api.atlas.test", port: 8081 });
+    ).toEqual({
+      apiBaseUrl: "https://api.atlas.test",
+      port: 8081,
+      stagingAccess: { enabled: false },
+    });
     expect(
       parseProductionWebConfig({
         ATLAS_WEB_API_BASE_URL: "https://api.atlas.test",
@@ -69,6 +73,24 @@ describe("production web server", () => {
         ATLAS_WEB_PORT: "0",
       }),
     ).toThrow(/ATLAS_WEB_PORT/);
+    expect(() =>
+      parseProductionWebConfig({
+        ATLAS_WEB_API_BASE_URL: "https://api.atlas.test",
+        ATLAS_ENV: "staging",
+      }),
+    ).toThrow(/CLOUDFLARE_ACCESS_TEAM_DOMAIN, CLOUDFLARE_ACCESS_AUDIENCE/);
+    expect(
+      parseProductionWebConfig({
+        ATLAS_WEB_API_BASE_URL: "https://api.atlas.test",
+        ATLAS_ENV: "staging",
+        CLOUDFLARE_ACCESS_TEAM_DOMAIN: "https://atlas-test.cloudflareaccess.com",
+        CLOUDFLARE_ACCESS_AUDIENCE: "a".repeat(64),
+      }).stagingAccess,
+    ).toEqual({
+      enabled: true,
+      teamDomain: "https://atlas-test.cloudflareaccess.com",
+      audience: "a".repeat(64),
+    });
   });
 
   it("serializes runtime configuration as inert JavaScript data", () => {
@@ -118,6 +140,49 @@ describe("production web server", () => {
       expect(missingAsset.headers.get("cache-control")).toBe("no-store");
       const rejectedMethod = await fetch(`${baseUrl}/`, { method: "POST" });
       expect(rejectedMethod.status).toBe(405);
+    } finally {
+      await new Promise<void>((resolveClose, rejectClose) => {
+        server.close((error) => (error === undefined ? resolveClose() : rejectClose(error)));
+      });
+    }
+  });
+
+  it("protects web content at the origin while leaving only liveness public", async () => {
+    const distributionDirectory = await distributionFixture();
+    const verifier = vi.fn((token: string) => Promise.resolve(token === "valid-access-token"));
+    const { server } = await startProductionWebServer({
+      environment: {
+        ATLAS_WEB_API_BASE_URL: "https://api.atlas.test",
+        ATLAS_ENV: "staging",
+        CLOUDFLARE_ACCESS_TEAM_DOMAIN: "https://atlas-test.cloudflareaccess.com",
+        CLOUDFLARE_ACCESS_AUDIENCE: "a".repeat(64),
+      },
+      distributionDirectory,
+      stagingAccessTokenVerifier: verifier,
+      host: "127.0.0.1",
+      port: 0,
+    });
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    try {
+      expect((await fetch(`${baseUrl}/health/live`)).status).toBe(200);
+      expect((await fetch(baseUrl)).status).toBe(403);
+      expect(
+        (
+          await fetch(baseUrl, {
+            headers: { "cf-access-jwt-assertion": "invalid-access-token" },
+          })
+        ).status,
+      ).toBe(403);
+      expect(
+        (
+          await fetch(baseUrl, {
+            headers: { "cf-access-jwt-assertion": "valid-access-token" },
+          })
+        ).status,
+      ).toBe(200);
+      expect(verifier).toHaveBeenCalledTimes(2);
     } finally {
       await new Promise<void>((resolveClose, rejectClose) => {
         server.close((error) => (error === undefined ? resolveClose() : rejectClose(error)));

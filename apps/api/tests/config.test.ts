@@ -7,6 +7,10 @@ const validEnvironment: NodeJS.ProcessEnv = {
   NODE_ENV: "test",
   ATLAS_ENV: "test",
 };
+const cloudflareAccessEnvironment = {
+  CLOUDFLARE_ACCESS_TEAM_DOMAIN: "https://atlas-test.cloudflareaccess.com",
+  CLOUDFLARE_ACCESS_AUDIENCE: "a".repeat(64),
+};
 
 describe("API configuration", () => {
   it("returns immutable typed configuration with safe defaults", () => {
@@ -15,6 +19,7 @@ describe("API configuration", () => {
     expect(config.http.port).toBe(3000);
     expect(config.http.secureTransport).toBe(false);
     expect(config.http.trustedProxyHops).toBe(0);
+    expect(config.http.stagingAccess).toEqual({ enabled: false });
     expect(config.http.serverLimits).toEqual({
       requestTimeoutMs: 30_000,
       headersTimeoutMs: 10_000,
@@ -334,6 +339,7 @@ describe("API configuration", () => {
   it("defaults simulated Financial operations off in managed environments and permits explicit overrides", () => {
     const managedEnvironment = {
       ...validEnvironment,
+      ...cloudflareAccessEnvironment,
       ATLAS_ENV: "staging",
       WEB_ORIGIN: "https://app.example.com",
       HTTP_TRUST_PROXY_HOPS: "1",
@@ -397,6 +403,7 @@ describe("API configuration", () => {
     expect(() =>
       parseApiConfig({
         ...validEnvironment,
+        ...cloudflareAccessEnvironment,
         ATLAS_ENV: "staging",
         WEB_ORIGIN: "https://app.example.com",
         HTTP_TRUST_PROXY_HOPS: "1",
@@ -408,6 +415,7 @@ describe("API configuration", () => {
   it("requires an explicit strong CSRF signing key in staging and production", () => {
     const managedEnvironment = {
       ...validEnvironment,
+      ...cloudflareAccessEnvironment,
       ATLAS_ENV: "staging",
       WEB_ORIGIN: "https://app.example.com",
       HTTP_TRUST_PROXY_HOPS: "1",
@@ -427,6 +435,7 @@ describe("API configuration", () => {
   it("requires a trusted ingress hop and HTTPS browser origin in managed environments", () => {
     const managedEnvironment = {
       ...validEnvironment,
+      ...cloudflareAccessEnvironment,
       ATLAS_ENV: "staging",
       WEB_ORIGIN: "https://app.example.com",
       HTTP_TRUST_PROXY_HOPS: "1",
@@ -442,6 +451,50 @@ describe("API configuration", () => {
     expect(() =>
       parseApiConfig({ ...managedEnvironment, WEB_ORIGIN: "http://app.example.com" }),
     ).toThrowError(new ConfigurationError(["WEB_ORIGIN"]));
+  });
+
+  it("requires a valid paired Cloudflare Access boundary in staging", () => {
+    const managedEnvironment = {
+      ...validEnvironment,
+      ...cloudflareAccessEnvironment,
+      ATLAS_ENV: "staging",
+      WEB_ORIGIN: "https://app.example.com",
+      HTTP_TRUST_PROXY_HOPS: "1",
+      PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
+      SMTP_HOST: "smtp.example.com",
+      SMTP_FROM: "Atlas Exchange <no-reply@example.com>",
+      CSRF_HMAC_KEY: "a".repeat(43),
+    };
+
+    expect(parseApiConfig(managedEnvironment).http.stagingAccess).toEqual({
+      enabled: true,
+      teamDomain: "https://atlas-test.cloudflareaccess.com",
+      audience: "a".repeat(64),
+    });
+    expect(() =>
+      parseApiConfig({
+        ...managedEnvironment,
+        CLOUDFLARE_ACCESS_TEAM_DOMAIN: undefined,
+        CLOUDFLARE_ACCESS_AUDIENCE: undefined,
+      }),
+    ).toThrowError(
+      new ConfigurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]),
+    );
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        CLOUDFLARE_ACCESS_TEAM_DOMAIN: "https://atlas-test.cloudflareaccess.com",
+      }),
+    ).toThrowError(
+      new ConfigurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]),
+    );
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        CLOUDFLARE_ACCESS_TEAM_DOMAIN: "https://hostile.example",
+        CLOUDFLARE_ACCESS_AUDIENCE: "a".repeat(64),
+      }),
+    ).toThrowError(new ConfigurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN"]));
   });
 
   it("requires SMTP credentials as a pair and keeps them out of errors", () => {

@@ -15,7 +15,7 @@ Provider selected for staging: Render
 Account/project created:         no evidence
 Recurring cost approved:         no
 Owned staging domains:           not supplied
-Staging access boundary:         not selected
+Staging access boundary:         Cloudflare Access selected; not configured
 Proxy chain:                     not verified
 GHCR visibility/pull authority:  not verified
 Deployment manifest:             deliberately deferred
@@ -28,7 +28,9 @@ Production approval:             no-go
 - [ ] Review the current Pro workspace and resource estimate in Render's billing UI.
 - [ ] Set and record the approved monthly ceiling and billing alert.
 - [ ] Supply an Atlas-controlled registrable domain and choose exact staging web/API hostnames.
-- [ ] Select an access boundary protecting both staging origins without a browser-embedded secret.
+- [x] Select an access boundary protecting both staging origins without a browser-embedded secret.
+- [ ] Supply the exact Cloudflare team domain, multi-domain application audience, and approved email
+      allow-list required by ADR-068.
 - [ ] Decide whether GHCR release packages are public or use a rotatable read-only pull credential.
 - [ ] Confirm the SMTP provider and staging sender identity.
 - [ ] Prepare a production-grade offline password-blocklist file.
@@ -61,6 +63,8 @@ NODE_ENV=production
 ATLAS_ENV=staging
 ATLAS_APPLICATION_VERSION=<stable release version>
 WEB_ORIGIN=https://<exact staging web hostname>
+CLOUDFLARE_ACCESS_TEAM_DOMAIN=https://<team>.cloudflareaccess.com
+CLOUDFLARE_ACCESS_AUDIENCE=<multi-domain application audience>
 HTTP_TRUST_PROXY_HOPS=<only after verification>
 DATABASE_URL=<Render internal database reference>
 DATABASE_POOL_MAX_CONNECTIONS=10
@@ -110,6 +114,8 @@ Web:
 - image: `ghcr.io/ashutosh-code-arch/atlas-web@sha256:<candidate>`;
 - runtime variable:
   `ATLAS_WEB_API_BASE_URL=https://<exact staging API hostname>`;
+- environment/access variables: `ATLAS_ENV=staging`, the same Cloudflare team domain, and the same
+  multi-domain application audience used by the API;
 - start command: image default;
 - deploy health path: `/health/live`; and
 - one instance.

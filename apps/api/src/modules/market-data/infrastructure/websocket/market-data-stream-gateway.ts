@@ -21,6 +21,8 @@ import WebSocket, { WebSocketServer, type RawData } from "ws";
 import type { GetLevelTwoOrderBook } from "../../application/get-level-two-order-book.js";
 import type { GetPublicCandles } from "../../application/get-public-candles.js";
 import type { GetPublicTradeTicker } from "../../application/get-public-trade-ticker.js";
+import type { AccessTokenVerifier } from "../../../../platform/security/cloudflare-access-token-verifier.js";
+import { readCloudflareAccessAssertion } from "../../../../platform/security/staging-access.js";
 
 export interface MarketDataStreamQueries {
   readonly getCandles: Pick<GetPublicCandles, "execute">;
@@ -39,6 +41,7 @@ export interface MarketDataStreamGatewayOptions extends MarketDataStreamQueries 
   readonly maximumSubscriptionsPerConnection: number;
   readonly maximumMessageBytes: number;
   readonly maximumBufferedBytes: number;
+  readonly stagingAccessTokenVerifier?: AccessTokenVerifier;
   readonly now?: () => Date;
 }
 
@@ -225,9 +228,26 @@ export class MarketDataStreamGateway {
     socket: Duplex,
     head: Buffer,
   ): void => {
+    void this.handleUpgradeRequest(request, socket, head).catch(() => {
+      rejectUpgrade(socket, 403, "Forbidden");
+    });
+  };
+
+  private async handleUpgradeRequest(
+    request: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+  ): Promise<void> {
     if (!this.started) {
       rejectUpgrade(socket, 503, "Service Unavailable");
       return;
+    }
+    if (this.options.stagingAccessTokenVerifier !== undefined) {
+      const token = readCloudflareAccessAssertion(request.headers["cf-access-jwt-assertion"]);
+      if (token === undefined || !(await this.options.stagingAccessTokenVerifier(token))) {
+        rejectUpgrade(socket, 403, "Forbidden");
+        return;
+      }
     }
     let url: URL;
     try {
@@ -272,7 +292,7 @@ export class MarketDataStreamGateway {
       socket.off("error", handleSocketError);
       this.acceptConnection(webSocket, clientKey);
     });
-  };
+  }
 
   private acceptConnection(socket: WebSocket, clientKey: string): void {
     const state: ConnectionState = {

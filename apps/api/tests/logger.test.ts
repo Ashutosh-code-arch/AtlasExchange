@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createLogger } from "../src/platform/logging/logger.js";
 
 describe("structured logger redaction", () => {
-  it("redacts authentication, CSRF, and Financial idempotency headers", () => {
+  it("redacts authentication, staging, CSRF, and Financial idempotency headers", () => {
     const chunks: string[] = [];
     const destination = new Writable({
       write(chunk: Buffer, _encoding, callback): void {
@@ -27,6 +27,7 @@ describe("structured logger redaction", () => {
         headers: {
           authorization: "Bearer fake-secret",
           cookie: "atlas_access=fake-secret",
+          "cf-access-jwt-assertion": "fake-staging-assertion",
           "x-csrf-token": "fake-csrf-secret",
           "idempotency-key": "fake-idempotency-secret",
           accept: "application/json",
@@ -40,10 +41,11 @@ describe("structured logger redaction", () => {
     expect(record.req.headers).toEqual({
       authorization: "[REDACTED]",
       cookie: "[REDACTED]",
+      "cf-access-jwt-assertion": "[REDACTED]",
       "x-csrf-token": "[REDACTED]",
       "idempotency-key": "[REDACTED]",
       accept: "application/json",
     });
-    expect(chunks.join("")).not.toMatch(/fake-(?:secret|csrf|idempotency)/);
+    expect(chunks.join("")).not.toMatch(/fake-(?:secret|staging|csrf|idempotency)/);
   });
 });

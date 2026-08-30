@@ -32,9 +32,11 @@ production-readiness controls are defined and tested; it does **not** mean produ
 custody, external market execution, regulatory approval, or a production hosting environment has
 been approved.
 
-Phase 8 has selected Render as the initial production-shaped staging target, subject to live cost
-approval, owned access-controlled domains, verified proxy semantics, and a later committed deployment
-manifest. No Render resource or production environment has been created.
+Phase 8 has selected Render as the initial production-shaped staging target and Cloudflare Access as
+its deny-by-default sharing boundary. Both deployables enforce the signed staging assertion at their
+Render origins. Live cost approval, an owned domain, exact invited identities, verified proxy
+semantics, and a later committed deployment manifest remain required. No provider resource, domain,
+or production environment has been created.
 
 ## Prerequisites
 

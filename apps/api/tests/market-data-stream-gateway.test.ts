@@ -113,6 +113,7 @@ async function createHarness(
       | "maximumMessageBytes"
       | "maximumBufferedBytes"
       | "refreshIntervalMs"
+      | "stagingAccessTokenVerifier"
     >
   > = {},
 ): Promise<GatewayHarness> {
@@ -345,6 +346,32 @@ describe("MarketDataStreamGateway", () => {
     });
     expect(excessStatus).toBe(429);
     expect(harness.gateway.activeConnectionCount).toBe(1);
+  });
+
+  it("requires staging access on the WebSocket upgrade when configured", async () => {
+    const verifier = vi.fn((token: string) => Promise.resolve(token === "valid-access-token"));
+    const harness = await createHarness({ stagingAccessTokenVerifier: verifier });
+    const missing = new WebSocket(harness.url, marketDataStreamProtocol, {
+      origin: "http://localhost:5173",
+    });
+    missing.on("error", () => undefined);
+    activeClients.push(missing);
+    const missingStatus = await new Promise<number | undefined>((resolve) => {
+      missing.once("unexpected-response", (_request, response) => {
+        response.resume();
+        resolve(response.statusCode);
+      });
+    });
+    expect(missingStatus).toBe(403);
+
+    const valid = new WebSocket(harness.url, marketDataStreamProtocol, {
+      origin: "http://localhost:5173",
+      headers: { "cf-access-jwt-assertion": "valid-access-token" },
+    });
+    activeClients.push(valid);
+    await once(valid, "open");
+    expect(harness.gateway.activeConnectionCount).toBe(1);
+    expect(verifier).toHaveBeenCalledWith("valid-access-token");
   });
 
   it("requires the versioned Atlas Market Data subprotocol", async () => {

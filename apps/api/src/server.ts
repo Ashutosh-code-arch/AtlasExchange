@@ -52,6 +52,7 @@ import { ApplicationMetrics } from "./platform/observability/application-metrics
 import { RuntimePerformanceMonitor } from "./platform/observability/runtime-performance-monitor.js";
 import { applyHttpServerLimits } from "./platform/security/http-server-limits.js";
 import { InMemoryHttpRequestRateLimiter } from "./platform/security/http-request-rate-limiter.js";
+import { createCloudflareAccessTokenVerifier } from "./platform/security/cloudflare-access-token-verifier.js";
 
 type AtlasDatabaseSchema = DatabaseSchema &
   AdministrationDatabaseSchema &
@@ -108,6 +109,9 @@ async function start(): Promise<RunningServer> {
   const metrics = metricsConfiguration?.collector;
   const runtimePerformanceMonitor =
     metrics === undefined ? undefined : new RuntimePerformanceMonitor();
+  const stagingAccessTokenVerifier = config.http.stagingAccess.enabled
+    ? createCloudflareAccessTokenVerifier(config.http.stagingAccess)
+    : undefined;
   if (runtimePerformanceMonitor !== undefined) {
     metrics?.setRuntimePerformanceSnapshotProvider(() => runtimePerformanceMonitor.snapshot());
   }
@@ -230,6 +234,7 @@ async function start(): Promise<RunningServer> {
       webOrigin: config.http.webOrigin,
       secureTransport: config.http.secureTransport,
       trustedProxyHops: config.http.trustedProxyHops,
+      ...(stagingAccessTokenVerifier === undefined ? {} : { stagingAccessTokenVerifier }),
       requestRateLimiters: {
         read: new InMemoryHttpRequestRateLimiter({
           maximumRequests: config.http.requestRateLimits.readMaximumRequests,
@@ -261,6 +266,7 @@ async function start(): Promise<RunningServer> {
           logger,
           webOrigin: config.http.webOrigin,
           stream: config.marketData.stream,
+          ...(stagingAccessTokenVerifier === undefined ? {} : { stagingAccessTokenVerifier }),
         })
       : undefined;
     if (marketDataStream === undefined) {
