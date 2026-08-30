@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "environment": "production",
+  "release": {
+    "version": "0.1.0",
+    "revision": "0000000000000000000000000000000000000000",
+    "apiImageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "webImageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "decision": {
+    "outcome": "no-go",
+    "decidedAt": "2026-08-31T00:00:00.000Z",
+    "decidedBy": "replace-with-accountable-owner",
+    "reason": "Example only: placeholder release identity and production evidence must never approve traffic."
+  },
+  "controls": [
+    {
+      "id": "runtime-database-selection",
+      "status": "not-evaluated",
+      "notes": "Select and review the runtime and managed PostgreSQL provider."
+    },
+    {
+      "id": "ingress-tls-dns",
+      "status": "not-evaluated",
+      "notes": "Prove DNS, TLS renewal, same-site origins, proxy hops, and private API reachability."
+    },
+    {
+      "id": "secrets-rotation",
+      "status": "not-evaluated",
+      "notes": "Select the runtime secret manager and complete a rotation and revocation drill."
+    },
+    {
+      "id": "monitoring-alert-delivery",
+      "status": "not-evaluated",
+      "notes": "Select collection and retention, derive actionable thresholds, and test delivery."
+    },
+    {
+      "id": "database-capacity",
+      "status": "not-evaluated",
+      "notes": "Validate aggregate connections and representative staging workload."
+    },
+    {
+      "id": "provider-pitr-drill",
+      "status": "not-evaluated",
+      "notes": "Complete a timed isolated provider PITR drill against the selected database."
+    },
+    {
+      "id": "logical-restore-drill",
+      "status": "not-evaluated",
+      "notes": "Restore a portable archive and pass Atlas recovery validation."
+    },
+    {
+      "id": "candidate-vulnerability-scan",
+      "status": "not-evaluated",
+      "notes": "Scan dependencies and every published platform digest for the release candidate."
+    },
+    {
+      "id": "release-provenance",
+      "status": "not-evaluated",
+      "notes": "Verify candidate source, migrations, SBOM, provenance, signatures, and digests."
+    },
+    {
+      "id": "rollback-plan",
+      "status": "not-evaluated",
+      "notes": "Record previous digests, schema compatibility, operator, and traffic rollback."
+    },
+    {
+      "id": "synthetic-smoke-tests",
+      "status": "not-evaluated",
+      "notes": "Run the exact candidate through bounded staging smoke tests."
+    },
+    {
+      "id": "incident-response-exercise",
+      "status": "not-evaluated",
+      "notes": "Complete a timed exercise using the current runbook and contact path."
+    },
+    {
+      "id": "product-scope-approval",
+      "status": "not-evaluated",
+      "notes": "Approve simulated-only scope, privacy and support ownership, and disabled real custody."
+    }
+  ]
+}

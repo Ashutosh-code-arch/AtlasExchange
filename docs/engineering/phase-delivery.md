@@ -657,6 +657,40 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   pinned OpenSSL security-update stage, and remove unused runtime package managers. Native Argon2,
   API/web non-root execution, runtime web configuration, and both image scans pass; the current
   scanner reports only one non-blocking Medium BusyBox advisory and no High or Critical finding.
+- [ADR-066 — Operational Readiness, Incident Response, and Production Go/No-Go](../architecture/decisions/ADR-066-operational-readiness-incident-response-and-production-go-no-go.md)
+  defines thirteen complete and time-bounded production controls, immutable candidate identity,
+  explicit go/no-go authority, four incident severities, solo-compatible incident roles, evidence
+  privacy, stop-the-line authority, and recovery validation without selecting a runtime vendor.
+- `pnpm readiness:validate -- <record.json>` now rejects missing, duplicate, unknown, blocked, stale,
+  future, or overlong evidence for a `go`; release identity must use stable version, full source
+  revision, and immutable API/web digests. A structured `no-go` remains valid so operational gaps are
+  visible. The committed example is deliberately `no-go` and cannot authorize traffic.
+- The canonical operational runbook now connects release, metrics, security, recovery, database,
+  and smoke-test evidence to a production decision and provides incident declaration, severity,
+  command roles, containment paths, communications, recovery, and blameless review procedures.
+  Provider alert thresholds, failover, notification obligations, and human coverage remain explicit
+  deployment evidence rather than unsupported repository claims.
+
+## Phase 7 acceptance criteria
+
+- Public HTTP/resource boundaries, admission control, protected privacy-safe metrics, runtime and
+  projection signals, PostgreSQL capacity limits, and a repeatable edge-performance baseline are
+  implemented and tested.
+- API/web production images are non-root, source-identifiable, runtime-configurable where required,
+  and built from a pinned security-supported baseline; the release workflow produces signed
+  multi-platform artifacts that environments identify by immutable digest.
+- Backup strategy, isolated logical restoration, provider-PITR requirements, schema verification,
+  and exact Financial invariant recovery checks are documented and executable.
+- Tracked-source, complete workspace-dependency, and production-image security gates fail release on
+  High/Critical findings without exposing source, Docker authority, or credential values to the
+  image scanner.
+- Production approval requires an explicit fresh evidence record for the exact candidate; incident
+  severity, ownership, containment, recovery, communication, and review authority are usable by one
+  developer and can expand to a team.
+- `pnpm verify`, `pnpm build`, `pnpm test:e2e`, `pnpm test:performance`, image build/smoke, dependency
+  audit, and strict image scanning pass at the phase boundary.
+- Phase completion does not claim production deployment, real-money custody, regulatory approval,
+  selected infrastructure, or a production `go`; those require the external evidence ADR-066 names.
 
 ## Phase transition rule
 

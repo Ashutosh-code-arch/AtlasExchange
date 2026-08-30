@@ -80,8 +80,12 @@ Example files are documentation only and must not be supplied as production secr
 
 ## Promote by digest
 
+Before a production promotion, complete and validate the exact candidate's go/no-go record under the
+[operational readiness and incident runbook](operational-readiness.md). A successful release workflow
+or image scan is not approval. A missing, stale, blocked, or changed control is a `no-go`.
+
 Record the API and web digests, source revision, version, target environment, schema version, and
-previous known-good digests. Then:
+previous known-good digests. After an explicit `go`:
 
 1. verify a recent recovery point, successful backup evidence, latest accepted restore drill, and
    database capacity under ADR-064;
