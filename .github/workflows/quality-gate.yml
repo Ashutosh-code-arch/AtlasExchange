@@ -16,7 +16,7 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:18.4
@@ -60,6 +60,9 @@ jobs:
 
       - name: Build production artifacts
         run: pnpm build
+
+      - name: Build production container images
+        run: pnpm containers:build
 
   e2e:
     runs-on: ubuntu-24.04

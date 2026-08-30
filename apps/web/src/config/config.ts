@@ -1,22 +1,38 @@
 import { z } from "zod";
 
-const publicEnvironmentSchema = z.object({
-  VITE_API_BASE_URL: z.string().url(),
+const publicRuntimeConfigSchema = z.object({
+  apiBaseUrl: z
+    .string()
+    .url()
+    .refine((value) => {
+      try {
+        const url = new URL(value);
+        return (
+          ["http:", "https:"].includes(url.protocol) &&
+          url.username === "" &&
+          url.password === "" &&
+          url.search === "" &&
+          url.hash === ""
+        );
+      } catch {
+        return false;
+      }
+    }),
 });
 
 export interface WebConfig {
   readonly apiBaseUrl: string;
 }
 
-export function parseWebConfig(environment: Record<string, unknown>): WebConfig {
-  const result = publicEnvironmentSchema.safeParse(environment);
+export function parseWebConfig(runtimeConfig: unknown): WebConfig {
+  const result = publicRuntimeConfigSchema.safeParse(runtimeConfig);
 
   if (!result.success) {
     const variableNames = [
-      ...new Set(result.error.issues.map((issue) => String(issue.path[0] ?? "environment"))),
+      ...new Set(result.error.issues.map((issue) => String(issue.path[0] ?? "runtimeConfig"))),
     ];
     throw new Error(`Invalid web configuration: ${variableNames.join(", ")}`);
   }
 
-  return Object.freeze({ apiBaseUrl: result.data.VITE_API_BASE_URL.replace(/\/$/, "") });
+  return Object.freeze({ apiBaseUrl: result.data.apiBaseUrl.replace(/\/$/, "") });
 }

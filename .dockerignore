@@ -1,6 +1,14 @@
 node_modules
 dist
 coverage
+.github
+.husky
+.DS_Store
+docs
+tests
+**/tests
+playwright-report
+test-results
 .git
 .env
 .env.*

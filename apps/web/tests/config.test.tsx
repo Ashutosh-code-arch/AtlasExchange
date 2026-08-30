@@ -4,12 +4,19 @@ import { parseWebConfig } from "../src/config/config";
 
 describe("web configuration", () => {
   it("validates and normalizes the public API URL", () => {
-    expect(parseWebConfig({ VITE_API_BASE_URL: "https://api.atlas.test/" })).toEqual({
+    expect(parseWebConfig({ apiBaseUrl: "https://api.atlas.test/" })).toEqual({
       apiBaseUrl: "https://api.atlas.test",
     });
   });
 
   it("fails when the public API URL is invalid", () => {
-    expect(() => parseWebConfig({ VITE_API_BASE_URL: "not-a-url" })).toThrow(/VITE_API_BASE_URL/);
+    expect(() => parseWebConfig({ apiBaseUrl: "not-a-url" })).toThrow(/apiBaseUrl/);
+    expect(() => parseWebConfig({ apiBaseUrl: "ftp://api.atlas.test" })).toThrow(/apiBaseUrl/);
+    expect(() =>
+      parseWebConfig({ apiBaseUrl: "https://operator:do-not-print@api.atlas.test" }),
+    ).toThrow(/apiBaseUrl/);
+    expect(() => parseWebConfig({ apiBaseUrl: "https://api.atlas.test?token=secret" })).toThrow(
+      /apiBaseUrl/,
+    );
   });
 });

@@ -3,7 +3,7 @@
 **Classification:** Canonical  
 **Status:** Accepted  
 **Date:** 2026-08-19  
-**Last reviewed:** 2026-08-19  
+**Last reviewed:** 2026-08-30  
 **Canonical owner/source:** ADR-016
 
 ## 1. Context
@@ -15,6 +15,7 @@ Atlas CI must prove that a clean machine can:
 - install the committed dependency graph;
 - validate static quality rules;
 - compile every production artifact;
+- build both production application images;
 - create PostgreSQL from committed migrations;
 - run non-E2E tests;
 - enforce architectural boundaries;
@@ -24,7 +25,8 @@ A local workflow that passes because of stale `node_modules`, generated `dist/`,
 
 ## 2. Decision
 
-Atlas will initially use one sequential CI quality-gate job for pull requests and pushes to `main`.
+Atlas uses one sequential CI quality-gate job plus a separate browser-system-test job for pull
+requests and pushes to `main`.
 
 The initial validation contract is:
 
@@ -46,6 +48,14 @@ apply committed migrations
 pnpm verify
     ↓
 pnpm build
+    ↓
+pnpm containers:build
+
+parallel E2E job
+    ↓
+install Chromium and system dependencies
+    ↓
+pnpm test:e2e
 ```
 
 The workflow will initially run for:
@@ -56,15 +66,19 @@ push to main
 workflow_dispatch
 ```
 
-Scheduled, deployment, and release workflows are deferred until a demonstrated requirement exists.
+Scheduled, deployment, image-publication, and release workflows are deferred until a demonstrated
+requirement exists.
 
 Pull-request runs should use concurrency cancellation so superseded commits do not consume unnecessary CI resources. Main-branch validation should not be casually cancelled.
 
 ## 3. Quality-Gate Job Topology
 
-Atlas considered parallel jobs for static checks, tests, and production builds, but selects one sequential quality-gate job for Sprint 1.
+Atlas keeps static checks, non-E2E tests, production builds, and image builds in one sequential
+quality-gate job. Browser E2E runs separately because it owns Chromium plus isolated PostgreSQL and
+Mailpit infrastructure and is independently diagnosable.
 
-The repository is small, there is one primary developer, and the target is pull-request completion within ten minutes. CI should be split only when measurements demonstrate meaningful benefit.
+The repository is small, there is one primary developer, and the quality job has a fifteen-minute
+timeout. It should be split further only when measurements demonstrate meaningful benefit.
 
 ## 4. Canonical Verification Contract
 
@@ -83,9 +97,14 @@ CI runs both:
 ```text
 pnpm verify
 pnpm build
+pnpm containers:build
 ```
 
 The build remains separate because passing type checks and tests does not prove that Vite production bundling, API production emission, contracts compilation, and workspace build coordination succeed from a clean checkout.
+
+The container build remains separate because ordinary build output does not prove that each
+Dockerfile can create its isolated, non-root runtime artifact from the committed lockfile and
+workspace dependency graph.
 
 ## 5. Runtime Pinning
 
@@ -177,11 +196,14 @@ This preserves the configuration boundary established by ADR-012.
 
 ## 9. E2E Boundary
 
-Playwright and browser E2E infrastructure are not introduced into the initial quality gate.
-
-When meaningful E2E journeys exist, `pnpm test:e2e` will become a distinct CI job or workflow.
+Playwright browser E2E runs as a distinct mandatory CI job through `pnpm test:e2e`.
 
 E2E testing requires coordinated web, API, PostgreSQL, and browser infrastructure. It must therefore not silently become part of ordinary `pnpm test`.
+
+The E2E harness provisions disposable PostgreSQL and Mailpit services, applies committed migrations,
+builds the web artifact, starts the API and production web server on reserved ports, runs Chromium
+journeys, and removes its infrastructure. It must not reuse the quality job's database or a
+developer-local service.
 
 ## 10. Security and Workflow Permissions
 
@@ -250,10 +272,10 @@ Administrative bypass remains an emergency mechanism rather than the normal deve
 
 The initial sequential job should be reconsidered when measurable evidence shows that:
 
-- CI approaches or exceeds the ten-minute target;
+- CI approaches or exceeds its explicit job timeouts;
 - static checks could fail substantially earlier;
 - build and test execution benefit materially from parallelism;
-- browser E2E infrastructure is introduced;
+- browser or container execution benefits materially from further parallelism;
 - multiple supported Node or PostgreSQL versions require a matrix;
 - deployment workflows require artifacts from validated builds;
 - additional caching produces measured benefit without introducing stale-artifact risk.
@@ -278,7 +300,7 @@ Splitting jobs is an optimization decision, not an architectural requirement for
 - A sequential quality gate may take longer than parallel jobs as the repository grows.
 - Dependency installation follows the clean lockfile contract on each non-cached run.
 - Generated-output caching is intentionally sacrificed for correctness simplicity.
-- A future E2E workflow will require additional infrastructure and startup orchestration.
+- Browser and container verification consume more CI time and external image bandwidth.
 - Action SHA maintenance introduces an explicit update responsibility.
 
 ## 16. Related Decisions
@@ -291,9 +313,4 @@ Splitting jobs is an optimization decision, not an architectural requirement for
 - [ADR-011 — PostgreSQL Runtime and Local Development Strategy](ADR-011-postgresql-runtime-and-local-development-strategy.md)
 - [ADR-012 — Configuration, Environment, and Secrets Strategy](ADR-012-configuration-environment-and-secrets-strategy.md)
 - [ADR-013 — Static Analysis, Formatting, and Git-Hook Strategy](ADR-013-static-analysis-formatting-and-git-hook-strategy.md)
-
-## 17. Status
-
-**Proposed**
-
-This ADR establishes the initial CI quality-gate architecture. It should be accepted after the referenced ADR chain exists in the repository and the corresponding repository commands and runtime versions are confirmed against the implementation.
+- [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)

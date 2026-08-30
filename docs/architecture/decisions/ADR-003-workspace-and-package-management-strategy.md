@@ -8,6 +8,10 @@ Accepted
 
 2026-08-16
 
+## Last reviewed
+
+2026-08-30
+
 ## Context
 
 Atlas is a TypeScript monorepo containing multiple independently owned projects:
@@ -165,6 +169,19 @@ The exact version will be selected during implementation.
 CI must install dependencies from the committed lockfile using a frozen-lockfile installation.
 
 CI must not silently modify dependency resolution or regenerate the lockfile during ordinary builds and tests.
+
+### Deployable workspace artifacts
+
+Atlas enables pnpm's injected workspace dependency mode. Internal workspace dependencies are copied
+into their consumers' virtual store entries rather than represented only as development-time
+symlinks. Successful `build` scripts synchronize those injected copies.
+
+This preserves the explicit `workspace:` dependency graph while allowing `pnpm deploy --prod` to
+create an isolated production dependency tree for a deployable application. A production artifact
+must not depend on the monorepo source tree or on another workspace's installed dependencies.
+
+Injected dependencies do not make internal packages private implementation details. Applications
+continue to consume only their declared package identity and public exports.
 
 ### Commands
 

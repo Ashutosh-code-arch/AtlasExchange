@@ -3,7 +3,7 @@
 **Classification:** Canonical  
 **Status:** Accepted  
 **Date:** 2026-08-17  
-**Last reviewed:** 2026-08-18  
+**Last reviewed:** 2026-08-30  
 **Canonical owner/source:** ADR-011
 
 ## 1. Context
@@ -96,7 +96,9 @@ This provides:
 
 Docker is infrastructure for the database environment, not the primary TypeScript development runtime.
 
-When the API is eventually containerized, it will connect through the Compose service name rather than `localhost`. Connection details remain configuration rather than application source code.
+Production API and web images are defined by ADR-062. This does not change the fast native Node.js
+local workflow selected here. A containerized API connects through deployment configuration rather
+than a source-code `localhost` assumption.
 
 ## 6. Why Not Fully Native PostgreSQL
 
@@ -122,7 +124,8 @@ Running web, API, and PostgreSQL entirely through Compose would provide stronger
 - rebuild cycles;
 - Node.js development workflows.
 
-Full containerization is therefore deferred until a measurable requirement justifies it.
+Fully containerized local development is therefore deferred until a measurable requirement justifies
+it. Production application packaging is a separate concern and is defined by ADR-062.
 
 Potential triggers include:
 
@@ -294,16 +297,16 @@ During the initial development phase, Docker Compose owns:
 - internal development network;
 - configurable host-port mapping.
 
-Docker Compose does not initially own:
+Docker Compose does not own:
 
-- API production deployment;
-- frontend production serving;
+- API or web production orchestration;
 - automatic application migrations;
 - production secrets;
 - backups;
 - monitoring infrastructure.
 
-These concerns may be introduced through later architecture and deployment decisions when demonstrated requirements exist.
+The production API and web images are defined by ADR-062, but the registry, runtime platform,
+network topology, rollout, and production database remain later deployment decisions.
 
 ## 14. PostgreSQL Extensions and Custom Images
 
@@ -347,7 +350,8 @@ The following are intentionally not selected by this ADR:
 - PostgreSQL extension selection.
 - Custom PostgreSQL images.
 - Content-addressed image digest pinning.
-- Full application containerization.
+- Fully containerized local development.
+- Production container orchestration and registry selection.
 - Production database hosting.
 - Production backup architecture.
 - Production observability architecture.
@@ -376,9 +380,4 @@ Reconsider this ADR when:
 - [ADR-007 — TypeScript Module, Execution, and Build Strategy](ADR-007-typescript-module-execution-and-build-strategy.md)
 - [ADR-006 — Node.js Runtime Baseline](ADR-006-nodejs-runtime-baseline.md)
 - [ADR-004 — Testing Architecture](ADR-004-testing-architecture.md)
-
-## 19. Status
-
-**Proposed**
-
-This ADR remains proposed until the dependency-chain documents are saved and the related relative links are verified.
+- [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)

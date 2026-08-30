@@ -1,0 +1,45 @@
+# syntax=docker/dockerfile:1.7
+
+FROM node:24.19.0-bookworm-slim AS build
+
+ENV HUSKY=0 \
+    PNPM_HOME=/pnpm \
+    PATH=/pnpm:$PATH
+
+WORKDIR /workspace
+
+RUN corepack enable && corepack prepare pnpm@11.20.0 --activate
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json apps/web/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+
+RUN --mount=type=cache,id=atlas-pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --filter atlas-exchange --filter @atlas/web...
+
+COPY tsconfig.base.json ./
+COPY apps/web/index.html apps/web/vite.config.ts apps/web/tsconfig.json apps/web/
+COPY apps/web/src apps/web/src
+COPY packages/contracts/src packages/contracts/src
+COPY packages/contracts/tsconfig.json packages/contracts/tsconfig.build.json packages/contracts/
+
+RUN pnpm --filter @atlas/web build
+
+FROM node:24.19.0-bookworm-slim AS runtime
+
+ENV NODE_ENV=production \
+    ATLAS_WEB_PORT=8080
+
+WORKDIR /app
+
+COPY --from=build --chown=node:node /workspace/apps/web/dist ./dist
+COPY --chown=node:node apps/web/scripts/production-web-server.mjs ./scripts/production-web-server.mjs
+
+USER node
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:8080/health/live').then(response => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"]
+
+CMD ["node", "scripts/production-web-server.mjs"]

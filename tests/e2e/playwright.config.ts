@@ -49,7 +49,7 @@ export default defineConfig({
     },
     {
       name: "web",
-      command: `pnpm --filter @atlas/web exec vite preview --host 127.0.0.1 --port ${requiredEnvironment("ATLAS_E2E_WEB_PORT")} --strictPort`,
+      command: "pnpm --filter @atlas/web preview",
       cwd: repositoryDirectory,
       url: webOrigin,
       timeout: 60_000,

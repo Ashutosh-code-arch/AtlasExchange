@@ -92,7 +92,16 @@ pnpm db:migrate     # apply committed migrations
 pnpm verify         # typecheck, lint, format-check, and test
 pnpm test:e2e       # run the isolated full-stack browser journeys
 pnpm build          # create production artifacts
+pnpm containers:build # build the API and web production images
 ```
+
+Production images are built independently as `atlas-api:local` and `atlas-web:local`. The web image
+requires the public `ATLAS_WEB_API_BASE_URL` at startup, so one immutable image can be promoted
+between environments without rebuilding browser assets. The API image exposes its migration runner
+at `node --enable-source-maps dist/platform/database/migrate.js`; migrations remain a separate
+deployment step and never run implicitly at API startup. See
+[ADR-062](docs/architecture/decisions/ADR-062-production-application-packaging-and-runtime-web-configuration.md)
+for the complete packaging boundary.
 
 The E2E command provisions its own ephemeral PostgreSQL and Mailpit services through Docker
 Compose, starts the API and web application on available ports, and removes the test services when

@@ -10,6 +10,9 @@ allowBuilds:
 enableGlobalVirtualStore: false
 managePackageManagerVersions: false
 confirmModulesPurge: false
+injectWorkspacePackages: true
+syncInjectedDepsAfterScripts:
+  - build
 
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:

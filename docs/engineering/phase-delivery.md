@@ -613,6 +613,15 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   stops with managed workers, and normalizes missing samples. Projection metrics add no SQL and no
   market-code labels. Deterministic tests prove interval reset, idempotent lifecycle, finite output,
   aggregate status semantics, and private-value exclusion.
+- [ADR-062 — Production Application Packaging and Runtime Web Configuration](../architecture/decisions/ADR-062-production-application-packaging-and-runtime-web-configuration.md)
+  defines separate non-root API and web images, production-only workspace deployment, explicit
+  migration execution, immutable browser assets, and startup-injected public web configuration.
+- The API image now contains only its production dependency graph, compiled server and migration
+  entry points, committed migrations, and required resources. The web image serves its immutable
+  Vite bundle through a dependency-free Node process with SPA fallback, security and cache headers,
+  liveness, and a no-store runtime configuration document. Image builds run in CI; container smoke
+  checks prove the runtime API origin is injected without rebuilding and both images run as the
+  unprivileged Node user.
 
 ## Phase transition rule
 

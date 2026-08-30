@@ -7,6 +7,7 @@
     "dev": "node --env-file-if-exists=.env --watch --import tsx src/server.ts",
     "dev:once": "node --env-file-if-exists=.env --import tsx src/server.ts",
     "start": "node --enable-source-maps dist/server.js",
+    "migrate:production": "node --enable-source-maps dist/platform/database/migrate.js",
     "prebuild": "pnpm --filter @atlas/contracts build",
     "build": "tsc -p tsconfig.build.json",
     "pretypecheck": "pnpm --filter @atlas/contracts build",

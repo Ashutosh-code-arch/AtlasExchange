@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "node scripts/production-web-server.mjs",
     "prebuild": "pnpm --filter @atlas/contracts build",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "node scripts/production-web-server.mjs",
     "pretypecheck": "pnpm --filter @atlas/contracts build",
     "typecheck": "tsc --noEmit",
     "pretest": "pnpm --filter @atlas/contracts build",

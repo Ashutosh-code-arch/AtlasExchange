@@ -69,6 +69,8 @@ const environment = {
   API_PORT: String(apiPort),
   WEB_ORIGIN: webOrigin,
   VITE_API_BASE_URL: apiOrigin,
+  ATLAS_WEB_API_BASE_URL: apiOrigin,
+  ATLAS_WEB_PORT: String(webPort),
   SMTP_HOST: "127.0.0.1",
   SMTP_PORT: String(mailpitSmtpPort),
   SMTP_SECURE: "false",
