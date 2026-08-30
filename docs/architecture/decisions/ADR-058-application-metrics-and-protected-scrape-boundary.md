@@ -56,6 +56,16 @@ The API exports:
 | `atlas_database_pool_max_connections` | Gauge | None | Configured per-process runtime-pool maximum |
 | `atlas_database_pool_waiting_requests` | Gauge | None | Requests waiting to acquire a runtime-pool connection |
 | `atlas_database_pool_events_total` | Counter | `event` | Connect, remove, and error lifecycle events |
+| `atlas_nodejs_event_loop_utilization` | Gauge | None | Event-loop utilization during the scrape interval |
+| `atlas_nodejs_event_loop_delay_mean_seconds` | Gauge | None | Mean event-loop delay during the scrape interval |
+| `atlas_nodejs_event_loop_delay_p99_seconds` | Gauge | None | Event-loop delay p99 during the scrape interval |
+| `atlas_nodejs_event_loop_delay_max_seconds` | Gauge | None | Maximum event-loop delay during the scrape interval |
+| `atlas_market_data_projection_running` | Gauge | None | Whether the in-process projector is running |
+| `atlas_market_data_projection_markets` | Gauge | `state` | Discovered market count by fixed worker state |
+| `atlas_market_data_projection_max_lag` | Gauge | None | Maximum publication-sequence lag across markets |
+| `atlas_market_data_projection_max_consecutive_failures` | Gauge | None | Maximum consecutive projection failures across markets |
+| `atlas_market_data_projection_oldest_success_timestamp_seconds` | Gauge | None | Oldest latest-success time across markets |
+| `atlas_market_data_projection_last_failure_timestamp_seconds` | Gauge | None | Latest projection failure time across markets |
 
 The duration histogram uses fixed upper bounds of 5, 10, 25, 50, 100, 250, and 500 milliseconds,
 then 1, 2.5, and 5 seconds, plus positive infinity. Histograms are preferred over client-side
@@ -161,9 +171,9 @@ duplicate every metric increment. Health endpoints remain independent of metric 
 
 This decision does not install Prometheus, Grafana, Alertmanager, OpenTelemetry, a trace exporter,
 dashboards, alerts, service-level objectives, retention policies, remote write, multi-process
-aggregation, event-loop metrics, Market Data lag gauges, domain business metrics, or ingress rules.
-Database pool metrics are governed by ADR-060; the remaining signals require focused follow-up
-decisions and deployment ownership.
+aggregation, domain business metrics, or ingress rules. Database pool metrics are governed by
+ADR-060; runtime and projection metrics are governed by ADR-061. The remaining signals require
+focused follow-up decisions and deployment ownership.
 
 ## Alternatives Considered
 
@@ -211,7 +221,7 @@ API exhaustion must not remove health or metrics visibility.
 - A custom narrow renderer requires compatibility tests and must not grow into a general client.
 - Bearer-token rotation currently requires a process configuration rollout.
 - No collector, dashboard, alert, or retention policy exists yet.
-- The initial catalogue does not expose event-loop, worker-lag, or domain signals.
+- The catalogue does not yet expose domain business, garbage-collection, CPU, or WebSocket signals.
 
 ## Reconsider When
 
@@ -229,3 +239,4 @@ accepted metric contract.
 - [ADR-056 — Production HTTP Edge Security and Resource Boundary](ADR-056-production-http-edge-security-and-resource-boundary.md)
 - [ADR-057 — API Admission Rate Limiting and Abuse Protection](ADR-057-api-admission-rate-limiting-and-abuse-protection.md)
 - [ADR-060 — PostgreSQL Runtime Capacity, Timeout, and Saturation Policy](ADR-060-postgresql-runtime-capacity-timeout-and-saturation-policy.md)
+- [ADR-061 — Runtime and Market Data Projection Observability](ADR-061-runtime-and-market-data-projection-observability.md)

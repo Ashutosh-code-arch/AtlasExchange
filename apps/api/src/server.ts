@@ -49,6 +49,7 @@ import {
 } from "./platform/lifecycle/process-lifecycle.js";
 import { createLogger } from "./platform/logging/logger.js";
 import { ApplicationMetrics } from "./platform/observability/application-metrics.js";
+import { RuntimePerformanceMonitor } from "./platform/observability/runtime-performance-monitor.js";
 import { applyHttpServerLimits } from "./platform/security/http-server-limits.js";
 import { InMemoryHttpRequestRateLimiter } from "./platform/security/http-request-rate-limiter.js";
 
@@ -105,6 +106,11 @@ async function start(): Promise<RunningServer> {
       }
     : undefined;
   const metrics = metricsConfiguration?.collector;
+  const runtimePerformanceMonitor =
+    metrics === undefined ? undefined : new RuntimePerformanceMonitor();
+  if (runtimePerformanceMonitor !== undefined) {
+    metrics?.setRuntimePerformanceSnapshotProvider(() => runtimePerformanceMonitor.snapshot());
+  }
   logger.info({ event: "api.starting" }, "Atlas API starting");
 
   const database = createDatabaseResources<AtlasDatabaseSchema>(
@@ -187,6 +193,11 @@ async function start(): Promise<RunningServer> {
           worker: config.marketData.projection,
         })
       : undefined;
+    metrics?.setMarketDataProjectionSnapshotProvider(
+      marketDataWorker === undefined
+        ? () => ({ running: false, markets: [] })
+        : () => marketDataWorker.getStatus(),
+    );
     const marketDataRouter = createMarketDataModuleRouter({ database: database.database });
     const portfolioRouter = createPortfolioModuleRouter({
       database: database.database,
@@ -258,7 +269,10 @@ async function start(): Promise<RunningServer> {
       server,
       lifecycle,
       database,
-      workers: marketDataWorker === undefined ? [] : [marketDataWorker],
+      workers: [
+        ...(runtimePerformanceMonitor === undefined ? [] : [runtimePerformanceMonitor]),
+        ...(marketDataWorker === undefined ? [] : [marketDataWorker]),
+      ],
       logger,
       shutdownTimeoutMs: config.http.shutdownTimeoutMs,
       startListening: async () => {

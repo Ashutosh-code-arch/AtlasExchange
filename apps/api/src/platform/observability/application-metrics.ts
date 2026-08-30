@@ -15,6 +15,7 @@ type HttpStatusClass = "1xx" | "2xx" | "3xx" | "4xx" | "5xx" | "unknown";
 type AdmissionClass = "read" | "mutation";
 type AdmissionRejectionReason = "request_limit" | "tracking_capacity";
 type DatabasePoolEvent = "connect" | "error" | "remove";
+type MarketDataProjectionState = "behind" | "caught_up" | "failed" | "starting" | "stopped";
 
 interface HttpSeries {
   count: number;
@@ -49,6 +50,24 @@ export interface DatabasePoolMetricSnapshot {
   readonly idleConnections: number;
   readonly activeConnections: number;
   readonly waitingRequests: number;
+}
+
+export interface RuntimePerformanceMetricSnapshot {
+  readonly eventLoopUtilization: number;
+  readonly eventLoopDelayMeanSeconds: number;
+  readonly eventLoopDelayP99Seconds: number;
+  readonly eventLoopDelayMaximumSeconds: number;
+}
+
+export interface MarketDataProjectionMetricSnapshot {
+  readonly running: boolean;
+  readonly markets: readonly Readonly<{
+    state: MarketDataProjectionState;
+    lag: bigint;
+    consecutiveFailures: number;
+    lastSuccessAt: Date | null;
+    lastFailureAt: Date | null;
+  }>[];
 }
 
 export const prometheusTextContentType = "text/plain; version=0.0.4; charset=utf-8";
@@ -111,6 +130,11 @@ function seriesKey(method: HttpMethod, group: HttpRouteGroup, result: HttpStatus
   return `${method}|${group}|${result}`;
 }
 
+function timestampSeconds(value: Date): number {
+  const milliseconds = value.getTime();
+  return Number.isFinite(milliseconds) && milliseconds > 0 ? milliseconds / 1_000 : 0;
+}
+
 export class ApplicationMetrics {
   private readonly httpSeries = new Map<string, HttpSeries>();
   private readonly admissionRejections = new Map<string, number>();
@@ -118,6 +142,9 @@ export class ApplicationMetrics {
   private readonly uptimeSeconds: () => number;
   private readonly memoryUsage: () => NodeJS.MemoryUsage;
   private databasePoolSnapshotProvider: (() => DatabasePoolMetricSnapshot) | undefined;
+  private runtimePerformanceSnapshotProvider: (() => RuntimePerformanceMetricSnapshot) | undefined;
+  private marketDataProjectionSnapshotProvider:
+    (() => MarketDataProjectionMetricSnapshot) | undefined;
 
   public constructor(private readonly options: ApplicationMetricsOptions) {
     this.uptimeSeconds = options.uptimeSeconds ?? (() => process.uptime());
@@ -159,6 +186,18 @@ export class ApplicationMetrics {
 
   public recordDatabasePoolEvent(event: DatabasePoolEvent): void {
     this.databasePoolEvents.set(event, (this.databasePoolEvents.get(event) ?? 0) + 1);
+  }
+
+  public setRuntimePerformanceSnapshotProvider(
+    provider: () => RuntimePerformanceMetricSnapshot,
+  ): void {
+    this.runtimePerformanceSnapshotProvider = provider;
+  }
+
+  public setMarketDataProjectionSnapshotProvider(
+    provider: () => MarketDataProjectionMetricSnapshot,
+  ): void {
+    this.marketDataProjectionSnapshotProvider = provider;
   }
 
   public render(): string {
@@ -255,6 +294,85 @@ export class ApplicationMetrics {
           `atlas_database_pool_events_total${labels({ event })} ${this.databasePoolEvents.get(event) ?? 0}`,
         );
       }
+    }
+
+    const runtimePerformance = this.runtimePerformanceSnapshotProvider?.();
+    if (runtimePerformance !== undefined) {
+      lines.push(
+        "# HELP atlas_nodejs_event_loop_utilization Event-loop utilization since the previous scrape.",
+        "# TYPE atlas_nodejs_event_loop_utilization gauge",
+        `atlas_nodejs_event_loop_utilization ${runtimePerformance.eventLoopUtilization}`,
+        "# HELP atlas_nodejs_event_loop_delay_mean_seconds Mean event-loop delay since the previous scrape.",
+        "# TYPE atlas_nodejs_event_loop_delay_mean_seconds gauge",
+        `atlas_nodejs_event_loop_delay_mean_seconds ${runtimePerformance.eventLoopDelayMeanSeconds}`,
+        "# HELP atlas_nodejs_event_loop_delay_p99_seconds Event-loop delay p99 since the previous scrape.",
+        "# TYPE atlas_nodejs_event_loop_delay_p99_seconds gauge",
+        `atlas_nodejs_event_loop_delay_p99_seconds ${runtimePerformance.eventLoopDelayP99Seconds}`,
+        "# HELP atlas_nodejs_event_loop_delay_max_seconds Maximum event-loop delay since the previous scrape.",
+        "# TYPE atlas_nodejs_event_loop_delay_max_seconds gauge",
+        `atlas_nodejs_event_loop_delay_max_seconds ${runtimePerformance.eventLoopDelayMaximumSeconds}`,
+      );
+    }
+
+    const projection = this.marketDataProjectionSnapshotProvider?.();
+    if (projection !== undefined) {
+      const states = ["behind", "caught_up", "failed", "starting", "stopped"] as const;
+      const stateCounts = new Map<MarketDataProjectionState, number>(
+        states.map((state) => [state, 0]),
+      );
+      let maximumLag = 0n;
+      let maximumConsecutiveFailures = 0;
+      let oldestSuccessTimestampSeconds = 0;
+      let lastFailureTimestampSeconds = 0;
+      for (const market of projection.markets) {
+        stateCounts.set(market.state, (stateCounts.get(market.state) ?? 0) + 1);
+        if (market.lag > maximumLag) maximumLag = market.lag;
+        maximumConsecutiveFailures = Math.max(
+          maximumConsecutiveFailures,
+          market.consecutiveFailures,
+        );
+        if (market.lastSuccessAt !== null) {
+          const observed = timestampSeconds(market.lastSuccessAt);
+          if (
+            observed > 0 &&
+            (oldestSuccessTimestampSeconds === 0 || observed < oldestSuccessTimestampSeconds)
+          ) {
+            oldestSuccessTimestampSeconds = observed;
+          }
+        }
+        if (market.lastFailureAt !== null) {
+          lastFailureTimestampSeconds = Math.max(
+            lastFailureTimestampSeconds,
+            timestampSeconds(market.lastFailureAt),
+          );
+        }
+      }
+      lines.push(
+        "# HELP atlas_market_data_projection_running Whether the in-process projection worker is running.",
+        "# TYPE atlas_market_data_projection_running gauge",
+        `atlas_market_data_projection_running ${projection.running ? 1 : 0}`,
+        "# HELP atlas_market_data_projection_markets Market Data projection markets by worker state.",
+        "# TYPE atlas_market_data_projection_markets gauge",
+      );
+      for (const state of states) {
+        lines.push(
+          `atlas_market_data_projection_markets${labels({ state })} ${stateCounts.get(state) ?? 0}`,
+        );
+      }
+      lines.push(
+        "# HELP atlas_market_data_projection_max_lag Maximum publication sequence lag across discovered markets.",
+        "# TYPE atlas_market_data_projection_max_lag gauge",
+        `atlas_market_data_projection_max_lag ${maximumLag.toString()}`,
+        "# HELP atlas_market_data_projection_max_consecutive_failures Maximum consecutive failures across discovered markets.",
+        "# TYPE atlas_market_data_projection_max_consecutive_failures gauge",
+        `atlas_market_data_projection_max_consecutive_failures ${maximumConsecutiveFailures}`,
+        "# HELP atlas_market_data_projection_oldest_success_timestamp_seconds Oldest latest-success timestamp across discovered markets.",
+        "# TYPE atlas_market_data_projection_oldest_success_timestamp_seconds gauge",
+        `atlas_market_data_projection_oldest_success_timestamp_seconds ${oldestSuccessTimestampSeconds}`,
+        "# HELP atlas_market_data_projection_last_failure_timestamp_seconds Latest failure timestamp across discovered markets.",
+        "# TYPE atlas_market_data_projection_last_failure_timestamp_seconds gauge",
+        `atlas_market_data_projection_last_failure_timestamp_seconds ${lastFailureTimestampSeconds}`,
+      );
     }
 
     return `${lines.join("\n")}\n`;

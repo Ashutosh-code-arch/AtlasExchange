@@ -3,7 +3,7 @@
 **Classification:** Canonical  
 **Status:** Accepted  
 **Date:** 2026-08-28  
-**Last reviewed:** 2026-08-28  
+**Last reviewed:** 2026-08-30
 **Canonical owner/source:** ADR-033
 
 ## Context
@@ -228,7 +228,7 @@ the current scale and deployment requirements.
 - Every API replica starts loops and contends for the existing per-market advisory lock, although
   only one applies a sequence.
 - Polling creates queries while markets are idle.
-- Diagnostics are process-local and not yet aggregated as metrics.
+- Diagnostics and their aggregate metrics remain process-local until an external collector exists.
 - Newly provisioned markets require a restart to be discovered.
 - Permanent projection failures require operator attention and continue bounded retries.
 
@@ -258,6 +258,7 @@ public freshness objective requires readiness or traffic-management integration.
 - [ADR-030 — Market Data Projection and Sequencing Foundation](ADR-030-market-data-projection-and-sequencing-foundation.md)
 - [ADR-031 — Trading Market Data Fact Persistence and Publication Contract](ADR-031-trading-market-data-fact-persistence-and-publication-contract.md)
 - [ADR-032 — Market Data Checkpoint and Level-Two Projection Persistence](ADR-032-market-data-checkpoint-and-level-two-projection-persistence.md)
+- [ADR-061 — Runtime and Market Data Projection Observability](ADR-061-runtime-and-market-data-projection-observability.md)
 - [Atlas Exchange Phase Delivery](../../engineering/phase-delivery.md)
 
 # Status

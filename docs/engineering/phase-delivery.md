@@ -603,6 +603,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   idle, total, maximum, waiting, and finite lifecycle-event series. Configuration, registry, and
   real-PostgreSQL tests prove timeout ordering, immutable configuration, session settings, pool
   counts, readiness compatibility, and connection lifecycle.
+- [ADR-061 — Runtime and Market Data Projection Observability](../architecture/decisions/ADR-061-runtime-and-market-data-projection-observability.md)
+  defines scrape-interval event-loop utilization and delay, aggregate projection health derived from
+  the worker's authoritative diagnostics, lifecycle ownership, fixed label vocabularies, readiness
+  independence, and the deliberate deferral of unsupported alert thresholds.
+- Protected metrics now include event-loop utilization plus mean, p99, and maximum delay, along with
+  projection running state, fixed state counts, maximum exact lag, maximum consecutive failures,
+  oldest success, and latest failure. The monitor exists only when metrics are enabled, starts and
+  stops with managed workers, and normalizes missing samples. Projection metrics add no SQL and no
+  market-code labels. Deterministic tests prove interval reset, idempotent lifecycle, finite output,
+  aggregate status semantics, and private-value exclusion.
 
 ## Phase transition rule
 
