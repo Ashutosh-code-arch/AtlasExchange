@@ -125,7 +125,7 @@ const apiEnvironmentSchema = z.object({
   ATLAS_APPLICATION_VERSION: z
     .string()
     .regex(/^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/)
-    .default("0.1.1"),
+    .default("0.2.0"),
   METRICS_ENABLED: booleanString.default(false),
   METRICS_BEARER_TOKEN: z.string().min(32).max(256).optional(),
   EXPECTED_SCHEMA_VERSION: integerString.default("15"),

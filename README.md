@@ -3,7 +3,7 @@
 Atlas Exchange is a production-inspired centralized-exchange learning platform. The repository is
 being delivered incrementally so every phase leaves behind a runnable, tested system.
 
-## Current delivery state: Phase 7 complete
+## Current delivery state: Phase 8 release candidate
 
 The implemented Atlas learning platform provides:
 
@@ -32,14 +32,15 @@ production-readiness controls are defined and tested; it does **not** mean produ
 custody, external market execution, regulatory approval, or a production hosting environment has
 been approved.
 
-Phase 8 now targets a zero-cost, invitation-only hosted demo. ADR-075 supersedes the earlier paid
+Phase 8 targets a zero-cost, invitation-only hosted demo. ADR-075 supersedes the earlier paid
 production-shaped Render plan: Cloudflare Worker Static Assets and Access provide one protected
 `workers.dev` browser origin, one Render Free service runs the API, and Neon Free supplies
-PostgreSQL 18. Coinbase's public unauthenticated feed will provide labeled BTC-USD and ETH-USD
-reference prices and candles; it can never match Atlas orders or affect simulated settlement.
-Release `v0.1.1` remains the first verified three-image candidate, but a new release is required
-after the demo gateway, identity bootstrap, reference-data adapter, and chart are implemented. No
-provider resource, public launch, real custody, external execution, or production approval exists.
+PostgreSQL 18. Coinbase's public unauthenticated feed provides labeled BTC-USD and ETH-USD reference
+prices and candles; it can never match Atlas orders or affect simulated settlement. The demo
+runtime, preverified identity command, reference adapter/chart, Worker gateway, and zero-cost
+deployment contract are implemented. Version `0.2.0` is the release candidate; live provider
+deployment evidence remains pending. No public launch, real custody, external execution, or
+production approval exists.
 
 ## Prerequisites
 
@@ -88,6 +89,7 @@ pnpm incident:exercise:validate -- <record.json> # validate a timed response exe
 pnpm product:scope:validate -- <record.json> # validate an initial product-scope approval
 pnpm rollback:validate -- <record.json> # validate a candidate-bound rollback plan
 pnpm staging:render:generate -- --config <input.json> --readiness <record.json> --output <render.yaml>
+pnpm demo:deployment:generate -- --config <input.json> --output <manifest.json>
 ```
 
 Production images are built independently as `atlas-api:local`, `atlas-web:local`, and

@@ -22,7 +22,7 @@ Neon account/Free PostgreSQL:  no evidence
 Demo identity path:            implemented; operator execution pending
 Coinbase reference adapter:    implemented; runtime activation pending
 Reference chart:               implemented; deployment activation pending
-Candidate API image:           v0.1.1 published and verified
+Candidate API image:           v0.2.0 source prepared; publication pending
 Production approval:           no-go
 ```
 

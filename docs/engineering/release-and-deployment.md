@@ -2,7 +2,7 @@
 
 **Classification:** Canonical  
 **Status:** Active  
-**Last reviewed:** 2026-08-31
+**Last reviewed:** 2026-09-01
 
 This runbook implements ADR-063 without assuming a production runtime vendor. ADR-075 and the
 [zero-cost demo runbook](free-demo-hosting.md) govern the initial hosted environment. Paid Render
@@ -86,13 +86,22 @@ Example files are documentation only and must not be supplied as production secr
 ## Prepare the zero-cost demo promotion
 
 The demo promotes one exact API digest to Render Free and one exact Worker/static-assets revision to
-Cloudflare. Neon schema migration remains a deliberate operator action. The zero-cost deployment
-manifest and generator are pending implementation under ADR-075; do not adapt ADR-070's paid
-Blueprint by deleting controls manually.
+Cloudflare. Neon schema migration remains a deliberate operator action. Generate the strict
+zero-cost contract from the accepted schema rather than adapting ADR-070's paid Blueprint:
 
-Follow the [zero-cost demo runbook](free-demo-hosting.md). Resource creation remains blocked until
-the demo runtime, identity bootstrap, reference market-data adapter, chart, and deployment contract
-pass their repository checks.
+```bash
+pnpm demo:deployment:generate -- \
+  --config /absolute/restricted/path/demo-deployment-input.json \
+  --output /absolute/restricted/path/demo-deployment-manifest.json
+```
+
+The input fixes the full source revision, immutable API image digest, Access audience, exact
+provider origins, PostgreSQL/schema versions, free plans, disabled paid features, and zero-cent
+ceiling. The generated mode-`0600` manifest records required secret names without accepting secret
+values.
+
+Follow the [zero-cost demo runbook](free-demo-hosting.md). Provider activation remains separate from
+release publication and must stop if any required resource is not actually free.
 
 ## Historical Render staging promotion artifact
 
