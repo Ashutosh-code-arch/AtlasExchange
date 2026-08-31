@@ -11,6 +11,7 @@ dist/
 coverage/
 playwright-report/
 test-results/
+staging-test-results/
 *.tsbuildinfo
 
 # Local environment files (examples are intentionally tracked)

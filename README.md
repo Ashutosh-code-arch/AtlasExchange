@@ -39,7 +39,9 @@ external-readiness boundary, including an immutable collector image and validate
 configuration. A deterministic generator now produces the release-specific Render Blueprint only
 from exact external inputs, fresh candidate evidence, and an unexpired cost approval. Live cost
 approval, an owned domain, exact invited identities, provider accounts, a generated and validated
-manifest, and verified proxy semantics remain required. No provider
+manifest, and verified proxy semantics remain required. An opt-in read-only staging suite is ready
+to validate a deployed candidate and emit sanitized partial smoke evidence without mutating business
+state. No provider
 resource, domain, or production environment has been created.
 
 ## Prerequisites
@@ -76,6 +78,7 @@ pnpm db:migrate     # apply committed migrations
 pnpm db:recovery:drill:local # prove an isolated local dump/restore and financial validation
 pnpm verify         # typecheck, lint, format-check, and test
 pnpm test:e2e       # run the isolated full-stack browser journeys
+pnpm test:staging   # run opt-in read-only checks against an exact deployed staging candidate
 pnpm build          # create production artifacts
 pnpm containers:build # build the API, web, and metrics-collector images
 pnpm observability:validate # validate the staging dashboard and alert policy

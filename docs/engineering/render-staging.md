@@ -34,6 +34,8 @@ Production approval:             no-go
 - [x] Select an access boundary protecting both staging origins without a browser-embedded secret.
 - [ ] Supply the exact Cloudflare team domain, multi-domain application audience, and approved email
       allow-list required by ADR-068.
+- [ ] Create separate bounded Cloudflare service identities for continuous availability and ADR-071
+      release smoke execution.
 - [ ] Decide whether GHCR release packages are public or use a rotatable read-only pull credential.
 - [ ] Confirm the SMTP provider and staging sender identity.
 - [ ] Prepare a production-grade offline password-blocklist file.
@@ -179,9 +181,10 @@ After exact inputs produce a reviewed and Render-validated release manifest:
 9. deploy the web digest and require `/health/live`;
 10. disable both default `onrender.com` subdomains after custom-domain verification;
 11. execute hostile-forwarded-header and direct-bypass tests;
-12. execute identity, Financial, Trading, Market Data, ownership, WebSocket, and stale-recovery smoke
-    checks with synthetic identities; and
-13. keep the readiness outcome `no-go` until monitoring, alert delivery, recovery, capacity, security,
+12. execute ADR-071's read-only staging suite and inspect its sanitized candidate-bound artifact;
+13. execute invited-browser, Financial, Trading, ownership, WebSocket, and stale-recovery checks with
+    synthetic identities; and
+14. keep the readiness outcome `no-go` until monitoring, alert delivery, recovery, capacity, security,
     incident exercise, and remaining ADR-066 controls pass.
 
 ## Mandatory provider evidence

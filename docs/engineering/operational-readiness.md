@@ -51,6 +51,9 @@ Replace a control entry with this shape only after inspecting its evidence:
 ```
 
 The reference syntax is owned by the selected evidence store; the example is not a real location.
+ADR-071's sanitized read-only staging artifact is only partial evidence for this control. Pair it
+with fresh browser, ownership-denial, Financial/Trading lifecycle, WebSocket, and bypass evidence
+from the [staging smoke runbook](staging-smoke-testing.md) before changing the control to `passed`.
 
 Set `decision.outcome` to `go` or `no-go`, name the accountable decision-maker, explain the reason,
 and validate:

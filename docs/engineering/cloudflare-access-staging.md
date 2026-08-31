@@ -15,6 +15,7 @@ Origin JWT validation implemented: API HTTP + WebSocket, web HTTP
 Owned domain supplied:             no
 Cloudflare zone/team created:      no evidence
 Monitor service token/policy:      no evidence
+Smoke service token/policy:        no evidence
 Exact invited emails approved:     no
 Access application/AUD created:    no
 DNS records changed:               no
@@ -32,6 +33,7 @@ Staging publicly reachable:        no
 - [ ] Render service hostnames used only as CNAME targets and certificate-verification inputs.
 - [ ] Approved Access application/policy session duration if eight hours is unsuitable.
 - [ ] Dedicated ADR-069 availability-probe service token and approved expiry.
+- [ ] Separate dedicated ADR-071 smoke-runner service token and approved expiry.
 
 Do not commit email addresses, provider account identifiers, DNS verification values, or access-event
 exports merely to satisfy this checklist.
@@ -52,7 +54,7 @@ HttpOnly:                 enabled
 SameSite:                 Lax
 Binding cookie:           enable, then test HTTP and WebSocket
 Bypass policies:          none
-Machine policy:           Service Auth, exact availability-probe token only
+Machine policies:         separate Service Auth policies for exact availability and smoke tokens
 API OPTIONS behavior:     bypass Access to Atlas origin CORS
 ```
 
@@ -60,6 +62,8 @@ Never create an Allow rule containing `Everyone`, only `One-time PIN`, or an ent
 domain. OTP sends mail only to identities already allowed by the exact-email policy.
 Never select `Any Access Service Token` for monitoring. The machine policy must name only the
 dedicated probe token and must not become a Bypass policy.
+Apply the same rule separately to the smoke-runner token. Never place both tokens in one policy or
+reuse either credential for the other purpose.
 
 ## Activation sequence
 
@@ -71,8 +75,10 @@ dedicated probe token and must not become a Bypass policy.
 6. Create the single two-host Access application and exact-email policy.
 7. Enable eager cookies, bounded sessions, API `OPTIONS` bypass, and the reviewed cookie settings.
 8. Add the exact-token Service Auth policy only when the ADR-069 synthetic secret store is ready.
-9. Set both CNAMEs to Cloudflare Proxied and use Full TLS mode.
-10. Put the same team origin and application audience into both Render services:
+9. Add the separate exact-token smoke Service Auth policy only when the ADR-071 execution secret
+   store and synthetic account are ready.
+10. Set both CNAMEs to Cloudflare Proxied and use Full TLS mode.
+11. Put the same team origin and application audience into both Render services:
 
    ```text
    ATLAS_ENV=staging
@@ -80,9 +86,9 @@ dedicated probe token and must not become a Bypass policy.
    CLOUDFLARE_ACCESS_AUDIENCE=<application audience>
    ```
 
-11. Deploy the exact candidate digests and confirm both services start fail-closed.
-12. Disable both Render `onrender.com` subdomains.
-13. Complete every proof below before inviting a reviewer.
+12. Deploy the exact candidate digests and confirm both services start fail-closed.
+13. Disable both Render `onrender.com` subdomains.
+14. Complete every proof below before inviting a reviewer.
 
 If Render requires DNS-only mode again for certificate renewal, stop reviewer access and establish a
 documented maintenance path before weakening the proxy boundary.

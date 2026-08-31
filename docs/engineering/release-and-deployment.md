@@ -118,7 +118,8 @@ schema version, and previous known-good digests. After an explicit `go`:
 5. start the metrics-collector digest privately and prove remote collection;
 6. enable API ingress traffic;
 7. start the web digest with its runtime API URL; and
-8. smoke-test health, session establishment, public Market Data, and external readiness.
+8. run `pnpm test:staging`, inspect its sanitized partial artifact, and complete the remaining
+   browser, ownership, Financial/Trading, WebSocket, bypass, and external-readiness evidence.
 
 Do not run migrations from ordinary API startup and do not run concurrent migration jobs.
 

@@ -740,6 +740,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   and secret placeholders without embedding secret values.
 - No generated Blueprint or provider resource exists yet. Generation, Render CLI validation,
   deliberate provider application, staging readiness, and production approval remain distinct gates.
+- [ADR-071 — Staging Smoke Execution and Sanitized Evidence](../architecture/decisions/ADR-071-staging-smoke-execution-and-sanitized-evidence.md)
+  accepts a separate opt-in, read-only live suite using a dedicated Cloudflare machine identity and
+  non-admin synthetic Atlas account. It validates lifecycle, exact version, protected web runtime
+  configuration, public contracts, session behavior, and owner-scoped reads against the deployed
+  candidate without mutating durable business state.
+- The custom reporter disables rich artifacts and writes a new owner-restricted, candidate-bound,
+  24-hour sanitized result outside Git. It marks its scope partial: browser admission, two-user
+  ownership denial, Financial/Trading lifecycle, WebSocket, and bypass evidence remain required
+  before the readiness smoke control can pass. The suite has not run because no staging environment,
+  dedicated token, synthetic account, or release candidate exists.
 - The three-image vulnerability gate passes with current advisory data. Alloy's embedded optional
   Docker client triggers `GO-2026-4887`, whose upstream affected path exists only in a Docker Engine
   daemon using authorization plugins. Atlas records an exact collector-only, package-version-bound

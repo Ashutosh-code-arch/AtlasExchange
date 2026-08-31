@@ -51,6 +51,7 @@ export default defineConfig({
       name: "web",
       command: "pnpm --filter @atlas/web preview",
       cwd: repositoryDirectory,
+      env: { ATLAS_ENV: "local" },
       url: webOrigin,
       timeout: 60_000,
       reuseExistingServer: false,

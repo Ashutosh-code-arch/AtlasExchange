@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "test": "node scripts/run-e2e.mjs",
+    "test:staging": "playwright test --config playwright.staging.config.ts",
     "test:runner": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@atlas/contracts": "workspace:*",
     "@playwright/test": "1.62.1",
     "@types/node": "^24.13.3",
     "typescript": "^6.0.2"

@@ -8,5 +8,11 @@
     "types": ["node", "@playwright/test"],
     "noEmit": true
   },
-  "include": ["playwright.config.ts", "specs"]
+  "include": [
+    "playwright.config.ts",
+    "playwright.staging.config.ts",
+    "specs",
+    "staging-specs",
+    "staging-support"
+  ]
 }

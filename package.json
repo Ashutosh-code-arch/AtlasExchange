@@ -23,6 +23,7 @@
     "test": "pnpm test:repository && pnpm --filter @atlas/contracts build && pnpm --filter @atlas/contracts test && pnpm --filter @atlas/api test && pnpm --filter @atlas/web test",
     "test:repository": "node --test scripts/containers/build-images.test.mjs scripts/database/run-local-recovery-drill.test.mjs scripts/deployment/generate-render-blueprint.test.mjs scripts/observability/validate-observability-config.test.mjs scripts/operations/validate-readiness-record.test.mjs scripts/release/prepare-release.test.mjs scripts/security/scan-container-images.test.mjs scripts/security/scan-tracked-secrets.test.mjs",
     "test:e2e": "pnpm --filter @atlas/e2e test",
+    "test:staging": "pnpm --filter @atlas/e2e test:staging",
     "test:performance": "pnpm --filter @atlas/api test:performance",
     "containers:build": "node scripts/containers/build-images.mjs",
     "security:secrets": "node scripts/security/scan-tracked-secrets.mjs",
