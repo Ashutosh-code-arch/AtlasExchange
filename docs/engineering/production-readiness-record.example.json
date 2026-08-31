@@ -78,7 +78,7 @@
     {
       "id": "product-scope-approval",
       "status": "not-evaluated",
-      "notes": "Approve simulated-only scope, privacy and support ownership, and disabled real custody."
+      "notes": "Complete ADR-073 release-bound simulated-only, disclosure, privacy, and tested-support approval."
     }
   ]
 }

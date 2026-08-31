@@ -43,7 +43,10 @@ manifest, and verified proxy semantics remain required. An opt-in read-only stag
 to validate a deployed candidate and emit sanitized partial smoke evidence without mutating business
 state. A strict incident-exercise record now preserves response roles, timing, recovery proof,
 contact-path results, and corrective actions without pretending a repository test performed the
-exercise. No provider resource, domain, production environment, or live exercise has been created.
+exercise. The initial product-scope contract now limits any approval to invited testers and
+simulated-only value, with release-bound deployment, disclosure, privacy, and tested-support
+evidence. No provider resource, domain, production environment, live exercise, or product approval
+has been created.
 
 ## Prerequisites
 
@@ -89,6 +92,7 @@ pnpm security:containers # fail on High/Critical findings in all built images
 pnpm security:check # run all security checks; expects all local images to exist
 pnpm readiness:validate -- <record.json> # validate a staging/production go-no-go record
 pnpm incident:exercise:validate -- <record.json> # validate a timed response exercise record
+pnpm product:scope:validate -- <record.json> # validate an initial product-scope approval
 pnpm staging:render:generate -- --config <input.json> --readiness <record.json> --output <render.yaml>
 ```
 
@@ -125,6 +129,8 @@ approve production. See the
 [operational readiness and incident runbook](docs/engineering/operational-readiness.md).
 The [incident-response exercise runbook](docs/engineering/incident-response-exercise.md) defines the
 separate timed drill and restricted evidence required for that readiness control.
+The [product-scope approval runbook](docs/engineering/product-scope-approval.md) defines the separate
+release-bound product, privacy, disclosure, and support review.
 
 The E2E command provisions its own ephemeral PostgreSQL and Mailpit services through Docker
 Compose, starts the API and web application on available ports, and removes the test services when

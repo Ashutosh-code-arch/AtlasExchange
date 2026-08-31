@@ -184,8 +184,9 @@ After exact inputs produce a reviewed and Render-validated release manifest:
 12. execute ADR-071's read-only staging suite and inspect its sanitized candidate-bound artifact;
 13. execute invited-browser, Financial, Trading, ownership, WebSocket, and stale-recovery checks with
     synthetic identities; and
-14. keep the readiness outcome `no-go` until monitoring, alert delivery, recovery, capacity, security,
-    incident exercise, and remaining ADR-066 controls pass.
+14. validate ADR-073's invited, simulated-only product scope and tested support path; and
+15. keep the readiness outcome `no-go` until monitoring, alert delivery, recovery, capacity,
+    security, incident exercise, product scope, and remaining ADR-066 controls pass.
 
 ## Mandatory provider evidence
 

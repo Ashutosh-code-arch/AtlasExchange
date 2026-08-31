@@ -758,6 +758,14 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - The exercise runbook and deliberately failed documentation example are committed and repository
   tested. No live contact path, restricted evidence store, timed exercise, or passing
   `incident-response-exercise` evidence exists yet.
+- [ADR-073 — Initial Product-Scope Approval and Evidence](../architecture/decisions/ADR-073-initial-product-scope-approval-and-evidence.md)
+  limits the first approvable product to invited testers behind deny-by-default access with
+  simulated-only value. Its validator requires release-bound proof that mutation flags are off and
+  custody, external execution, fiat payments, and transferable value are absent, plus reviewed
+  disclosures, exact data categories, policy ownership, and a tested support path.
+- The product-scope runbook and deliberately blocked documentation example are committed and
+  repository tested. No deployed review, privacy approval, tested support channel, or passing
+  `product-scope-approval` evidence exists yet.
 - The three-image vulnerability gate passes with current advisory data. Alloy's embedded optional
   Docker client triggers `GO-2026-4887`, whose upstream affected path exists only in a Docker Engine
   daemon using authorization plugins. Atlas records an exact collector-only, package-version-bound

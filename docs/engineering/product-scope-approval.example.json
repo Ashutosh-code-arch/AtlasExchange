@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "approvalId": "scope-2026-08-30-example-only",
+  "environment": "staging",
+  "release": {
+    "version": "0.1.0",
+    "revision": "0000000000000000000000000000000000000000"
+  },
+  "scope": {
+    "purpose": "centralized-exchange-learning-platform",
+    "audience": "invited-testers",
+    "accessModel": "deny-by-default",
+    "valueModel": "simulated-only",
+    "realAssetsAccepted": false,
+    "financialReturnsPromised": false,
+    "financialAdviceProvided": false
+  },
+  "deploymentControls": [
+    {
+      "id": "simulated-funding",
+      "requiredSetting": "SIMULATED_FUNDING_ENABLED=false",
+      "status": "blocked",
+      "notes": "Example only; no deployed configuration evidence exists.",
+      "evidence": []
+    },
+    {
+      "id": "simulated-withdrawals",
+      "requiredSetting": "SIMULATED_WITHDRAWALS_ENABLED=false",
+      "status": "blocked",
+      "notes": "Example only; no deployed configuration evidence exists.",
+      "evidence": []
+    },
+    {
+      "id": "real-custody",
+      "requiredSetting": "capability-absent",
+      "status": "blocked",
+      "notes": "Example only; source and deployment review has not occurred.",
+      "evidence": []
+    },
+    {
+      "id": "external-market-execution",
+      "requiredSetting": "capability-absent",
+      "status": "blocked",
+      "notes": "Example only; source and deployment review has not occurred.",
+      "evidence": []
+    },
+    {
+      "id": "fiat-payments",
+      "requiredSetting": "capability-absent",
+      "status": "blocked",
+      "notes": "Example only; source and deployment review has not occurred.",
+      "evidence": []
+    },
+    {
+      "id": "transferable-value",
+      "requiredSetting": "capability-absent",
+      "status": "blocked",
+      "notes": "Example only; source and deployment review has not occurred.",
+      "evidence": []
+    }
+  ],
+  "disclosures": [
+    {
+      "id": "simulation-prominence",
+      "status": "blocked",
+      "owner": "replace-with-product-owner",
+      "notes": "Example only; deployed product copy has not been reviewed.",
+      "evidence": []
+    },
+    {
+      "id": "no-real-assets",
+      "status": "blocked",
+      "owner": "replace-with-product-owner",
+      "notes": "Example only; deployed product copy has not been reviewed.",
+      "evidence": []
+    },
+    {
+      "id": "no-external-execution",
+      "status": "blocked",
+      "owner": "replace-with-product-owner",
+      "notes": "Example only; deployed product copy has not been reviewed.",
+      "evidence": []
+    },
+    {
+      "id": "no-financial-advice",
+      "status": "blocked",
+      "owner": "replace-with-product-owner",
+      "notes": "Example only; deployed product copy has not been reviewed.",
+      "evidence": []
+    },
+    {
+      "id": "support-and-privacy-paths",
+      "status": "blocked",
+      "owner": "replace-with-product-owner",
+      "notes": "Example only; visible paths have not been selected or reviewed.",
+      "evidence": []
+    }
+  ],
+  "dataHandling": {
+    "status": "blocked",
+    "owner": "replace-with-privacy-owner",
+    "categories": [
+      "account-email",
+      "credential-and-session-security",
+      "operational-security-metadata",
+      "simulation-activity"
+    ],
+    "references": {
+      "privacyNotice": "not-selected",
+      "retentionPolicy": "not-selected",
+      "deletionProcedure": "not-selected",
+      "subprocessorReview": "not-selected"
+    },
+    "notes": "Example only; the data-handling review is incomplete.",
+    "evidence": []
+  },
+  "support": {
+    "status": "blocked",
+    "owner": "replace-with-support-owner",
+    "contactPath": "not-configured",
+    "incidentEscalation": "not-configured",
+    "tested": false,
+    "notes": "Example only; no support path has been configured or tested.",
+    "evidence": []
+  },
+  "decision": {
+    "outcome": "blocked",
+    "decidedAt": "2026-08-30T13:00:00.000Z",
+    "decidedBy": "replace-with-accountable-owner",
+    "reason": "Documentation example only; deployment, disclosure, privacy, and support evidence is incomplete."
+  }
+}

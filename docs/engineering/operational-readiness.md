@@ -32,7 +32,9 @@ web, and metrics-collector image digests. Evaluate every control:
 - [ ] Candidate staging smoke tests passed for health, session, ownership, Financial, Trading, and
       Market Data.
 - [ ] The current incident process and contact path passed a timed exercise.
-- [ ] Simulated-only product scope, privacy/support ownership, and disabled real custody are approved.
+- [ ] The invited, simulated-only product scope, release restrictions, disclosures, data handling,
+      and tested support path pass the
+      [product-scope approval runbook](product-scope-approval.md).
 
 For each passed control, record references to the retained evidence plus `observedAt` and
 `expiresAt`. Evidence expiry may not exceed the control policy in ADR-066. For a blocked or
@@ -54,6 +56,9 @@ The reference syntax is owned by the selected evidence store; the example is not
 ADR-071's sanitized read-only staging artifact is only partial evidence for this control. Pair it
 with fresh browser, ownership-denial, Financial/Trading lifecycle, WebSocket, and bypass evidence
 from the [staging smoke runbook](staging-smoke-testing.md) before changing the control to `passed`.
+Use `pnpm incident:exercise:validate -- <record.json>` and
+`pnpm product:scope:validate -- <record.json>` for their respective restricted records. A valid
+failed, blocked, stale, or otherwise ineligible result keeps its readiness control blocked.
 
 Set `decision.outcome` to `go` or `no-go`, name the accountable decision-maker, explain the reason,
 and validate:
