@@ -3,7 +3,7 @@
 Atlas Exchange is a production-inspired centralized-exchange learning platform. The repository is
 being delivered incrementally so every phase leaves behind a runnable, tested system.
 
-## Current delivery state: Phase 8 release candidate
+## Current delivery state: Phase 8 deployment candidate
 
 The implemented Atlas learning platform provides:
 
@@ -38,9 +38,9 @@ production-shaped Render plan: Cloudflare Worker Static Assets and Access provid
 PostgreSQL 18. Coinbase's public unauthenticated feed provides labeled BTC-USD and ETH-USD reference
 prices and candles; it can never match Atlas orders or affect simulated settlement. The demo
 runtime, preverified identity command, reference adapter/chart, Worker gateway, and zero-cost
-deployment contract are implemented. Version `0.2.0` is the release candidate; live provider
-deployment evidence remains pending. No public launch, real custody, external execution, or
-production approval exists.
+deployment contract are implemented. Release `v0.2.0` is published with verified provenance; live
+provider deployment evidence remains pending. No public launch, real custody, external execution,
+or production approval exists.
 
 ## Prerequisites
 

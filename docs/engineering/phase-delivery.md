@@ -733,7 +733,13 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   immutable API digest, Access audience, provider hostnames, PostgreSQL 18/schema 15, free plans,
   one Render instance, disabled paid features/overage, no custom domain, and a zero-cent recurring
   ceiling. Its mode-`0600` output lists secret names without accepting secret values.
-- Repository work still required includes a new release and live free-provider deployment evidence.
+- Release `v0.2.0` now binds the demo candidate to source revision
+  `f7d3e3a3547da238cfdbe30f84139bf9efe5dc82`. The successful release workflow published and signed
+  AMD64/ARM64 API, web, and metrics-collector indexes after repeating repository, build, dependency,
+  secret, and image-vulnerability gates. GitHub provenance verification passed for all three
+  immutable digests; the canonical zero-cost demo runbook records them.
+- Repository work is complete for the release candidate. Live free-provider resource, migration,
+  identity bootstrap, gateway, access-control, smoke, and cost evidence remain required.
 - ADRs 067–070 and their Render/domain/collector runbooks are superseded for initial hosting. The
   implementation evidence below remains historical work that can inform a future paid
   production-shaped environment, but it must not be applied to the zero-cost demo.

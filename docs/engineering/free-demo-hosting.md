@@ -22,7 +22,7 @@ Neon account/Free PostgreSQL:  no evidence
 Demo identity path:            implemented; operator execution pending
 Coinbase reference adapter:    implemented; runtime activation pending
 Reference chart:               implemented; deployment activation pending
-Candidate API image:           v0.2.0 source prepared; publication pending
+Candidate API image:           v0.2.0 published; provenance verified
 Production approval:           no-go
 ```
 
@@ -47,7 +47,23 @@ increase a limit. When an allowance is exhausted, accept suspension or revise AD
 - [x] Add the Coinbase reference-data adapter, contracts, freshness, and reconnect tests.
 - [x] Add the labeled real-price/candlestick surface.
 - [x] Add a zero-cost deployment manifest/input validator.
-- [ ] Publish and verify a new release containing the demo runtime.
+- [x] Publish and verify a new release containing the demo runtime.
+
+## Release evidence
+
+Release `v0.2.0` binds the demo candidate to source revision
+`f7d3e3a3547da238cfdbe30f84139bf9efe5dc82`. The release workflow repeated repository verification,
+production builds, image builds, dependency and secret checks, and High/Critical image scanning
+before publishing signed AMD64/ARM64 OCI indexes. GitHub provenance verification passed for:
+
+```text
+ghcr.io/ashutosh-code-arch/atlas-api@sha256:528d6b8dd12933d340bfcbac95f5a63e2350e802912f13f2a44092bf48fcf7ed
+ghcr.io/ashutosh-code-arch/atlas-web@sha256:b44ce6922918cfe799bb8f07b56399830ca4e71bd24be7529ba79d72ab268b84
+ghcr.io/ashutosh-code-arch/atlas-metrics-collector@sha256:f22f18b613c8ab3a3ab9823411e8fdff426de95b6e760a91d9f7a85e91895da9
+```
+
+Only the API digest belongs in the zero-cost demo deployment manifest. The web and collector
+digests preserve a complete release set but are not deployed in the ADR-075 topology.
 
 ## External setup inputs
 
