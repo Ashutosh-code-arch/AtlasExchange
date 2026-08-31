@@ -45,7 +45,9 @@ state. A strict incident-exercise record now preserves response roles, timing, r
 contact-path results, and corrective actions without pretending a repository test performed the
 exercise. The initial product-scope contract now limits any approval to invited testers and
 simulated-only value, with release-bound deployment, disclosure, privacy, and tested-support
-evidence. No provider resource, domain, production environment, live exercise, or product approval
+evidence. A strict rollback-plan contract now distinguishes a verified previous release from the
+first-release remove-traffic fallback and prohibits reverse-migration shortcuts. No provider
+resource, domain, production environment, live exercise, product approval, or rollback rehearsal
 has been created.
 
 ## Prerequisites
@@ -93,6 +95,7 @@ pnpm security:check # run all security checks; expects all local images to exist
 pnpm readiness:validate -- <record.json> # validate a staging/production go-no-go record
 pnpm incident:exercise:validate -- <record.json> # validate a timed response exercise record
 pnpm product:scope:validate -- <record.json> # validate an initial product-scope approval
+pnpm rollback:validate -- <record.json> # validate a candidate-bound rollback plan
 pnpm staging:render:generate -- --config <input.json> --readiness <record.json> --output <render.yaml>
 ```
 
@@ -131,6 +134,8 @@ The [incident-response exercise runbook](docs/engineering/incident-response-exer
 separate timed drill and restricted evidence required for that readiness control.
 The [product-scope approval runbook](docs/engineering/product-scope-approval.md) defines the separate
 release-bound product, privacy, disclosure, and support review.
+The [rollback planning runbook](docs/engineering/rollback-planning.md) defines forward-schema
+compatibility, first-release traffic removal, and rehearsal evidence.
 
 The E2E command provisions its own ephemeral PostgreSQL and Mailpit services through Docker
 Compose, starts the API and web application on available ports, and removes the test services when

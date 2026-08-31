@@ -63,7 +63,7 @@
     {
       "id": "rollback-plan",
       "status": "not-evaluated",
-      "notes": "Record previous digests, schema compatibility, operator, and traffic rollback."
+      "notes": "Complete ADR-074 candidate/baseline, compatibility, ordered procedure, and rehearsal evidence."
     },
     {
       "id": "synthetic-smoke-tests",

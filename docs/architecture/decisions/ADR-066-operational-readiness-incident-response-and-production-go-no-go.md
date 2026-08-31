@@ -107,7 +107,7 @@ reference is truthful. The accountable decision-maker must inspect the underlyin
 | `logical-restore-drill` | Successful isolated archive restore and Atlas Financial validation | 31 days |
 | `candidate-vulnerability-scan` | Dependency and per-platform registry scans for the candidate digests | 7 days |
 | `release-provenance` | Verified source revision, SBOM, signatures/provenance, migrations, and candidate digests | 7 days |
-| `rollback-plan` | Previous known-good digests, schema compatibility decision, operator, and traffic procedure | 7 days |
+| `rollback-plan` | ADR-074-valid candidate/baseline identity or first-release fallback, schema/client compatibility, ordered operator procedure, and rehearsal | 7 days |
 | `synthetic-smoke-tests` | Bounded staging tests for health, session, private ownership, trading, and Market Data | 1 day |
 | `incident-response-exercise` | ADR-072-valid timed tabletop or simulation using the versioned runbook and tested contact path | 90 days |
 | `product-scope-approval` | ADR-073-valid invited, simulated-only scope; release controls; data/privacy review; tested support; and absent real custody/execution | 30 days |
@@ -184,10 +184,12 @@ safe boundary, not the smaller visible outage.
 
 ## 8. Rollback and database authority
 
-Application traffic may return to recorded prior image digests only after verifying compatibility
-with the already-applied schema and public contracts. An applied migration is never edited,
-automatically reversed, or hidden by an older container. A database correctness event follows the
-isolated recovery runbook and requires its schema and Financial validation before traffic.
+Application traffic may return to recorded prior image digests only after passing ADR-074's
+candidate-bound rollback plan, including compatibility with the already-applied schema and cached
+client contracts. A first release removes traffic instead of inventing prior digests. An applied
+migration is never edited, automatically reversed, or hidden by an older container. A database
+correctness event follows the isolated recovery runbook and requires its schema and Financial
+validation before traffic.
 
 External calls should be stopped or fenced before recovery when replay could duplicate side
 effects. Current simulated funding and withdrawals do not authorize assumptions for future custody
@@ -279,3 +281,4 @@ window does not match observed risk.
 - [ADR-065 — Software Supply-Chain, Vulnerability, and Secret Response](ADR-065-software-supply-chain-vulnerability-and-secret-response.md)
 - [ADR-072 — Incident-Response Exercise and Evidence](ADR-072-incident-response-exercise-and-evidence.md)
 - [ADR-073 — Initial Product-Scope Approval and Evidence](ADR-073-initial-product-scope-approval-and-evidence.md)
+- [ADR-074 — Release Rollback Plan and Evidence](ADR-074-release-rollback-plan-and-evidence.md)

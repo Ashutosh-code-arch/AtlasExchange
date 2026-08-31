@@ -28,7 +28,9 @@ web, and metrics-collector image digests. Evaluate every control:
 - [ ] A recent portable archive restored and passed Atlas schema and Financial validation.
 - [ ] Dependencies and every published platform image digest passed current vulnerability gates.
 - [ ] Release source, migrations, SBOM, provenance, signatures, and all three digests were verified.
-- [ ] Previous known-good digests, schema compatibility, operator, and traffic rollback are recorded.
+- [ ] ADR-074's exact candidate/baseline or first-release fallback, forward-schema/client
+      compatibility, ordered operator procedure, and rehearsal evidence pass the
+      [rollback planning runbook](rollback-planning.md).
 - [ ] Candidate staging smoke tests passed for health, session, ownership, Financial, Trading, and
       Market Data.
 - [ ] The current incident process and contact path passed a timed exercise.
@@ -59,6 +61,8 @@ from the [staging smoke runbook](staging-smoke-testing.md) before changing the c
 Use `pnpm incident:exercise:validate -- <record.json>` and
 `pnpm product:scope:validate -- <record.json>` for their respective restricted records. A valid
 failed, blocked, stale, or otherwise ineligible result keeps its readiness control blocked.
+Use `pnpm rollback:validate -- <record.json>` for the candidate's separate rollback plan under the
+same rule.
 
 Set `decision.outcome` to `go` or `no-go`, name the accountable decision-maker, explain the reason,
 and validate:

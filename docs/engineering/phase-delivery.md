@@ -766,6 +766,14 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - The product-scope runbook and deliberately blocked documentation example are committed and
   repository tested. No deployed review, privacy approval, tested support channel, or passing
   `product-scope-approval` evidence exists yet.
+- [ADR-074 — Release Rollback Plan and Evidence](../architecture/decisions/ADR-074-release-rollback-plan-and-evidence.md)
+  defines immutable candidate/baseline release sets, an honest first-release remove-traffic
+  fallback, forward-schema and cached-client compatibility, and nine ordered operator stages. The
+  validator refuses reverse-migration fields, breaking or unevaluated compatibility, fictional
+  baselines, unrehearsed procedures, and evidence older than seven days.
+- The rollback runbook and deliberately blocked first-release example are committed and repository
+  tested. No published candidate, verified provider recovery point, provider traffic procedure, or
+  staging rehearsal exists, so `rollback-plan` remains blocked.
 - The three-image vulnerability gate passes with current advisory data. Alloy's embedded optional
   Docker client triggers `GO-2026-4887`, whose upstream affected path exists only in a Docker Engine
   daemon using authorization plugins. Atlas records an exact collector-only, package-version-bound

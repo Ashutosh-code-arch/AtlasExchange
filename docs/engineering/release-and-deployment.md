@@ -130,10 +130,18 @@ evidence but does not satisfy the production PITR requirement.
 
 ## Rollback
 
-Route back to the recorded previous digest only when it is compatible with the applied schema.
-Never edit or automatically reverse an applied migration. If schema compatibility is lost, stop the
-rollout and use a reviewed corrective forward migration or the separately tested database recovery
-procedure.
+Prepare and rehearse the exact candidate plan through the
+[rollback planning runbook](rollback-planning.md), then require:
 
-Web and API may use different prior digests only when their public contracts remain compatible and
-the release record explains the pair.
+```bash
+pnpm rollback:validate -- /restricted/path/rollback-plan.json
+```
+
+Route back to the recorded previous release set only when it is compatible with the applied schema
+and transition contracts. For a first release, remove traffic instead of naming fictional prior
+digests. Never edit or automatically reverse an applied migration. If schema compatibility is lost,
+stop the rollout and use a reviewed corrective forward migration or the separately tested database
+recovery procedure.
+
+The initial rollback unit is the API, web, and collector release set. Independent component rollback
+requires a later reviewed compatibility decision.

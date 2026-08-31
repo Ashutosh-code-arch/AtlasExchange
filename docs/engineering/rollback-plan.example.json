@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "planId": "rollback-2026-08-30-example-only",
+  "environment": "staging",
+  "candidate": {
+    "version": "0.1.0",
+    "revision": "0000000000000000000000000000000000000000",
+    "apiImageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "webImageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "metricsCollectorImageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "baseline": {
+    "kind": "first-release",
+    "release": null,
+    "status": "blocked",
+    "evidence": []
+  },
+  "database": {
+    "currentSchemaVersion": "none",
+    "candidateSchemaVersion": "0015_create_administration_audit_foundation.sql",
+    "newMigrations": [],
+    "compatibilityDecision": "not-evaluated",
+    "rollbackAction": "not-evaluated",
+    "recoveryPointEvidence": [],
+    "reviewedBy": "replace-with-database-owner"
+  },
+  "contracts": [
+    {
+      "id": "previous-web-to-candidate-api",
+      "status": "not-evaluated",
+      "notes": "Example only; no baseline or transition review exists.",
+      "evidence": []
+    },
+    {
+      "id": "candidate-web-to-previous-api",
+      "status": "not-evaluated",
+      "notes": "Example only; no baseline or transition review exists.",
+      "evidence": []
+    },
+    {
+      "id": "market-data-websocket",
+      "status": "not-evaluated",
+      "notes": "Example only; no baseline or transition review exists.",
+      "evidence": []
+    }
+  ],
+  "procedure": {
+    "strategy": "blocked",
+    "rehearsed": false,
+    "rehearsalEvidence": [],
+    "steps": [
+      {
+        "id": "stop-rollout",
+        "owner": "replace-with-release-operator",
+        "instruction": "Example only; stop the candidate rollout without changing schema."
+      },
+      {
+        "id": "determine-migration-state",
+        "owner": "replace-with-release-operator",
+        "instruction": "Example only; determine whether the candidate migration job ran."
+      },
+      {
+        "id": "freeze-unsafe-mutations",
+        "owner": "replace-with-release-operator",
+        "instruction": "Example only; fence mutations whose correctness is uncertain."
+      },
+      {
+        "id": "change-traffic",
+        "owner": "replace-with-release-operator",
+        "instruction": "Example only; remove traffic because no previous release exists."
+      },
+      {
+        "id": "verify-release-identity",
+        "owner": "replace-with-release-operator",
+        "instruction": "Example only; verify the active immutable release identity."
+      },
+      {
+        "id": "validate-health-and-session",
+        "owner": "replace-with-release-operator",
+        "instruction": "Example only; validate lifecycle and session behavior."
+      },
+      {
+        "id": "validate-financial-and-trading",
+        "owner": "replace-with-release-operator",
+        "instruction": "Example only; validate Financial and Trading correctness."
+      },
+      {
+        "id": "validate-observability",
+        "owner": "replace-with-release-operator",
+        "instruction": "Example only; confirm monitoring reflects the resulting state."
+      },
+      {
+        "id": "communicate-and-monitor",
+        "owner": "replace-with-release-operator",
+        "instruction": "Example only; communicate status and continue elevated observation."
+      }
+    ]
+  },
+  "decision": {
+    "outcome": "blocked",
+    "decidedAt": "2026-08-30T13:00:00.000Z",
+    "decidedBy": "replace-with-release-owner",
+    "reason": "Documentation example only; release identity, recovery evidence, compatibility, and rehearsal are incomplete."
+  }
+}

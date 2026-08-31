@@ -277,3 +277,4 @@ signatures, or adds automated staging/production deployment.
 - [ADR-064 — PostgreSQL Backup, Restore, and Recovery Validation](ADR-064-postgresql-backup-restore-and-recovery-validation.md)
 - [ADR-065 — Software Supply-Chain, Vulnerability, and Secret Response](ADR-065-software-supply-chain-vulnerability-and-secret-response.md)
 - [ADR-069 — Staging Observability Collection, Alerting, and Availability](ADR-069-staging-observability-collection-alerting-and-availability.md)
+- [ADR-074 — Release Rollback Plan and Evidence](ADR-074-release-rollback-plan-and-evidence.md)
