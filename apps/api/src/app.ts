@@ -194,7 +194,7 @@ export function createApp(options: CreateAppOptions): Express {
       success: true,
       data: {
         name: "Atlas Exchange API",
-        version: options.applicationVersion ?? "0.1.0",
+        version: options.applicationVersion ?? "0.1.1",
       },
     };
     response.status(200).json(body);

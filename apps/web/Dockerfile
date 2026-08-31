@@ -1,10 +1,9 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS secured-node
+# Frontend artifacts are architecture-neutral; keep Node and pnpm off QEMU during cross-builds.
+FROM --platform=$BUILDPLATFORM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS build
 
 RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0
-
-FROM secured-node AS build
 
 ENV HUSKY=0 \
     PNPM_HOME=/pnpm \
@@ -31,9 +30,11 @@ RUN pnpm --filter @atlas/web build
 RUN --mount=type=cache,id=atlas-pnpm,target=/pnpm/store \
     pnpm --filter @atlas/web deploy --prod /deploy/web
 
-FROM secured-node AS runtime
+FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS runtime
 
-ARG ATLAS_IMAGE_VERSION=0.1.0-local
+RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0
+
+ARG ATLAS_IMAGE_VERSION=0.1.1-local
 ARG ATLAS_IMAGE_REVISION=unknown
 ARG ATLAS_IMAGE_CREATED=1970-01-01T00:00:00.000Z
 ARG ATLAS_IMAGE_SOURCE=https://github.com/Ashutosh-code-arch/AtlasExchange
