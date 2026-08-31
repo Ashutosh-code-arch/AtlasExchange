@@ -41,8 +41,9 @@ from exact external inputs, fresh candidate evidence, and an unexpired cost appr
 approval, an owned domain, exact invited identities, provider accounts, a generated and validated
 manifest, and verified proxy semantics remain required. An opt-in read-only staging suite is ready
 to validate a deployed candidate and emit sanitized partial smoke evidence without mutating business
-state. No provider
-resource, domain, or production environment has been created.
+state. A strict incident-exercise record now preserves response roles, timing, recovery proof,
+contact-path results, and corrective actions without pretending a repository test performed the
+exercise. No provider resource, domain, production environment, or live exercise has been created.
 
 ## Prerequisites
 
@@ -87,6 +88,7 @@ pnpm security:dependencies # fail on High/Critical workspace advisories
 pnpm security:containers # fail on High/Critical findings in all built images
 pnpm security:check # run all security checks; expects all local images to exist
 pnpm readiness:validate -- <record.json> # validate a staging/production go-no-go record
+pnpm incident:exercise:validate -- <record.json> # validate a timed response exercise record
 pnpm staging:render:generate -- --config <input.json> --readiness <record.json> --output <render.yaml>
 ```
 
@@ -121,6 +123,8 @@ recovery, security, capacity, monitoring, rollback, incident-response, and produ
 The committed example is deliberately `no-go`; repository checks or image publication alone never
 approve production. See the
 [operational readiness and incident runbook](docs/engineering/operational-readiness.md).
+The [incident-response exercise runbook](docs/engineering/incident-response-exercise.md) defines the
+separate timed drill and restricted evidence required for that readiness control.
 
 The E2E command provisions its own ephemeral PostgreSQL and Mailpit services through Docker
 Compose, starts the API and web application on available ports, and removes the test services when

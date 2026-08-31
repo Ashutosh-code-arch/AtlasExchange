@@ -109,7 +109,7 @@ reference is truthful. The accountable decision-maker must inspect the underlyin
 | `release-provenance` | Verified source revision, SBOM, signatures/provenance, migrations, and candidate digests | 7 days |
 | `rollback-plan` | Previous known-good digests, schema compatibility decision, operator, and traffic procedure | 7 days |
 | `synthetic-smoke-tests` | Bounded staging tests for health, session, private ownership, trading, and Market Data | 1 day |
-| `incident-response-exercise` | Timed tabletop or simulation using the current runbook and contact path | 90 days |
+| `incident-response-exercise` | ADR-072-valid timed tabletop or simulation using the versioned runbook and tested contact path | 90 days |
 | `product-scope-approval` | Explicit simulated-only scope, data/privacy review, public-support path, and disabled real custody | 30 days |
 
 Freshness is measured between `observedAt` and `expiresAt`, while the evidence must still be valid at
@@ -277,3 +277,4 @@ window does not match observed risk.
 - [ADR-063 — Initial Deployment Topology and Container Release Promotion](ADR-063-initial-deployment-topology-and-container-release-promotion.md)
 - [ADR-064 — PostgreSQL Backup, Restore, and Recovery Validation](ADR-064-postgresql-backup-restore-and-recovery-validation.md)
 - [ADR-065 — Software Supply-Chain, Vulnerability, and Secret Response](ADR-065-software-supply-chain-vulnerability-and-secret-response.md)
+- [ADR-072 — Incident-Response Exercise and Evidence](ADR-072-incident-response-exercise-and-evidence.md)

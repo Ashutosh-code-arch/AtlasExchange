@@ -242,6 +242,8 @@ For SEV-1 and SEV-2—and repeated SEV-3—complete a blameless review containin
 - corrective actions with owner, priority, and due date; and
 - required ADR, runbook, alert, test, recovery, or readiness-control changes.
 
-Run a tabletop or simulation before first production-like traffic and at least every 90 days. A
-failed exercise blocks `incident-response-exercise` until the discovered gaps are corrected and the
-exercise is repeated.
+Run a tabletop or simulation before first production-like traffic and at least every 90 days using
+the [incident-response exercise runbook](incident-response-exercise.md). Validate its restricted
+record with `pnpm incident:exercise:validate -- <record.json>`. A failed, stale, or structurally
+valid-but-ineligible exercise blocks `incident-response-exercise` until the discovered gaps are
+corrected and a new exercise passes.

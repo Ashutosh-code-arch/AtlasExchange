@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "exerciseId": "irx-2026-08-30-example-only",
+  "mode": "tabletop",
+  "environment": "staging",
+  "scenario": {
+    "type": "service-outage",
+    "expectedSeverity": "SEV-2",
+    "title": "Documentation example only; synthetic API readiness outage"
+  },
+  "runbook": {
+    "reference": "docs/engineering/operational-readiness.md",
+    "revision": "0000000000000000000000000000000000000000"
+  },
+  "contactPath": {
+    "reference": "evidence://example-only/contact-path-not-configured",
+    "tested": false,
+    "result": "not-tested"
+  },
+  "timing": {
+    "startedAt": "2026-08-30T12:00:00.000Z",
+    "endedAt": "2026-08-30T13:00:00.000Z"
+  },
+  "participants": [
+    { "role": "incident-commander", "operator": "replace-with-operator-alias" },
+    { "role": "operations-lead", "operator": "replace-with-operator-alias" },
+    { "role": "communications-lead", "operator": "replace-with-operator-alias" },
+    { "role": "scribe", "operator": "replace-with-operator-alias" }
+  ],
+  "objectives": [
+    {
+      "id": "declare-and-scope",
+      "status": "passed",
+      "notes": "Example declaration completed.",
+      "evidence": ["evidence://example-only/declaration"]
+    },
+    {
+      "id": "contain-safely",
+      "status": "passed",
+      "notes": "Example containment decision completed.",
+      "evidence": ["evidence://example-only/containment"]
+    },
+    {
+      "id": "preserve-evidence",
+      "status": "passed",
+      "notes": "Example sanitized evidence index completed.",
+      "evidence": ["evidence://example-only/evidence-index"]
+    },
+    {
+      "id": "validate-recovery",
+      "status": "passed",
+      "notes": "Example recovery checks completed.",
+      "evidence": ["evidence://example-only/recovery"]
+    },
+    {
+      "id": "communicate-status",
+      "status": "failed",
+      "notes": "No real contact path was configured for this documentation example.",
+      "evidence": []
+    },
+    {
+      "id": "close-and-own-followups",
+      "status": "passed",
+      "notes": "Example follow-up ownership completed.",
+      "evidence": ["evidence://example-only/followups"]
+    }
+  ],
+  "timeline": [
+    {
+      "at": "2026-08-30T12:00:00.000Z",
+      "event": "inject",
+      "actor": "replace-with-operator-alias",
+      "summary": "Example-only readiness failure inject presented.",
+      "evidence": []
+    },
+    {
+      "at": "2026-08-30T12:10:00.000Z",
+      "event": "incident-declared",
+      "actor": "replace-with-operator-alias",
+      "summary": "Example SEV-2 declared with synthetic scope.",
+      "evidence": []
+    },
+    {
+      "at": "2026-08-30T12:20:00.000Z",
+      "event": "containment-decision",
+      "actor": "replace-with-operator-alias",
+      "summary": "Example decision keeps mutations disabled.",
+      "evidence": []
+    },
+    {
+      "at": "2026-08-30T12:30:00.000Z",
+      "event": "status-communication",
+      "actor": "replace-with-operator-alias",
+      "summary": "Example contact-path test failed because no path was configured.",
+      "evidence": []
+    },
+    {
+      "at": "2026-08-30T12:45:00.000Z",
+      "event": "recovery-validation",
+      "actor": "replace-with-operator-alias",
+      "summary": "Example synthetic recovery validation completed.",
+      "evidence": ["evidence://example-only/recovery"]
+    },
+    {
+      "at": "2026-08-30T13:00:00.000Z",
+      "event": "closure-decision",
+      "actor": "replace-with-operator-alias",
+      "summary": "Example exercise failed and a blocking action was assigned.",
+      "evidence": []
+    }
+  ],
+  "correctiveActions": [
+    {
+      "id": "IRX-1",
+      "severity": "high",
+      "status": "open",
+      "owner": "replace-with-accountable-owner",
+      "dueAt": "2026-09-02T12:00:00.000Z",
+      "summary": "Select and test a bounded incident contact path before repeating the exercise.",
+      "evidence": []
+    }
+  ],
+  "outcome": {
+    "status": "failed",
+    "decidedAt": "2026-08-30T13:15:00.000Z",
+    "decidedBy": "replace-with-accountable-owner",
+    "reason": "Documentation example only; the contact path was not configured or tested."
+  }
+}

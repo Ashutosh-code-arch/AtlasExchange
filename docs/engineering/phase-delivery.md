@@ -750,6 +750,14 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   ownership denial, Financial/Trading lifecycle, WebSocket, and bypass evidence remain required
   before the readiness smoke control can pass. The suite has not run because no staging environment,
   dedicated token, synthetic account, or release candidate exists.
+- [ADR-072 — Incident-Response Exercise and Evidence](../architecture/decisions/ADR-072-incident-response-exercise-and-evidence.md)
+  accepts one strict, restricted exercise record for tabletop or bounded staging simulation. The
+  machine validator requires explicit solo-compatible roles, a versioned runbook, a tested contact
+  path, complete objectives, ordered UTC response events, recovery evidence, and owned corrective
+  actions. A valid failed or expired record remains visible but cannot satisfy readiness.
+- The exercise runbook and deliberately failed documentation example are committed and repository
+  tested. No live contact path, restricted evidence store, timed exercise, or passing
+  `incident-response-exercise` evidence exists yet.
 - The three-image vulnerability gate passes with current advisory data. Alloy's embedded optional
   Docker client triggers `GO-2026-4887`, whose upstream affected path exists only in a Docker Engine
   daemon using authorization plugins. Atlas records an exact collector-only, package-version-bound
