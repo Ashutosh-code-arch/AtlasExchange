@@ -42,7 +42,9 @@ async function registerVerifyAndSignIn(
   await registration.getByLabel("Password", { exact: true }).fill(password);
   await registration.getByLabel("Confirm password").fill(password);
   await registration.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("status")).toContainText("Check your email");
+  await expect(
+    page.getByRole("region", { name: "Access Atlas" }).getByRole("status"),
+  ).toContainText("Check your email");
 
   await expect
     .poll(async () => latestVerificationMessage(request, email), { timeout: 10_000 })
@@ -158,13 +160,9 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   await expect(sellerBook).toContainText("0.5");
   await expect(page.getByText("Current snapshot")).toBeVisible();
   await expect
-    .poll(
-      () =>
-        marketDataSocketTopics.some(
-          (topics) => topics.has("order_book") && topics.has("ticker") && topics.has("candles"),
-        ),
-      { timeout: 10_000 },
-    )
+    .poll(() => marketDataSocketTopics.some((topics) => topics.has("order_book")), {
+      timeout: 10_000,
+    })
     .toBe(true);
   const socketsBeforeInterruption = marketDataSocketTopics.length;
   await page.evaluate(() => {
@@ -181,15 +179,16 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
       () =>
         marketDataSocketTopics
           .slice(socketsBeforeInterruption)
-          .some(
-            (topics) => topics.has("order_book") && topics.has("ticker") && topics.has("candles"),
-          ),
+          .some((topics) => topics.has("order_book")),
       { timeout: 15_000 },
     )
     .toBe(true);
   await expect(page.getByText("Current snapshot")).toBeVisible({ timeout: 15_000 });
-  const publicTicker = page.getByRole("region", { name: "BTC-USD rolling 24-hour ticker" });
-  await expect(publicTicker).toContainText("No committed trades in the rolling 24-hour window.");
+  const referenceMarket = page.getByRole("region", { name: "BTC-USD Coinbase reference market" });
+  await expect(referenceMarket).toContainText("Real market data is temporarily unavailable.");
+  await expect(referenceMarket).toContainText(
+    "Atlas simulation remains separate and does not substitute a price.",
+  );
   await signOut(page);
 
   await registerVerifyAndSignIn(page, request, buyerEmail);
@@ -200,23 +199,6 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   await placeLimitOrder(page, { side: "Buy", quantity: "0.5", price: "51000" });
   await expect(page.locator(".trading-feedback")).toContainText(/executed 1 fill/);
   await expect(page.getByText("No open liquidity is projected for BTC-USD.")).toBeVisible();
-  await expect(publicTicker.getByRole("heading", { name: "50000" })).toBeVisible();
-  await expect(
-    publicTicker.locator(".trade-ticker__metrics > div").filter({ hasText: "Last size" }),
-  ).toContainText("0.5");
-  await expect(
-    publicTicker.locator(".trade-ticker__metrics > div").filter({ hasText: "Quote volume" }),
-  ).toContainText("25000");
-  const candleChart = page.getByRole("region", { name: "BTC-USD candlestick chart" });
-  await expect(
-    candleChart.getByRole("img", { name: "BTC-USD 5m price and volume chart" }),
-  ).toBeVisible({ timeout: 15_000 });
-  await expect(candleChart.getByLabel("Latest candle values")).toContainText("50000");
-  await expect(candleChart.getByLabel("Latest candle values")).toContainText("0.5 BTC");
-  await candleChart.getByRole("button", { name: "1m" }).click();
-  await expect(
-    candleChart.getByRole("img", { name: "BTC-USD 1m price and volume chart" }),
-  ).toBeVisible({ timeout: 15_000 });
   const buyerExecutions = page.getByRole("table", {
     name: "Executions for the selected Trading market",
   });

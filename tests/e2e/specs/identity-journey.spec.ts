@@ -94,7 +94,9 @@ test("registers, moves simulated funds, and manages an exact identity", async ({
   await registration.getByLabel("Password", { exact: true }).fill(password);
   await registration.getByLabel("Confirm password").fill(password);
   await registration.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("status")).toContainText("Check your email");
+  await expect(
+    page.getByRole("region", { name: "Access Atlas" }).getByRole("status"),
+  ).toContainText("Check your email");
 
   await expect
     .poll(async () => latestVerificationMessage(request, email), { timeout: 10_000 })
