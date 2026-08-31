@@ -17,7 +17,8 @@ Recurring cost approved:         no
 Owned staging domains:           not supplied
 Staging access boundary:         Cloudflare Access selected; not configured
 Proxy chain:                     not verified
-GHCR visibility/pull authority:  not verified
+GHCR visibility/pull authority:  public anonymous digest pulls verified
+Candidate release:               v0.1.1 published and provenance verified
 Deployment manifest generator:   implemented; exact output blocked
 Private metrics collector:       selected and implemented; not deployed
 Grafana Cloud destination:        selected; no stack evidence
@@ -36,7 +37,8 @@ Production approval:             no-go
       allow-list required by ADR-068.
 - [ ] Create separate bounded Cloudflare service identities for continuous availability and ADR-071
       release smoke execution.
-- [ ] Decide whether GHCR release packages are public or use a rotatable read-only pull credential.
+- [x] Confirm all three `v0.1.1` GHCR packages accept anonymous digest pulls; use public registry
+      configuration without a Render registry credential.
 - [ ] Confirm the SMTP provider and staging sender identity.
 - [ ] Prepare a production-grade offline password-blocklist file.
 - [x] Define the private metrics collector and external retention destination.

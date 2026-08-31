@@ -13,7 +13,7 @@ provider spend, public endpoint, secret creation, or staging deployment.
 
 ```text
 Collector implementation:       committed; not deployed
-Collector release image:        workflow defined; no published candidate evidence
+Collector release image:        v0.1.1 digest published and provenance verified
 Grafana Cloud stack:             no evidence
 Metrics remote write:            not configured
 Dashboard imported:             no

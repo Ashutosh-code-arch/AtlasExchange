@@ -48,7 +48,10 @@ simulated-only value, with release-bound deployment, disclosure, privacy, and te
 evidence. A strict rollback-plan contract now distinguishes a verified previous release from the
 first-release remove-traffic fallback and prohibits reverse-migration shortcuts. No provider
 resource, domain, production environment, live exercise, product approval, or rollback rehearsal
-has been created.
+has been created. Release `v0.1.1` is the first complete staging candidate: its API, web, and
+metrics-collector images are published for AMD64/ARM64, signed, SBOM-attached, anonymously pullable,
+and recorded by immutable digest. Publication is artifact evidence only and does not change the
+staging or production `no-go` decision.
 
 ## Prerequisites
 
