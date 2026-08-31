@@ -158,9 +158,10 @@ Unprotected staging is a `no-go`, even when it contains only synthetic data.
 
 ## 7. Configuration and secrets
 
-Non-secret environment configuration will be generated from a reviewed, versioned deployment
-manifest in the next slice. Secret values are entered only through Render environment/secret-file
-facilities and are never committed, printed by deployment tooling, or embedded in images.
+Non-secret environment configuration is generated under ADR-070 from exact validated input and a
+candidate-bound readiness record. Secret values are generated or entered only through Render
+environment/secret-file facilities and are never committed, printed by deployment tooling, or
+embedded in images.
 
 Required staging secret material includes:
 
@@ -188,19 +189,20 @@ Atlas application alerts.
 
 ## 9. Infrastructure ownership and drift
 
-Render Blueprint infrastructure is selected for the stable staging resource topology. The committed
-manifest will define service types, region, plans, instance counts, health paths, PostgreSQL major,
-storage, private database policy, and non-secret configuration. Release-specific image digests will
-be supplied by controlled generation rather than hand-edited mutable tags.
+Render Blueprint infrastructure is selected for the stable staging resource topology. ADR-070's
+committed generator defines service types, region, plans, instance counts, health boundaries,
+PostgreSQL major, storage, private database policy, and non-secret configuration. Release-specific
+image digests are supplied by controlled generation rather than hand-edited mutable tags.
 
 Secrets, domain verification, access-provider configuration, registry visibility, notification
 destinations, and provider-generated identifiers remain controlled external state. The runbook must
 reconcile those fields against the committed contract. Dashboard convenience changes do not become
 architecture until represented in source or recorded as an approved exception.
 
-No Blueprint is added in this slice because an exact owned domain, staging access boundary, live
-cost approval, registry visibility, and Render account/project identity do not exist yet. Committing
-a deployable manifest with invented values would create false confidence and an unsafe public path.
+No generated Blueprint is committed yet because an exact owned domain, live cost approval, registry
+visibility, and Render workspace identity do not exist. The strict input schema and deterministic
+generator are committed; generation remains fail-closed until those external facts and fresh release
+evidence exist.
 
 ## Alternatives Considered
 
@@ -293,3 +295,4 @@ requires high availability, or another provider materially reduces operational r
 - [ADR-064 — PostgreSQL Backup, Restore, and Recovery Validation](ADR-064-postgresql-backup-restore-and-recovery-validation.md)
 - [ADR-065 — Software Supply-Chain, Vulnerability, and Secret Response](ADR-065-software-supply-chain-vulnerability-and-secret-response.md)
 - [ADR-066 — Operational Readiness, Incident Response, and Production Go/No-Go](ADR-066-operational-readiness-incident-response-and-production-go-no-go.md)
+- [ADR-070 — Render Staging Blueprint Generation and Promotion](ADR-070-render-staging-blueprint-generation-and-promotion.md)

@@ -36,8 +36,10 @@ Phase 8 has selected Render as the initial production-shaped staging target and 
 its deny-by-default sharing boundary. Both deployables enforce the signed staging assertion at their
 Render origins. Grafana Alloy and Grafana Cloud now define the private metrics, dashboard, alert, and
 external-readiness boundary, including an immutable collector image and validated operational
-configuration. Live cost approval, an owned domain, exact invited identities, provider accounts,
-verified proxy semantics, and a later committed deployment manifest remain required. No provider
+configuration. A deterministic generator now produces the release-specific Render Blueprint only
+from exact external inputs, fresh candidate evidence, and an unexpired cost approval. Live cost
+approval, an owned domain, exact invited identities, provider accounts, a generated and validated
+manifest, and verified proxy semantics remain required. No provider
 resource, domain, or production environment has been created.
 
 ## Prerequisites
@@ -82,6 +84,7 @@ pnpm security:dependencies # fail on High/Critical workspace advisories
 pnpm security:containers # fail on High/Critical findings in all built images
 pnpm security:check # run all security checks; expects all local images to exist
 pnpm readiness:validate -- <record.json> # validate a staging/production go-no-go record
+pnpm staging:render:generate -- --config <input.json> --readiness <record.json> --output <render.yaml>
 ```
 
 Production images are built independently as `atlas-api:local`, `atlas-web:local`, and

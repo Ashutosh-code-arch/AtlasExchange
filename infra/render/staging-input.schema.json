@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.invalid/schemas/render-staging-input.json",
+  "title": "Atlas Render staging deployment input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "domain",
+    "cloudflareAccess",
+    "grafanaCloud",
+    "smtp",
+    "registry",
+    "costApproval"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registrableDomain", "webHostname", "apiHostname"],
+      "properties": {
+        "registrableDomain": { "type": "string", "format": "hostname" },
+        "webHostname": { "type": "string", "format": "hostname" },
+        "apiHostname": { "type": "string", "format": "hostname" }
+      }
+    },
+    "cloudflareAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["teamDomain", "audience"],
+      "properties": {
+        "teamDomain": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "audience": { "type": "string", "pattern": "^[A-Za-z0-9_-]{32,128}$" }
+      }
+    },
+    "grafanaCloud": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prometheusUrl", "prometheusUsername"],
+      "properties": {
+        "prometheusUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "prometheusUsername": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$" }
+      }
+    },
+    "smtp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "port", "secure", "from", "authentication"],
+      "properties": {
+        "host": { "type": "string", "format": "hostname" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "secure": { "type": "boolean" },
+        "from": { "type": "string", "minLength": 3 },
+        "authentication": { "enum": ["required", "none"] }
+      }
+    },
+    "registry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["visibility"],
+          "properties": { "visibility": { "const": "public" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["visibility", "credentialName"],
+          "properties": {
+            "visibility": { "const": "private" },
+            "credentialName": { "type": "string", "minLength": 1, "maxLength": 128 }
+          }
+        }
+      ]
+    },
+    "costApproval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currency", "maximumMonthlyCostCents", "approvedBy", "approvedAt", "expiresAt"],
+      "properties": {
+        "currency": { "const": "USD" },
+        "maximumMonthlyCostCents": { "type": "integer", "minimum": 1 },
+        "approvedBy": { "type": "string", "minLength": 1 },
+        "approvedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

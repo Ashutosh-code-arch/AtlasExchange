@@ -14,8 +14,8 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 | 4. Trading                | Orders, reservation, matching, trades, atomic settlement         | Implemented |
 | 5. Market data            | Order-book views, tickers, candles, WebSocket streams            | Implemented |
 | 6. Product surfaces       | Portfolio, notifications, administration                         | Implemented |
-| 7. Production readiness   | Security hardening, metrics, rate limits, performance            | In progress |
-| 8. Deployment             | Deployment, runbooks, monitoring, interview evidence             | Planned     |
+| 7. Production readiness   | Security hardening, metrics, rate limits, performance            | Implemented |
+| 8. Deployment             | Deployment, runbooks, monitoring, interview evidence             | In progress |
 
 ## Phase 1 acceptance criteria
 
@@ -709,8 +709,7 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   probes that same effective port. Focused configuration coverage prevents invalid or conflicting
   platform port assumptions from reaching runtime.
 - The canonical Render staging runbook records the intended plans, configuration, secret boundary,
-  deployment order, required evidence, and stop conditions. A deployable Blueprint remains deferred
-  until the required external inputs exist; invented domains or credentials will not be committed.
+  deployment order, required evidence, and stop conditions.
 - [ADR-068 — Staging Domain and Access-Control Boundary](../architecture/decisions/ADR-068-staging-domain-and-access-control-boundary.md)
   selects one Cloudflare Access application protecting two concrete same-site staging hostnames. The
   policy remains exact-email and deny-by-default, uses eager per-host cookies for the SPA/API flow,
@@ -733,6 +732,14 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   committed. The canonical Grafana runbook defines activation, secret isolation, firing/recovery
   proof, investigation, rollback, and stop conditions. No Grafana stack, Cloudflare service token,
   contact point, provider spend, or readiness evidence exists yet.
+- [ADR-070 — Render Staging Blueprint Generation and Promotion](../architecture/decisions/ADR-070-render-staging-blueprint-generation-and-promotion.md)
+  accepts a deterministic, fail-closed generator for one release-specific Render Blueprint. Its
+  strict input schema requires exact owned domains, Access and Grafana metadata, SMTP and registry
+  choices, fresh candidate evidence, and an unexpired cost approval. The output fixes Singapore
+  service/database plans, immutable digests, health and migration boundaries, private references,
+  and secret placeholders without embedding secret values.
+- No generated Blueprint or provider resource exists yet. Generation, Render CLI validation,
+  deliberate provider application, staging readiness, and production approval remain distinct gates.
 - The three-image vulnerability gate passes with current advisory data. Alloy's embedded optional
   Docker client triggers `GO-2026-4887`, whose upstream affected path exists only in a Docker Engine
   daemon using authorization plugins. Atlas records an exact collector-only, package-version-bound

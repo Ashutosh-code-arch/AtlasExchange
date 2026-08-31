@@ -75,9 +75,15 @@ The collector has no public route and runs in the same Render region/project as 
 one explicit Render private hostname and port; it must not scrape the Cloudflare hostname, default
 Render public subdomain, or an arbitrary service-discovery result.
 
-The same 32–256-character `METRICS_BEARER_TOKEN` is injected separately into the API and collector.
-Grafana Cloud remote write uses a metrics-write-only access-policy token and the stack's Prometheus
-username and endpoint. None of these values enter source, image layers, command output, or evidence.
+ADR-070 fixes the initial collector to Render's `0.5c-512mb` private-service plan and relies on
+Render's private-service TCP health behavior rather than an unsupported HTTP health path. Its
+generated Blueprint wires the API private `hostport` and generated API metrics token through Render
+service references.
+
+The same 32–256-character `METRICS_BEARER_TOKEN` is generated for the API and referenced by the
+collector. Grafana Cloud remote write uses a metrics-write-only access-policy token and the stack's
+Prometheus username and endpoint. None of these values enter source, image layers, command output,
+or evidence.
 
 Alloy scrapes every 30 seconds with a five-second timeout, 1 MiB body limit, 1,000-sample limit, 12
 labels per sample, and bounded label-name/value lengths. Remote write adds only fixed
@@ -268,3 +274,4 @@ Cloudflare service authentication is unsuitable, or the solo notification path g
 - [ADR-066 — Operational Readiness, Incident Response, and Production Go/No-Go](ADR-066-operational-readiness-incident-response-and-production-go-no-go.md)
 - [ADR-067 — Initial Staging Platform and Managed PostgreSQL Provider](ADR-067-initial-staging-platform-and-managed-postgresql-provider.md)
 - [ADR-068 — Staging Domain and Access-Control Boundary](ADR-068-staging-domain-and-access-control-boundary.md)
+- [ADR-070 — Render Staging Blueprint Generation and Promotion](ADR-070-render-staging-blueprint-generation-and-promotion.md)

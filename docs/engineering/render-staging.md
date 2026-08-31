@@ -18,7 +18,7 @@ Owned staging domains:           not supplied
 Staging access boundary:         Cloudflare Access selected; not configured
 Proxy chain:                     not verified
 GHCR visibility/pull authority:  not verified
-Deployment manifest:             deliberately deferred
+Deployment manifest generator:   implemented; exact output blocked
 Private metrics collector:       selected and implemented; not deployed
 Grafana Cloud destination:        selected; no stack evidence
 Production approval:             no-go
@@ -29,6 +29,7 @@ Production approval:             no-go
 - [ ] Record the Render workspace and project owner.
 - [ ] Review the current Pro workspace and resource estimate in Render's billing UI.
 - [ ] Set and record the approved monthly ceiling and billing alert.
+- [ ] Supply a schema-valid exact staging input document and unexpired cost approval.
 - [ ] Supply an Atlas-controlled registrable domain and choose exact staging web/API hostnames.
 - [x] Select an access boundary protecting both staging origins without a browser-embedded secret.
 - [ ] Supply the exact Cloudflare team domain, multi-domain application audience, and approved email
@@ -50,17 +51,17 @@ All resources belong to one Render staging project in `singapore`:
 |---|---|---|---:|
 | `atlas-api-staging` | Image-backed web service | `1c-2g` | 1 instance |
 | `atlas-web-staging` | Image-backed web service | `0.5c-512mb` | 1 instance |
-| `atlas-metrics-collector-staging` | Image-backed private service | live estimate required | 1 instance |
+| `atlas-metrics-collector-staging` | Image-backed private service | `0.5c-512mb` | 1 instance |
 | `atlas-postgres-staging` | Render Postgres 18 | `0.5c-1g` | 15 GB |
 
 Autoscaling is disabled. Database public access uses an empty allow-list. Services consume the
 database's internal connection string. API, web, and collector images use exact GHCR digests from
-the same release record. The collector has no public route; its plan remains a live cost input
-because this runbook must not invent a Render SKU.
+the same release record. The collector has no public route. These fixed plans remain cost hypotheses;
+the current Render estimate must fit the unexpired approved ceiling before generation or application.
 
 ## Intended non-secret API configuration
 
-The future manifest will set or reference:
+The generated Blueprint will set or reference:
 
 ```text
 NODE_ENV=production
@@ -88,20 +89,22 @@ Render injects `PORT`; do not hardcode it in the manifest. All other bounded HTT
 stream values initially use validated application defaults and become explicit only when staging
 evidence requires a change.
 
-Secret values configured outside Git are:
+Secret values generated or entered through Render outside Git are:
 
 ```text
-CSRF_HMAC_KEY
-METRICS_BEARER_TOKEN
-SMTP_USERNAME       # only when required
-SMTP_PASSWORD       # only when required
-registry credential # only while GHCR images remain private
+CSRF_HMAC_KEY              # sync:false; Base64URL with at least 256 bits
+METRICS_BEARER_TOKEN       # generated for API; collector uses a service reference
+SMTP_USERNAME              # sync:false, only when required
+SMTP_PASSWORD              # sync:false, only when required
+GRAFANA_CLOUD_METRICS_TOKEN # sync:false, metrics-write only
+registry credential        # named existing read-only credential only when images are private
 ```
 
 The collector separately receives the same `METRICS_BEARER_TOKEN`, its exact private API target,
-Grafana Cloud's HTTPS remote-write URL and username, and a metrics-write-only Grafana token. Follow
+Grafana Cloud's HTTPS remote-write URL and username, and a metrics-write-only Grafana token. The
+private API target and metrics bearer are Render service references rather than copied input. Follow
 the [Grafana Cloud staging observability runbook](grafana-cloud-staging-observability.md); none of
-those values belong in the future Blueprint.
+those secret values belong in generated Blueprint output.
 
 Database URLs and secret values must not enter shell history, deployment logs, screenshots, ADRs, or
 readiness evidence. Seal or otherwise restrict provider variables after initial configuration.
@@ -134,16 +137,36 @@ Metrics collector:
 - image: `ghcr.io/ashutosh-code-arch/atlas-metrics-collector@sha256:<candidate>`;
 - service type: private, image-backed, exactly one instance;
 - start command: image default;
-- private health path: `/` on port `12345`;
+- Render private-service TCP health behavior on port `12345` (no HTTP health path);
 - target: exact API private hostname and effective private port; and
 - no public route, autoscaling, or overlapping collector during rollout.
 
 Automatic source builds and deploy-on-push remain disabled. Deployment begins from a reviewed release
 record and promotes immutable digests.
 
+## Generate and validate the Blueprint
+
+Do not put credentials, tokens, database URLs, or secret-file contents in the input JSON. Validate
+the exact non-secret input against `infra/render/staging-input.schema.json`, then generate a new,
+release-specific output:
+
+```bash
+pnpm staging:render:generate -- \
+  --config /path/to/staging-input.json \
+  --readiness /path/to/staging-readiness.json \
+  --output /path/to/render.yaml
+
+render blueprints validate --workspace <workspace-id> /path/to/render.yaml
+```
+
+The generator refuses placeholders, unknown fields, stale prerequisite evidence, expired cost
+approval, mutable image identity, existing output, and input overwrite. Review the entire generated
+YAML before preserving or applying it. Render CLI validation is necessary but does not authorize a
+provider mutation, recurring spend, traffic, staging `go`, or production promotion.
+
 ## First deployment order
 
-After a later slice commits and validates the Render manifest:
+After exact inputs produce a reviewed and Render-validated release manifest:
 
 1. validate the candidate release and staging readiness record;
 2. confirm the access boundary is active before exposing either custom hostname;

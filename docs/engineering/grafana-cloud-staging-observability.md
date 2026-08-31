@@ -70,10 +70,11 @@ Singapore project/region as the API.
 ```text
 image:             ghcr.io/ashutosh-code-arch/atlas-metrics-collector@sha256:<candidate>
 instances:         exactly 1
+plan:              0.5c-512mb
 public route:      none
 port:              12345, private lifecycle/debug only
 start command:     image default
-health path:       /
+health check:      Render private-service TCP probe on port 12345
 autoscaling:       disabled
 persistent disk:   none initially; record telemetry-gap consequence
 ```
@@ -88,7 +89,9 @@ GRAFANA_CLOUD_PROMETHEUS_USERNAME=<stack metrics instance ID>
 GRAFANA_CLOUD_METRICS_TOKEN=<metrics-write-only access-policy token>
 ```
 
-Seal all five variables. The target contains no URL scheme or path. Never use the Cloudflare custom
+The generated Blueprint wires the private target from the API `hostport` and shares the generated
+API metrics token through a Render service reference. Seal the remaining values. The target contains
+no URL scheme or path. Never use the Cloudflare custom
 hostname or public Render hostname for private collection. Confirm the remote-write URL is HTTPS;
 TLS verification must remain enabled.
 

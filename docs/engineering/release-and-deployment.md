@@ -80,6 +80,27 @@ The initial topology requires:
 The complete variable inventory remains in `apps/api/.env.example` and `apps/web/.env.example`.
 Example files are documentation only and must not be supplied as production secret stores.
 
+## Generate the Render staging promotion artifact
+
+ADR-070 implements the first provider-specific promotion boundary. Once exact non-secret staging
+input, fresh candidate readiness evidence, and an unexpired cost approval exist, run:
+
+```bash
+pnpm staging:render:generate -- \
+  --config /path/to/staging-input.json \
+  --readiness /path/to/staging-readiness.json \
+  --output /path/to/render.yaml
+render blueprints validate --workspace <workspace-id> /path/to/render.yaml
+```
+
+Review and preserve the release-specific YAML before any deliberate provider application. The input
+and output contain no secret values: Render generates the compatible internal metrics secret,
+service references share it where required, and format-constrained or external credentials remain
+secure initial-sync values.
+Generation or CLI validation does not authorize provider changes, recurring spend, staging traffic,
+or production promotion. Follow the [Render staging runbook](render-staging.md) for the complete
+activation and evidence sequence.
+
 ## Promote by digest
 
 Before a production promotion, complete and validate the exact candidate's go/no-go record under the
