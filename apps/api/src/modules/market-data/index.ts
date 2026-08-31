@@ -107,6 +107,20 @@ export {
   type ProjectMarketDataResult,
 } from "./application/project-market-data.js";
 export type { MarketDataDatabaseSchema } from "./infrastructure/persistence/market-data-database-schema.js";
+export type {
+  ReferenceMarketCandles,
+  ReferenceMarketDataReader,
+  ReferenceMarketTicker,
+} from "./application/reference-market-data-reader.js";
+export {
+  CoinbaseReferenceMarketDataFeed,
+  coinbaseReferenceMarketCodes,
+  coinbaseReferenceMarketDataUrl,
+  parseCoinbaseReferenceMessage,
+  type CoinbaseReferenceMarketDataFeedOptions,
+  type CoinbaseReferenceMessageParseResult,
+  type CoinbaseWebSocketConnection,
+} from "./infrastructure/coinbase/coinbase-reference-market-data-feed.js";
 export { PostgresCandleProjectionCheckpointReader } from "./infrastructure/persistence/postgres-candle-projection-checkpoint-reader.js";
 export { PostgresCandleProjectionTransactionRunner } from "./infrastructure/persistence/postgres-candle-projection-transaction-runner.js";
 export { PostgresCandleHistoryReader } from "./infrastructure/persistence/postgres-candle-history-reader.js";

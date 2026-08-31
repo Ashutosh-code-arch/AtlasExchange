@@ -9,10 +9,19 @@ import {
   marketDataTickerParamsSchema,
   marketDataTickerQuerySchema,
   marketDataTickerResponseSchema,
+  referenceMarketDataApiErrorCodeSchema,
+  referenceMarketDataCandlesQuerySchema,
+  referenceMarketDataCandlesResponseSchema,
+  referenceMarketDataParamsSchema,
+  referenceMarketDataTickerQuerySchema,
+  referenceMarketDataTickerResponseSchema,
   type MarketDataApiErrorCode,
   type MarketDataCandlesResponse,
   type MarketDataOrderBookResponse,
   type MarketDataTickerResponse,
+  type ReferenceMarketDataApiErrorCode,
+  type ReferenceMarketDataCandlesResponse,
+  type ReferenceMarketDataTickerResponse,
 } from "@atlas/contracts";
 import { Router, type Request } from "express";
 
@@ -21,12 +30,23 @@ import type { GetLevelTwoOrderBook } from "../application/get-level-two-order-bo
 import type { GetPublicCandles } from "../application/get-public-candles.js";
 import type { GetPublicTradeTicker } from "../application/get-public-trade-ticker.js";
 import type { MarketDataSnapshotRateLimiter } from "../application/market-data-snapshot-rate-limiter.js";
+import type { ReferenceMarketDataReader } from "../application/reference-market-data-reader.js";
 
 export interface MarketDataRouterOptions {
   readonly getCandles: Pick<GetPublicCandles, "execute">;
   readonly getLevelTwoOrderBook: Pick<GetLevelTwoOrderBook, "execute">;
   readonly getTradeTicker: Pick<GetPublicTradeTicker, "execute">;
+  readonly referenceMarketDataReader?: ReferenceMarketDataReader;
   readonly snapshotRateLimiter: MarketDataSnapshotRateLimiter;
+}
+
+function referenceMarketDataError(
+  statusCode: number,
+  code: ReferenceMarketDataApiErrorCode,
+  message: string,
+): AppError {
+  referenceMarketDataApiErrorCodeSchema.parse(code);
+  return new AppError(statusCode, code, message);
 }
 
 function hasRequestBody(request: Request): boolean {
@@ -48,6 +68,100 @@ function marketDataError(
 
 export function createMarketDataRouter(options: MarketDataRouterOptions): Router {
   const router = Router();
+
+  router.get("/reference-market-data/markets/:marketCode/ticker", (request, response, next) => {
+    const params = referenceMarketDataParamsSchema.safeParse(request.params);
+    const query = referenceMarketDataTickerQuerySchema.safeParse(request.query);
+    if (!params.success || !query.success || hasRequestBody(request)) {
+      next(
+        referenceMarketDataError(
+          400,
+          "VALIDATION_FAILED",
+          "Reference Market Data request is invalid.",
+        ),
+      );
+      return;
+    }
+    const rateLimit = options.snapshotRateLimiter.consume(request.ip ?? "unknown");
+    if (!rateLimit.allowed) {
+      response.setHeader("retry-after", String(rateLimit.retryAfterSeconds));
+      next(
+        referenceMarketDataError(
+          429,
+          "RATE_LIMITED",
+          "Reference Market Data snapshot rate limit exceeded.",
+        ),
+      );
+      return;
+    }
+    const ticker = options.referenceMarketDataReader?.getTicker(params.data.marketCode);
+    if (ticker === undefined) {
+      next(
+        referenceMarketDataError(
+          503,
+          "REFERENCE_DATA_UNAVAILABLE",
+          "Coinbase reference Market Data is temporarily unavailable.",
+        ),
+      );
+      return;
+    }
+    const body: ReferenceMarketDataTickerResponse = referenceMarketDataTickerResponseSchema.parse({
+      success: true,
+      data: ticker,
+    });
+    response
+      .setHeader("cache-control", "public, max-age=5, must-revalidate")
+      .status(200)
+      .json(body);
+  });
+
+  router.get("/reference-market-data/markets/:marketCode/candles", (request, response, next) => {
+    const params = referenceMarketDataParamsSchema.safeParse(request.params);
+    const query = referenceMarketDataCandlesQuerySchema.safeParse(request.query);
+    if (!params.success || !query.success || hasRequestBody(request)) {
+      next(
+        referenceMarketDataError(
+          400,
+          "VALIDATION_FAILED",
+          "Reference Market Data request is invalid.",
+        ),
+      );
+      return;
+    }
+    const rateLimit = options.snapshotRateLimiter.consume(request.ip ?? "unknown");
+    if (!rateLimit.allowed) {
+      response.setHeader("retry-after", String(rateLimit.retryAfterSeconds));
+      next(
+        referenceMarketDataError(
+          429,
+          "RATE_LIMITED",
+          "Reference Market Data snapshot rate limit exceeded.",
+        ),
+      );
+      return;
+    }
+    const history = options.referenceMarketDataReader?.getCandles(
+      params.data.marketCode,
+      query.data.limit,
+    );
+    if (history === undefined) {
+      next(
+        referenceMarketDataError(
+          503,
+          "REFERENCE_DATA_UNAVAILABLE",
+          "Coinbase reference Market Data is temporarily unavailable.",
+        ),
+      );
+      return;
+    }
+    const body: ReferenceMarketDataCandlesResponse = referenceMarketDataCandlesResponseSchema.parse(
+      { success: true, data: history },
+    );
+    response
+      .setHeader("cache-control", "public, max-age=5, must-revalidate")
+      .status(200)
+      .json(body);
+  });
 
   router.get("/market-data/markets/:marketCode/order-book", async (request, response, next) => {
     const params = marketDataOrderBookParamsSchema.safeParse(request.params);

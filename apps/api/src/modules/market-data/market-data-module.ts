@@ -18,6 +18,7 @@ import { GetPublicCandles } from "./application/get-public-candles.js";
 import { GetPublicTradeTicker } from "./application/get-public-trade-ticker.js";
 import { GetTradeTicker } from "./application/get-trade-ticker.js";
 import type { MarketDataSnapshotRateLimiter } from "./application/market-data-snapshot-rate-limiter.js";
+import type { ReferenceMarketDataReader } from "./application/reference-market-data-reader.js";
 import { ProjectLevelTwoOrderBook } from "./application/level-two-order-book-projection.js";
 import {
   MarketDataProjectionWorker,
@@ -54,6 +55,7 @@ export interface CreateMarketDataProjectionWorkerOptions {
 export interface CreateMarketDataModuleRouterOptions {
   readonly database: Kysely<MarketDataCompositeDatabaseSchema>;
   readonly snapshotRateLimiter?: MarketDataSnapshotRateLimiter;
+  readonly referenceMarketDataReader?: ReferenceMarketDataReader;
   readonly now?: () => Date;
 }
 
@@ -113,6 +115,9 @@ export function createMarketDataModuleRouter(options: CreateMarketDataModuleRout
   const queries = createMarketDataPublicQueries(options);
   return createMarketDataRouter({
     ...queries,
+    ...(options.referenceMarketDataReader === undefined
+      ? {}
+      : { referenceMarketDataReader: options.referenceMarketDataReader }),
     snapshotRateLimiter: options.snapshotRateLimiter ?? new InMemoryMarketDataSnapshotRateLimiter(),
   });
 }

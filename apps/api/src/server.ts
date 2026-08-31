@@ -22,6 +22,7 @@ import {
   type FinancialDatabaseSchema,
 } from "./modules/financial/index.js";
 import {
+  CoinbaseReferenceMarketDataFeed,
   createMarketDataModuleRouter,
   createMarketDataProjectionWorker,
   createMarketDataStreamGateway,
@@ -197,12 +198,27 @@ async function start(): Promise<RunningServer> {
           worker: config.marketData.projection,
         })
       : undefined;
+    const referenceMarketDataFeed = config.marketData.reference.enabled
+      ? new CoinbaseReferenceMarketDataFeed({
+          logger,
+          url: config.marketData.reference.websocketUrl,
+          staleAfterMs: config.marketData.reference.staleAfterMs,
+          heartbeatTimeoutMs: config.marketData.reference.heartbeatTimeoutMs,
+          reconnectInitialDelayMs: config.marketData.reference.reconnectInitialDelayMs,
+          reconnectMaximumDelayMs: config.marketData.reference.reconnectMaximumDelayMs,
+        })
+      : undefined;
     metrics?.setMarketDataProjectionSnapshotProvider(
       marketDataWorker === undefined
         ? () => ({ running: false, markets: [] })
         : () => marketDataWorker.getStatus(),
     );
-    const marketDataRouter = createMarketDataModuleRouter({ database: database.database });
+    const marketDataRouter = createMarketDataModuleRouter({
+      database: database.database,
+      ...(referenceMarketDataFeed === undefined
+        ? {}
+        : { referenceMarketDataReader: referenceMarketDataFeed }),
+    });
     const portfolioRouter = createPortfolioModuleRouter({
       database: database.database,
       authenticateAccess,
@@ -226,6 +242,12 @@ async function start(): Promise<RunningServer> {
       logger.info(
         { event: "market_data.projection_worker.disabled" },
         "Market Data projection worker disabled",
+      );
+    }
+    if (referenceMarketDataFeed === undefined) {
+      logger.info(
+        { event: "reference_market_data.disabled", source: "coinbase" },
+        "Coinbase reference Market Data disabled",
       );
     }
     const app = createApp({
@@ -279,6 +301,7 @@ async function start(): Promise<RunningServer> {
       workers: [
         ...(runtimePerformanceMonitor === undefined ? [] : [runtimePerformanceMonitor]),
         ...(marketDataWorker === undefined ? [] : [marketDataWorker]),
+        ...(referenceMarketDataFeed === undefined ? [] : [referenceMarketDataFeed]),
       ],
       logger,
       shutdownTimeoutMs: config.http.shutdownTimeoutMs,

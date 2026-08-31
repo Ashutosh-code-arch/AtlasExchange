@@ -65,6 +65,14 @@ describe("API configuration", () => {
       maximumMessageBytes: 8_192,
       maximumBufferedBytes: 1_048_576,
     });
+    expect(config.marketData.reference).toEqual({
+      enabled: false,
+      websocketUrl: "wss://advanced-trade-ws.coinbase.com",
+      staleAfterMs: 15_000,
+      heartbeatTimeoutMs: 10_000,
+      reconnectInitialDelayMs: 1_000,
+      reconnectMaximumDelayMs: 30_000,
+    });
     expect(config.identity.passwordBlocklistPath).toMatch(
       /resources\/development-password-blocklist\.sha256$/,
     );
@@ -89,6 +97,44 @@ describe("API configuration", () => {
     expect(Object.isFrozen(config.financial)).toBe(true);
     expect(Object.isFrozen(config.marketData.projection)).toBe(true);
     expect(Object.isFrozen(config.marketData.stream)).toBe(true);
+    expect(Object.isFrozen(config.marketData.reference)).toBe(true);
+  });
+
+  it("validates the read-only Coinbase reference feed policy and reconnect bounds", () => {
+    const config = parseApiConfig({
+      ...validEnvironment,
+      REFERENCE_MARKET_DATA_ENABLED: "true",
+      REFERENCE_MARKET_DATA_STALE_AFTER_MS: "30000",
+      REFERENCE_MARKET_DATA_HEARTBEAT_TIMEOUT_MS: "12000",
+      REFERENCE_MARKET_DATA_RECONNECT_INITIAL_DELAY_MS: "500",
+      REFERENCE_MARKET_DATA_RECONNECT_MAXIMUM_DELAY_MS: "10000",
+    });
+    expect(config.marketData.reference).toEqual({
+      enabled: true,
+      websocketUrl: "wss://advanced-trade-ws.coinbase.com",
+      staleAfterMs: 30_000,
+      heartbeatTimeoutMs: 12_000,
+      reconnectInitialDelayMs: 500,
+      reconnectMaximumDelayMs: 10_000,
+    });
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        REFERENCE_MARKET_DATA_WEBSOCKET_URL: "wss://example.com",
+      }),
+    ).toThrowError(new ConfigurationError(["REFERENCE_MARKET_DATA_WEBSOCKET_URL"]));
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        REFERENCE_MARKET_DATA_RECONNECT_INITIAL_DELAY_MS: "2000",
+        REFERENCE_MARKET_DATA_RECONNECT_MAXIMUM_DELAY_MS: "1000",
+      }),
+    ).toThrowError(
+      new ConfigurationError([
+        "REFERENCE_MARKET_DATA_RECONNECT_INITIAL_DELAY_MS",
+        "REFERENCE_MARKET_DATA_RECONNECT_MAXIMUM_DELAY_MS",
+      ]),
+    );
   });
 
   it("rejects a missing database URL without exposing values", () => {

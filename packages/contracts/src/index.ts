@@ -100,6 +100,32 @@ export {
 } from "./market-data-stream.js";
 
 export {
+  defaultReferenceMarketDataCandleLimit,
+  maximumReferenceMarketDataCandleLimit,
+  referenceMarketCodes,
+  referenceMarketCodeSchema,
+  referenceMarketDataApiErrorCodeSchema,
+  referenceMarketDataApiErrorResponseSchema,
+  referenceMarketDataCandleIntervalSchema,
+  referenceMarketDataCandleSchema,
+  referenceMarketDataCandlesQuerySchema,
+  referenceMarketDataCandlesResponseSchema,
+  referenceMarketDataFreshnessSchema,
+  referenceMarketDataParamsSchema,
+  referenceMarketDataSourceSchema,
+  referenceMarketDataTickerQuerySchema,
+  referenceMarketDataTickerResponseSchema,
+  signedFinancialQuantitySchema,
+  type ReferenceMarketCode,
+  type ReferenceMarketDataApiErrorCode,
+  type ReferenceMarketDataApiErrorResponse,
+  type ReferenceMarketDataCandle,
+  type ReferenceMarketDataCandlesResponse,
+  type ReferenceMarketDataFreshness,
+  type ReferenceMarketDataTickerResponse,
+} from "./reference-market-data.js";
+
+export {
   assetCatalogResponseSchema,
   financialApiErrorCodeSchema,
   financialApiErrorResponseSchema,

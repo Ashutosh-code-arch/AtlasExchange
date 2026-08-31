@@ -704,9 +704,17 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - Real prices and candles are reference-only. The adapter cannot enter Trading or Financial command
   paths, and the UI must distinguish Coinbase reference data from Atlas's simulated book, orders,
   fills, balances, and settlement.
+- Shared contracts and distinct read-only HTTP routes now expose bounded Coinbase ticker and
+  five-minute candle snapshots for only BTC-USD and ETH-USD. Every success identifies its source,
+  provider observation time, Atlas receipt time, and live/stale state; absence returns an explicit
+  unavailable response rather than an invented or simulated substitute.
+- The opt-in API adapter validates recognized provider messages, ignores unknown future channels,
+  normalizes exact decimal strings, bounds its in-memory candle window, requires heartbeats, and
+  reconnects with capped exponential delay. It subscribes without credentials and is owned only by
+  Market Data infrastructure and API composition.
 - Repository work still required includes the Worker gateway, `demo` configuration, pre-verified
-  identity bootstrap with public registration disabled, external reference-data adapter, labeled
-  candlestick chart, zero-cost deployment contract, new release, and live free-provider evidence.
+  identity bootstrap with public registration disabled, labeled candlestick chart, zero-cost
+  deployment contract, new release, and live free-provider evidence.
 - ADRs 067–070 and their Render/domain/collector runbooks are superseded for initial hosting. The
   implementation evidence below remains historical work that can inform a future paid
   production-shaped environment, but it must not be applied to the zero-cost demo.

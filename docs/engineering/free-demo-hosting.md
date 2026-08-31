@@ -19,7 +19,7 @@ Cloudflare Access policy:      no evidence
 Render account/Free API:       no evidence
 Neon account/Free PostgreSQL:  no evidence
 Demo identity path:            not implemented
-Coinbase reference adapter:    not implemented
+Coinbase reference adapter:    implemented; runtime activation pending
 Reference chart:               not implemented
 Candidate API image:           v0.1.1 published and verified
 Production approval:           no-go
@@ -43,7 +43,7 @@ increase a limit. When an allowance is exhausted, accept suspension or revise AD
 - [ ] Add `demo` configuration without weakening `staging` or `production` validation.
 - [ ] Add the Cloudflare Worker static/gateway application and tests.
 - [ ] Add an operator-only pre-verified demo-identity command and disable public demo registration.
-- [ ] Add the Coinbase reference-data adapter, contracts, freshness, and reconnect tests.
+- [x] Add the Coinbase reference-data adapter, contracts, freshness, and reconnect tests.
 - [ ] Add the labeled real-price/candlestick surface.
 - [ ] Add a zero-cost deployment manifest/input validator.
 - [ ] Publish and verify a new release containing the demo runtime.
@@ -58,6 +58,22 @@ increase a limit. When an allowance is exhausted, accept suspension or revise AD
 
 No secret or invited identity belongs in Git, generated manifests, shell history, screenshots, or
 readiness records.
+
+## Reference-data runtime contract
+
+The API keeps the Coinbase feed disabled unless `REFERENCE_MARKET_DATA_ENABLED=true`. When enabled,
+it connects only to `wss://advanced-trade-ws.coinbase.com`, subscribes without credentials to
+`ticker_batch`, `candles`, and `heartbeats`, and serves bounded read-only snapshots at:
+
+```text
+GET /api/v1/reference-market-data/markets/:marketCode/ticker
+GET /api/v1/reference-market-data/markets/:marketCode/candles?interval=5m&limit=100
+```
+
+Only `BTC-USD` and `ETH-USD` are accepted. Responses name Coinbase and include observed, received,
+and live/stale metadata. No response includes Atlas projection sequences or any command that can
+enter Trading or Financial. Before the first valid provider message, the API returns
+`REFERENCE_DATA_UNAVAILABLE` rather than substituting a simulated price.
 
 ## Intended activation order
 

@@ -179,6 +179,26 @@ const apiEnvironmentSchema = z.object({
     .default("1048576")
     .transform(Number)
     .pipe(z.number().int().min(65_536).max(16_777_216)),
+  REFERENCE_MARKET_DATA_ENABLED: booleanString.default(false),
+  REFERENCE_MARKET_DATA_WEBSOCKET_URL: z
+    .literal("wss://advanced-trade-ws.coinbase.com")
+    .default("wss://advanced-trade-ws.coinbase.com"),
+  REFERENCE_MARKET_DATA_STALE_AFTER_MS: integerString
+    .default("15000")
+    .transform(Number)
+    .pipe(z.number().int().min(5_000).max(300_000)),
+  REFERENCE_MARKET_DATA_HEARTBEAT_TIMEOUT_MS: integerString
+    .default("10000")
+    .transform(Number)
+    .pipe(z.number().int().min(2_000).max(120_000)),
+  REFERENCE_MARKET_DATA_RECONNECT_INITIAL_DELAY_MS: integerString
+    .default("1000")
+    .transform(Number)
+    .pipe(z.number().int().min(100).max(60_000)),
+  REFERENCE_MARKET_DATA_RECONNECT_MAXIMUM_DELAY_MS: integerString
+    .default("30000")
+    .transform(Number)
+    .pipe(z.number().int().min(100).max(300_000)),
   SIMULATED_FUNDING_ENABLED: z.enum(["true", "false"]).optional(),
   SIMULATED_WITHDRAWALS_ENABLED: z.enum(["true", "false"]).optional(),
   PASSWORD_BLOCKLIST_PATH: z.string().min(1).optional(),
@@ -295,6 +315,14 @@ export interface ApiConfig {
       maximumMessageBytes: number;
       maximumBufferedBytes: number;
     }>;
+    reference: Readonly<{
+      enabled: boolean;
+      websocketUrl: "wss://advanced-trade-ws.coinbase.com";
+      staleAfterMs: number;
+      heartbeatTimeoutMs: number;
+      reconnectInitialDelayMs: number;
+      reconnectMaximumDelayMs: number;
+    }>;
   }>;
   readonly nodeEnvironment: "development" | "test" | "production";
 }
@@ -337,6 +365,15 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     throw new ConfigurationError([
       "MARKET_DATA_PROJECTION_RETRY_INITIAL_DELAY_MS",
       "MARKET_DATA_PROJECTION_RETRY_MAXIMUM_DELAY_MS",
+    ]);
+  }
+  if (
+    values.REFERENCE_MARKET_DATA_RECONNECT_MAXIMUM_DELAY_MS <
+    values.REFERENCE_MARKET_DATA_RECONNECT_INITIAL_DELAY_MS
+  ) {
+    throw new ConfigurationError([
+      "REFERENCE_MARKET_DATA_RECONNECT_INITIAL_DELAY_MS",
+      "REFERENCE_MARKET_DATA_RECONNECT_MAXIMUM_DELAY_MS",
     ]);
   }
   if (values.HTTP_HEADERS_TIMEOUT_MS <= values.HTTP_KEEP_ALIVE_TIMEOUT_MS) {
@@ -502,6 +539,14 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
           values.MARKET_DATA_STREAM_MAX_SUBSCRIPTIONS_PER_CONNECTION,
         maximumMessageBytes: values.MARKET_DATA_STREAM_MAX_MESSAGE_BYTES,
         maximumBufferedBytes: values.MARKET_DATA_STREAM_MAX_BUFFERED_BYTES,
+      }),
+      reference: Object.freeze({
+        enabled: values.REFERENCE_MARKET_DATA_ENABLED,
+        websocketUrl: values.REFERENCE_MARKET_DATA_WEBSOCKET_URL,
+        staleAfterMs: values.REFERENCE_MARKET_DATA_STALE_AFTER_MS,
+        heartbeatTimeoutMs: values.REFERENCE_MARKET_DATA_HEARTBEAT_TIMEOUT_MS,
+        reconnectInitialDelayMs: values.REFERENCE_MARKET_DATA_RECONNECT_INITIAL_DELAY_MS,
+        reconnectMaximumDelayMs: values.REFERENCE_MARKET_DATA_RECONNECT_MAXIMUM_DELAY_MS,
       }),
     }),
     nodeEnvironment: values.NODE_ENV,
