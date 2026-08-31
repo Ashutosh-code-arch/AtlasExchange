@@ -2,13 +2,17 @@
 
 **Classification:** Canonical
 
-**Status:** Accepted
+**Status:** Superseded by ADR-075
 
 **Date:** 2026-08-31
 
 **Last reviewed:** 2026-08-31
 
 **Canonical owner/source:** ADR-070
+
+ADR-075 replaces this paid Render project Blueprint with a separate zero-cost demo deployment
+contract. The generator remains historical, tested infrastructure and must not be applied to the
+initial demo.
 
 ## Context
 

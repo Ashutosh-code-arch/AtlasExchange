@@ -32,26 +32,14 @@ production-readiness controls are defined and tested; it does **not** mean produ
 custody, external market execution, regulatory approval, or a production hosting environment has
 been approved.
 
-Phase 8 has selected Render as the initial production-shaped staging target and Cloudflare Access as
-its deny-by-default sharing boundary. Both deployables enforce the signed staging assertion at their
-Render origins. Grafana Alloy and Grafana Cloud now define the private metrics, dashboard, alert, and
-external-readiness boundary, including an immutable collector image and validated operational
-configuration. A deterministic generator now produces the release-specific Render Blueprint only
-from exact external inputs, fresh candidate evidence, and an unexpired cost approval. Live cost
-approval, an owned domain, exact invited identities, provider accounts, a generated and validated
-manifest, and verified proxy semantics remain required. An opt-in read-only staging suite is ready
-to validate a deployed candidate and emit sanitized partial smoke evidence without mutating business
-state. A strict incident-exercise record now preserves response roles, timing, recovery proof,
-contact-path results, and corrective actions without pretending a repository test performed the
-exercise. The initial product-scope contract now limits any approval to invited testers and
-simulated-only value, with release-bound deployment, disclosure, privacy, and tested-support
-evidence. A strict rollback-plan contract now distinguishes a verified previous release from the
-first-release remove-traffic fallback and prohibits reverse-migration shortcuts. No provider
-resource, domain, production environment, live exercise, product approval, or rollback rehearsal
-has been created. Release `v0.1.1` is the first complete staging candidate: its API, web, and
-metrics-collector images are published for AMD64/ARM64, signed, SBOM-attached, anonymously pullable,
-and recorded by immutable digest. Publication is artifact evidence only and does not change the
-staging or production `no-go` decision.
+Phase 8 now targets a zero-cost, invitation-only hosted demo. ADR-075 supersedes the earlier paid
+production-shaped Render plan: Cloudflare Worker Static Assets and Access provide one protected
+`workers.dev` browser origin, one Render Free service runs the API, and Neon Free supplies
+PostgreSQL 18. Coinbase's public unauthenticated feed will provide labeled BTC-USD and ETH-USD
+reference prices and candles; it can never match Atlas orders or affect simulated settlement.
+Release `v0.1.1` remains the first verified three-image candidate, but a new release is required
+after the demo gateway, identity bootstrap, reference-data adapter, and chart are implemented. No
+provider resource, public launch, real custody, external execution, or production approval exists.
 
 ## Prerequisites
 

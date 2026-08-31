@@ -4,7 +4,10 @@
 **Status:** Active  
 **Last reviewed:** 2026-08-31
 
-This runbook implements ADR-063 without assuming a production runtime vendor.
+This runbook implements ADR-063 without assuming a production runtime vendor. ADR-075 and the
+[zero-cost demo runbook](free-demo-hosting.md) govern the initial hosted environment. Paid Render
+staging instructions below are retained for historical/future production-shaped use and must not be
+applied to the demo.
 
 ## Prepare a stable release
 
@@ -80,7 +83,18 @@ The initial topology requires:
 The complete variable inventory remains in `apps/api/.env.example` and `apps/web/.env.example`.
 Example files are documentation only and must not be supplied as production secret stores.
 
-## Generate the Render staging promotion artifact
+## Prepare the zero-cost demo promotion
+
+The demo promotes one exact API digest to Render Free and one exact Worker/static-assets revision to
+Cloudflare. Neon schema migration remains a deliberate operator action. The zero-cost deployment
+manifest and generator are pending implementation under ADR-075; do not adapt ADR-070's paid
+Blueprint by deleting controls manually.
+
+Follow the [zero-cost demo runbook](free-demo-hosting.md). Resource creation remains blocked until
+the demo runtime, identity bootstrap, reference market-data adapter, chart, and deployment contract
+pass their repository checks.
+
+## Historical Render staging promotion artifact
 
 ADR-070 implements the first provider-specific promotion boundary. Once exact non-secret staging
 input, fresh candidate readiness evidence, and an unexpired cost approval exist, run:

@@ -2,11 +2,12 @@
 
 **Classification:** Canonical
 
-**Status:** Active
+**Status:** Archived
 
 **Last reviewed:** 2026-08-31
 
-This runbook implements ADR-069. It does not authorize a Grafana or Cloudflare account change,
+This historical runbook implements superseded ADR-069. ADR-075 defers its private collector for the
+initial zero-cost demo. It does not authorize a Grafana or Cloudflare account change,
 provider spend, public endpoint, secret creation, or staging deployment.
 
 ## Current state

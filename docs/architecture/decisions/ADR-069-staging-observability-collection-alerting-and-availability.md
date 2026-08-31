@@ -2,13 +2,16 @@
 
 **Classification:** Canonical
 
-**Status:** Accepted
+**Status:** Superseded by ADR-075
 
 **Date:** 2026-08-31
 
 **Last reviewed:** 2026-08-31
 
 **Canonical owner/source:** ADR-069
+
+ADR-075 defers the paid/private collector topology for the initial zero-cost demo. The dashboard,
+metric definitions, and alerting lessons remain reusable if production-shaped staging resumes.
 
 ## Context
 

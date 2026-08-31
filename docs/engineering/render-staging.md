@@ -1,10 +1,11 @@
 # Atlas Render Staging Runbook
 
 **Classification:** Canonical  
-**Status:** Active  
+**Status:** Archived
 **Last reviewed:** 2026-08-31
 
-This runbook implements ADR-067's provider-selection boundary. No Render account or resource is
+This historical runbook implements the superseded ADR-067 provider-selection boundary. ADR-075 and
+the zero-cost demo runbook now govern initial hosting. No Render account or resource is
 currently configured by this repository. Do not provision from this document until every blocker
 below is resolved and the user explicitly approves the live cost.
 

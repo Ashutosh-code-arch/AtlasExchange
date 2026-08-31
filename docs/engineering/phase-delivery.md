@@ -15,7 +15,7 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 | 5. Market data            | Order-book views, tickers, candles, WebSocket streams            | Implemented |
 | 6. Product surfaces       | Portfolio, notifications, administration                         | Implemented |
 | 7. Production readiness   | Security hardening, metrics, rate limits, performance            | Implemented |
-| 8. Deployment             | Deployment, runbooks, monitoring, interview evidence             | In progress |
+| 8. Deployment             | Zero-cost private demo, real reference data, hosted evidence      | In progress |
 
 ## Phase 1 acceptance criteria
 
@@ -693,6 +693,25 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   selected infrastructure, or a production `go`; those require the external evidence ADR-066 names.
 
 ## Phase 8 entry and delivery state
+
+- [ADR-075 — Zero-Cost Private Demo Hosting and Reference Market Data](../architecture/decisions/ADR-075-zero-cost-private-demo-hosting-and-reference-market-data.md)
+  now governs the initial hosted environment. It sets a hard zero-dollar recurring-cost ceiling and
+  selects a Cloudflare Worker/Static Assets and Access gateway, one Render Free API service, Neon
+  Free PostgreSQL 18, and Coinbase public BTC-USD/ETH-USD reference data.
+- The hosted environment is an invitation-only `demo`, not production-shaped staging. It carries no
+  production availability, recovery, support, latency, capacity, regulatory, custody, or real-order
+  claim. Provider allowance exhaustion suspends the demo rather than authorizing spend.
+- Real prices and candles are reference-only. The adapter cannot enter Trading or Financial command
+  paths, and the UI must distinguish Coinbase reference data from Atlas's simulated book, orders,
+  fills, balances, and settlement.
+- Repository work still required includes the Worker gateway, `demo` configuration, pre-verified
+  identity bootstrap with public registration disabled, external reference-data adapter, labeled
+  candlestick chart, zero-cost deployment contract, new release, and live free-provider evidence.
+- ADRs 067–070 and their Render/domain/collector runbooks are superseded for initial hosting. The
+  implementation evidence below remains historical work that can inform a future paid
+  production-shaped environment, but it must not be applied to the zero-cost demo.
+
+### Superseded paid-staging preparation retained as history
 
 - Phase 7 passed its deterministic, production-build, browser, performance, image, recovery, and
   security boundaries. Phase 8 may now turn the vendor-neutral contracts into measured staging

@@ -1,10 +1,11 @@
 # Atlas Cloudflare Access Staging Runbook
 
 **Classification:** Canonical  
-**Status:** Active  
+**Status:** Archived
 **Last reviewed:** 2026-08-31
 
-This runbook implements ADR-068. It records a safe activation sequence; it does not authorize domain
+This historical runbook implements superseded ADR-068. ADR-075 now uses Cloudflare Access by Worker
+name without a purchased domain. It records a safe activation sequence; it does not authorize domain
 transfer, DNS changes, invited-user access, paid service, or staging exposure.
 
 ## Current state

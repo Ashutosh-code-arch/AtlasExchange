@@ -1,10 +1,13 @@
 # ADR-067 — Initial Staging Platform and Managed PostgreSQL Provider
 
 **Classification:** Canonical  
-**Status:** Accepted  
+**Status:** Superseded by ADR-075
 **Date:** 2026-08-31  
 **Last reviewed:** 2026-08-31  
 **Canonical owner/source:** ADR-067
+
+ADR-075 replaces this paid production-shaped staging target for Atlas's initial hosted demo. This
+decision remains historical input if Atlas later resumes production-oriented staging.
 
 ## Context
 

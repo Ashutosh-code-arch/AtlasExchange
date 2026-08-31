@@ -1,10 +1,13 @@
 # ADR-068 — Staging Domain and Access-Control Boundary
 
 **Classification:** Canonical  
-**Status:** Accepted  
+**Status:** Superseded by ADR-075
 **Date:** 2026-08-31  
 **Last reviewed:** 2026-08-31  
 **Canonical owner/source:** ADR-068
+
+ADR-075 replaces the purchased-domain, two-origin access topology with a Cloudflare
+Worker-by-name Access boundary for Atlas's initial zero-cost demo.
 
 ## Context
 
