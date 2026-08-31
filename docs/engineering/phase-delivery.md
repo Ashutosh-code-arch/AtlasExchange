@@ -1,7 +1,7 @@
 # Atlas Exchange Phase Delivery
 
 **Status:** Active  
-**Last reviewed:** 2026-08-31
+**Last reviewed:** 2026-09-01
 
 This document translates the canonical product and sprint documents into small, demonstrable
 delivery increments. A phase is complete only after its acceptance checks pass.
@@ -724,8 +724,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   environment file outside Git and shell history. It validates schema and password policy, creates
   no verification/reset token, records a security event, permits only an exact idempotent repeat,
   and never prints identity or credential values.
-- Repository work still required includes the Worker gateway, zero-cost deployment contract, new
-  release, and live free-provider evidence.
+- `@atlas/gateway` now implements the Cloudflare Worker/Static Assets edge. It validates the Access
+  JWT before every asset or proxy request, enforces the exact `workers.dev` origin, emits a no-store
+  same-origin demo runtime document, proxies only public API and health routes, preserves the single
+  accepted Market Data WebSocket upgrade, strips credentials from asset requests, and keeps internal
+  metrics unreachable. Invalid configuration, access, route, and upstream states fail closed.
+- A strict zero-cost deployment generator and JSON input schema now bind the Worker source revision,
+  immutable API digest, Access audience, provider hostnames, PostgreSQL 18/schema 15, free plans,
+  one Render instance, disabled paid features/overage, no custom domain, and a zero-cent recurring
+  ceiling. Its mode-`0600` output lists secret names without accepting secret values.
+- Repository work still required includes a new release and live free-provider deployment evidence.
 - ADRs 067–070 and their Render/domain/collector runbooks are superseded for initial hosting. The
   implementation evidence below remains historical work that can inform a future paid
   production-shaped environment, but it must not be applied to the zero-cost demo.

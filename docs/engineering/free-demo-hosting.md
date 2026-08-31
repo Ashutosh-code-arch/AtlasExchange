@@ -4,7 +4,7 @@
 
 **Status:** Active
 
-**Last reviewed:** 2026-08-31
+**Last reviewed:** 2026-09-01
 
 This runbook implements ADR-075. It does not claim production readiness and does not authorize a
 paid plan, paid overage, custom domain, public launch, real custody, or external order execution.
@@ -14,7 +14,8 @@ paid plan, paid overage, custom domain, public launch, real custody, or external
 ```text
 Environment contract:          implemented; provider values pending
 Recurring-cost ceiling:        $0
-Cloudflare account/Worker:     no evidence
+Cloudflare gateway code:       implemented; deployment pending
+Cloudflare account/Worker:     no live evidence
 Cloudflare Access policy:      no evidence
 Render account/Free API:       no evidence
 Neon account/Free PostgreSQL:  no evidence
@@ -41,11 +42,11 @@ increase a limit. When an allowance is exhausted, accept suspension or revise AD
 ## Repository work before provider setup
 
 - [x] Add `demo` configuration without weakening `staging` or `production` validation.
-- [ ] Add the Cloudflare Worker static/gateway application and tests.
+- [x] Add the Cloudflare Worker static/gateway application and tests.
 - [x] Add an operator-only pre-verified demo-identity command and disable public demo registration.
 - [x] Add the Coinbase reference-data adapter, contracts, freshness, and reconnect tests.
 - [x] Add the labeled real-price/candlestick surface.
-- [ ] Add a zero-cost deployment manifest/input validator.
+- [x] Add a zero-cost deployment manifest/input validator.
 - [ ] Publish and verify a new release containing the demo runtime.
 
 ## External setup inputs
@@ -58,6 +59,61 @@ increase a limit. When an allowance is exhausted, accept suspension or revise AD
 
 No secret or invited identity belongs in Git, generated manifests, shell history, screenshots, or
 readiness records.
+
+## Worker gateway contract
+
+`@atlas/gateway` is the sole browser entry point. Its committed Wrangler configuration uses Workers
+Static Assets, disables preview URLs, allows only the provider `workers.dev` hostname, and invokes
+the Worker before every asset so the gateway can fail closed. The Worker:
+
+- accepts only `ATLAS_ENV=demo` with registration and recovery explicitly disabled;
+- requires the incoming origin to equal the configured `ATLAS_PUBLIC_ORIGIN`;
+- verifies the Cloudflare Access assertion's RS256 signature, issuer, audience, and lifetime before
+  serving assets or forwarding traffic;
+- generates `/runtime-config.js` with the same Worker origin as `apiBaseUrl`;
+- proxies `/api/v1`, `/health/live`, and `/health/ready` to the exact configured Render origin;
+- permits WebSocket upgrade only at `/api/v1/market-data/stream` and returns the origin upgrade
+  response unchanged;
+- replaces the forwarded assertion with the verified value and fixes forwarded host/protocol;
+- never forwards Access credentials to the static-asset binding;
+- never proxies `/internal/metrics` or any other internal path; and
+- returns generic no-store errors without origin, assertion, or provider detail.
+
+The Render API independently verifies the same signed assertion. Worker verification protects the
+edge; API verification prevents the public `onrender.com` hostname from becoming a bypass.
+
+The provider-specific bindings are deliberately absent from Git and must be configured through
+restricted Cloudflare settings before activation:
+
+```text
+ATLAS_API_ORIGIN
+ATLAS_PUBLIC_ORIGIN
+CLOUDFLARE_ACCESS_TEAM_DOMAIN
+CLOUDFLARE_ACCESS_AUDIENCE
+```
+
+The non-secret, invariant bindings `ATLAS_ENV=demo`, `PUBLIC_REGISTRATION_ENABLED=false`, and
+`PUBLIC_PASSWORD_RECOVERY_ENABLED=false` are fixed in `apps/gateway/wrangler.jsonc`. A missing or
+invalid binding produces `503`; a missing or invalid Access assertion produces `403`.
+
+## Generate the zero-cost deployment contract
+
+Copy the field shape from `infra/demo/deployment-input.schema.json` into an operator-controlled JSON
+file. Supply the stable release version, full 40-character source revision, immutable API image
+digest, actual Worker/Render origins, Access issuer/audience, and exact provider plan selections. Do
+not include database URLs, keys, invited identities, or bootstrap credentials.
+
+```bash
+pnpm demo:deployment:generate -- \
+  --config /absolute/restricted/path/demo-deployment-input.json \
+  --output /absolute/restricted/path/demo-deployment-manifest.json
+```
+
+The generator refuses paid plans/features, paid overage, a payment-method requirement, custom
+domains, preview URLs, non-exact-email Access, mutable image references, mismatched source revisions,
+unexpected origins, PostgreSQL versions other than 18, and Atlas schema versions other than 15. It
+creates a new mode-`0600` manifest without overwriting an existing file. The manifest records public
+provider configuration and required secret *names*, never secret values.
 
 ## Reference-data runtime contract
 
@@ -137,14 +193,17 @@ identifier.
 4. Create one Render Free web service from the exact API image digest.
 5. Enter the Neon URL and application secrets through Render's secret UI.
 6. Require `/health/live`, `/health/ready`, and the exact application version.
-7. Create the Cloudflare Worker with static assets and the exact Render origin as a secret/config
-   binding.
-8. Protect the Worker by name with one exact-email Cloudflare Access policy.
-9. Configure the Render API with the exact Access issuer and Worker application audience.
-10. Prove direct Render requests fail while Worker-proxied HTTP and WebSocket traffic pass.
-11. Prove public registration/recovery are disabled and the prepared demo identity can sign in.
-12. Prove Coinbase reference prices/candles are labeled, fresh, and unable to affect Atlas matching.
-13. Record provider allowance dashboards and confirm every selected resource displays `$0`.
+7. Generate and review the exact zero-cost deployment manifest.
+8. Deploy the gateway code initially without bindings; its configuration failure must expose only a
+   generic `503`, so there is no unprotected asset window.
+9. Configure the four provider-specific Worker bindings, then confirm requests still fail `403`
+   until Access supplies a valid assertion.
+10. Protect the Worker by name with one exact-email Cloudflare Access policy.
+11. Configure the Render API with the exact Access issuer and Worker application audience.
+12. Prove direct Render requests fail while Worker-proxied HTTP and WebSocket traffic pass.
+13. Prove public registration/recovery are disabled and the prepared demo identity can sign in.
+14. Prove Coinbase reference prices/candles are labeled, fresh, and unable to affect Atlas matching.
+15. Record provider allowance dashboards and confirm every selected resource displays `$0`.
 
 ## Stop conditions
 

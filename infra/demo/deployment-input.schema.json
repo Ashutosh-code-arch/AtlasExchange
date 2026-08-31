@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.invalid/schemas/demo-deployment-input.json",
+  "title": "Atlas zero-cost demo deployment input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environment", "release", "cloudflare", "render", "neon", "cost"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "environment": { "const": "demo" },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "revision", "apiImageDigest"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+        },
+        "revision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "apiImageDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+      }
+    },
+    "cloudflare": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan",
+        "paidOverage",
+        "workerName",
+        "publicOrigin",
+        "workerSourceRevision",
+        "previewUrls",
+        "customDomains",
+        "accessApplicationTarget",
+        "exactEmailAllowPolicy",
+        "accessTeamDomain",
+        "accessAudience"
+      ],
+      "properties": {
+        "plan": { "const": "free" },
+        "paidOverage": { "const": false },
+        "workerName": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" },
+        "publicOrigin": { "type": "string", "pattern": "^https://[a-z0-9.-]+\\.workers\\.dev$" },
+        "workerSourceRevision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "previewUrls": { "const": false },
+        "customDomains": { "const": false },
+        "accessApplicationTarget": { "const": "worker-name" },
+        "exactEmailAllowPolicy": { "const": true },
+        "accessTeamDomain": {
+          "type": "string",
+          "pattern": "^https://[a-z0-9-]+\\.cloudflareaccess\\.com$"
+        },
+        "accessAudience": { "type": "string", "pattern": "^[A-Za-z0-9_-]{32,128}$" }
+      }
+    },
+    "render": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "paidFeatures", "serviceName", "apiOrigin", "region", "instances"],
+      "properties": {
+        "plan": { "const": "free" },
+        "paidFeatures": { "const": false },
+        "serviceName": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" },
+        "apiOrigin": { "type": "string", "pattern": "^https://[a-z0-9-]+\\.onrender\\.com$" },
+        "region": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" },
+        "instances": { "const": 1 }
+      }
+    },
+    "neon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "paidFeatures", "postgresMajorVersion", "schemaVersion"],
+      "properties": {
+        "plan": { "const": "free" },
+        "paidFeatures": { "const": false },
+        "postgresMajorVersion": { "const": 18 },
+        "schemaVersion": { "const": 15 }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currency", "maximumMonthlyCostCents", "paymentMethodRequired"],
+      "properties": {
+        "currency": { "const": "USD" },
+        "maximumMonthlyCostCents": { "const": 0 },
+        "paymentMethodRequired": { "const": false }
+      }
+    }
+  }
+}
