@@ -77,6 +77,29 @@ describe("Atlas overview", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps the demo simulation boundary visible in the application header", () => {
+    const client: AuthenticationSessionClient = {
+      request: vi.fn(),
+      dispose: vi.fn(),
+      announceAuthenticationLost: vi.fn(),
+    };
+    render(
+      <AuthenticationProvider
+        apiBaseUrl="http://api.test"
+        clientFactory={() => client}
+        currentUserLoader={() => Promise.resolve(appUser)}
+      >
+        <App
+          apiBaseUrl="http://api.test"
+          environment="demo"
+          readinessClient={() => Promise.resolve({ status: "ready" })}
+        />
+      </AuthenticationProvider>,
+    );
+
+    expect(screen.getByText("Demo · Simulation")).toBeInTheDocument();
+  });
+
   it("composes the Administration console only for an administrator", async () => {
     renderApp(() => Promise.resolve({ status: "ready" }), {
       currentUser: { ...appUser, roles: ["user", "admin"] },

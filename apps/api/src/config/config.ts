@@ -120,7 +120,7 @@ const apiEnvironmentSchema = z.object({
     .transform(Number)
     .pipe(z.number().int().min(100).max(100_000)),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  ATLAS_ENV: z.enum(["local", "test", "ci", "staging", "production"]).default("local"),
+  ATLAS_ENV: z.enum(["local", "test", "ci", "demo", "staging", "production"]).default("local"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
   ATLAS_APPLICATION_VERSION: z
     .string()
@@ -265,7 +265,7 @@ export interface ApiConfig {
   }>;
   readonly logging: Readonly<{
     level: "trace" | "debug" | "info" | "warn" | "error" | "fatal";
-    environment: "local" | "test" | "ci" | "staging" | "production";
+    environment: "local" | "test" | "ci" | "demo" | "staging" | "production";
     applicationVersion: string;
   }>;
   readonly observability: Readonly<{
@@ -278,6 +278,10 @@ export interface ApiConfig {
   }>;
   readonly identity: Readonly<{
     passwordBlocklistPath: string;
+    publicAccountFeatures: Readonly<{
+      registrationEnabled: boolean;
+      passwordRecoveryEnabled: boolean;
+    }>;
     emailDelivery: Readonly<{
       host: string;
       port: number;
@@ -345,14 +349,15 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   }
 
   const values = result.data;
+  const managedEnvironment =
+    values.ATLAS_ENV === "demo" ||
+    values.ATLAS_ENV === "staging" ||
+    values.ATLAS_ENV === "production";
 
   if (values.NODE_ENV === "production" && values.ATLAS_ENV === "local") {
     throw new ConfigurationError(["NODE_ENV", "ATLAS_ENV"]);
   }
-  if (
-    (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
-    values.PASSWORD_BLOCKLIST_PATH === undefined
-  ) {
+  if (managedEnvironment && values.PASSWORD_BLOCKLIST_PATH === undefined) {
     throw new ConfigurationError(["PASSWORD_BLOCKLIST_PATH"]);
   }
   if ((values.SMTP_USERNAME === undefined) !== (values.SMTP_PASSWORD === undefined)) {
@@ -406,22 +411,13 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   ) {
     throw new ConfigurationError(["SMTP_HOST", "SMTP_FROM"]);
   }
-  if (
-    (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
-    values.CSRF_HMAC_KEY === undefined
-  ) {
+  if (managedEnvironment && values.CSRF_HMAC_KEY === undefined) {
     throw new ConfigurationError(["CSRF_HMAC_KEY"]);
   }
-  if (
-    (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
-    values.HTTP_TRUST_PROXY_HOPS === 0
-  ) {
+  if (managedEnvironment && values.HTTP_TRUST_PROXY_HOPS === 0) {
     throw new ConfigurationError(["HTTP_TRUST_PROXY_HOPS"]);
   }
-  if (
-    (values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production") &&
-    new URL(values.WEB_ORIGIN).protocol !== "https:"
-  ) {
+  if (managedEnvironment && new URL(values.WEB_ORIGIN).protocol !== "https:") {
     throw new ConfigurationError(["WEB_ORIGIN"]);
   }
   if (
@@ -431,11 +427,14 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     throw new ConfigurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]);
   }
   if (
-    values.ATLAS_ENV === "staging" &&
+    (values.ATLAS_ENV === "demo" || values.ATLAS_ENV === "staging") &&
     (values.CLOUDFLARE_ACCESS_TEAM_DOMAIN === undefined ||
       values.CLOUDFLARE_ACCESS_AUDIENCE === undefined)
   ) {
     throw new ConfigurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]);
+  }
+  if (values.ATLAS_ENV === "demo" && !values.REFERENCE_MARKET_DATA_ENABLED) {
+    throw new ConfigurationError(["REFERENCE_MARKET_DATA_ENABLED"]);
   }
 
   return Object.freeze({
@@ -443,7 +442,7 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
       port: values.PORT ?? values.API_PORT,
       shutdownTimeoutMs: values.SHUTDOWN_TIMEOUT_MS,
       webOrigin: values.WEB_ORIGIN,
-      secureTransport: values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production",
+      secureTransport: managedEnvironment,
       trustedProxyHops: values.HTTP_TRUST_PROXY_HOPS,
       stagingAccess:
         values.CLOUDFLARE_ACCESS_TEAM_DOMAIN === undefined ||
@@ -495,6 +494,10 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     }),
     identity: Object.freeze({
       passwordBlocklistPath: values.PASSWORD_BLOCKLIST_PATH ?? developmentPasswordBlocklistPath,
+      publicAccountFeatures: Object.freeze({
+        registrationEnabled: values.ATLAS_ENV !== "demo",
+        passwordRecoveryEnabled: values.ATLAS_ENV !== "demo",
+      }),
       emailDelivery: Object.freeze({
         host: values.SMTP_HOST ?? "127.0.0.1",
         port: values.SMTP_PORT,
@@ -506,18 +509,24 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
           : { username: values.SMTP_USERNAME, password: values.SMTP_PASSWORD }),
       }),
       sessionSecurity: Object.freeze({
-        secureCookies: values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production",
+        secureCookies: managedEnvironment,
         csrfHmacKey: values.CSRF_HMAC_KEY ?? localCsrfHmacKey,
       }),
     }),
     financial: Object.freeze({
       simulatedFundingEnabled:
         values.SIMULATED_FUNDING_ENABLED === undefined
-          ? values.ATLAS_ENV === "local" || values.ATLAS_ENV === "test" || values.ATLAS_ENV === "ci"
+          ? values.ATLAS_ENV === "local" ||
+            values.ATLAS_ENV === "test" ||
+            values.ATLAS_ENV === "ci" ||
+            values.ATLAS_ENV === "demo"
           : values.SIMULATED_FUNDING_ENABLED === "true",
       simulatedWithdrawalsEnabled:
         values.SIMULATED_WITHDRAWALS_ENABLED === undefined
-          ? values.ATLAS_ENV === "local" || values.ATLAS_ENV === "test" || values.ATLAS_ENV === "ci"
+          ? values.ATLAS_ENV === "local" ||
+            values.ATLAS_ENV === "test" ||
+            values.ATLAS_ENV === "ci" ||
+            values.ATLAS_ENV === "demo"
           : values.SIMULATED_WITHDRAWALS_ENABLED === "true",
     }),
     marketData: Object.freeze({

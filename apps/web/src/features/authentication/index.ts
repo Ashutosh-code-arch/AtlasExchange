@@ -16,7 +16,10 @@ export { resetPassword } from "./api/reset-password";
 export { revokeActiveSession } from "./api/revoke-active-session";
 export { resendVerificationEmail } from "./api/resend-verification-email";
 export { verifyEmailAddress } from "./api/verify-email-address";
-export { AuthenticationPanel } from "./components/authentication-panel";
+export {
+  AuthenticationPanel,
+  type AuthenticationPanelProps,
+} from "./components/authentication-panel";
 export { ActiveSessions, type ActiveSessionsProps } from "./components/active-sessions";
 export { EmailVerification, type EmailVerificationProps } from "./components/email-verification";
 export { LoginForm } from "./components/login-form";

@@ -168,6 +168,7 @@ async function start(): Promise<RunningServer> {
       passwordResetEmailDelivery,
       webOrigin: config.http.webOrigin,
       sessionSecurity: config.identity.sessionSecurity,
+      publicAccountFeatures: config.identity.publicAccountFeatures,
       authenticateAccess,
       sessionCsrfTokenService,
     });

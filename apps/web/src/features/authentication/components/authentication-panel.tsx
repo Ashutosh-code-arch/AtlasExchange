@@ -6,7 +6,21 @@ import { PasswordRecoveryForm } from "./password-recovery-form";
 import { RegistrationForm } from "./registration-form";
 import { useAuthenticationSession } from "../session/use-authentication-session";
 
-export function AuthenticationPanel(): React.JSX.Element {
+export interface AuthenticationPanelProps {
+  readonly publicAccountFeatures?: Readonly<{
+    registrationEnabled: boolean;
+    passwordRecoveryEnabled: boolean;
+  }>;
+}
+
+const defaultPublicAccountFeatures = Object.freeze({
+  registrationEnabled: true,
+  passwordRecoveryEnabled: true,
+});
+
+export function AuthenticationPanel({
+  publicAccountFeatures = defaultPublicAccountFeatures,
+}: AuthenticationPanelProps = {}): React.JSX.Element {
   const { state, recheck, signOut } = useAuthenticationSession();
   const mountedRef = useRef(true);
   const [signingOut, setSigningOut] = useState(false);
@@ -61,23 +75,36 @@ export function AuthenticationPanel(): React.JSX.Element {
           anonymousMode === "sign-in" ? (
             <div className="authentication-anonymous-flow">
               <LoginForm />
-              <div className="authentication-mode-switch">
-                <button
-                  className="text-button"
-                  type="button"
-                  onClick={() => setAnonymousMode("recover")}
-                >
-                  Forgot password?
-                </button>
-                <span>New to Atlas?</span>
-                <button
-                  className="text-button"
-                  type="button"
-                  onClick={() => setAnonymousMode("register")}
-                >
-                  Create account
-                </button>
-              </div>
+              {publicAccountFeatures.registrationEnabled ||
+              publicAccountFeatures.passwordRecoveryEnabled ? (
+                <div className="authentication-mode-switch">
+                  {publicAccountFeatures.passwordRecoveryEnabled ? (
+                    <button
+                      className="text-button"
+                      type="button"
+                      onClick={() => setAnonymousMode("recover")}
+                    >
+                      Forgot password?
+                    </button>
+                  ) : null}
+                  {publicAccountFeatures.registrationEnabled ? (
+                    <>
+                      <span>New to Atlas?</span>
+                      <button
+                        className="text-button"
+                        type="button"
+                        onClick={() => setAnonymousMode("register")}
+                      >
+                        Create account
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="authentication-panel__invitation">
+                  Invitation-only demo. Sign in with the account provided by the operator.
+                </p>
+              )}
             </div>
           ) : anonymousMode === "register" ? (
             <RegistrationForm onReturnToSignIn={() => setAnonymousMode("sign-in")} />

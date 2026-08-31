@@ -18,10 +18,22 @@ const publicRuntimeConfigSchema = z.object({
         return false;
       }
     }),
+  environment: z.enum(["local", "demo", "staging", "production"]).default("local"),
+  publicAccountFeatures: z
+    .object({
+      registrationEnabled: z.boolean(),
+      passwordRecoveryEnabled: z.boolean(),
+    })
+    .default({ registrationEnabled: true, passwordRecoveryEnabled: true }),
 });
 
 export interface WebConfig {
   readonly apiBaseUrl: string;
+  readonly environment: "local" | "demo" | "staging" | "production";
+  readonly publicAccountFeatures: Readonly<{
+    registrationEnabled: boolean;
+    passwordRecoveryEnabled: boolean;
+  }>;
 }
 
 export function parseWebConfig(runtimeConfig: unknown): WebConfig {
@@ -34,5 +46,9 @@ export function parseWebConfig(runtimeConfig: unknown): WebConfig {
     throw new Error(`Invalid web configuration: ${variableNames.join(", ")}`);
   }
 
-  return Object.freeze({ apiBaseUrl: result.data.apiBaseUrl.replace(/\/$/, "") });
+  return Object.freeze({
+    apiBaseUrl: result.data.apiBaseUrl.replace(/\/$/, ""),
+    environment: result.data.environment,
+    publicAccountFeatures: Object.freeze(result.data.publicAccountFeatures),
+  });
 }

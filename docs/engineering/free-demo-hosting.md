@@ -12,13 +12,13 @@ paid plan, paid overage, custom domain, public launch, real custody, or external
 ## Current state
 
 ```text
-Environment contract:          accepted; implementation pending
+Environment contract:          implemented; provider values pending
 Recurring-cost ceiling:        $0
 Cloudflare account/Worker:     no evidence
 Cloudflare Access policy:      no evidence
 Render account/Free API:       no evidence
 Neon account/Free PostgreSQL:  no evidence
-Demo identity path:            not implemented
+Demo identity path:            implemented; operator execution pending
 Coinbase reference adapter:    implemented; runtime activation pending
 Reference chart:               implemented; deployment activation pending
 Candidate API image:           v0.1.1 published and verified
@@ -40,9 +40,9 @@ increase a limit. When an allowance is exhausted, accept suspension or revise AD
 
 ## Repository work before provider setup
 
-- [ ] Add `demo` configuration without weakening `staging` or `production` validation.
+- [x] Add `demo` configuration without weakening `staging` or `production` validation.
 - [ ] Add the Cloudflare Worker static/gateway application and tests.
-- [ ] Add an operator-only pre-verified demo-identity command and disable public demo registration.
+- [x] Add an operator-only pre-verified demo-identity command and disable public demo registration.
 - [x] Add the Coinbase reference-data adapter, contracts, freshness, and reconnect tests.
 - [x] Add the labeled real-price/candlestick surface.
 - [ ] Add a zero-cost deployment manifest/input validator.
@@ -79,6 +79,55 @@ The Trading workspace renders those snapshots in a source-labeled Coinbase quote
 candlestick surface. It keeps the Atlas order book, ticket, activity, orders, fills, balances, and
 settlement visibly labeled as simulation. Provider failure produces a stale or unavailable
 reference state; the browser never substitutes an Atlas simulated price.
+
+## Demo runtime contract
+
+`ATLAS_ENV=demo` is a managed environment. API startup fails closed unless it has an HTTPS browser
+origin, at least one trusted proxy hop, an explicit password blocklist, a strong CSRF key, a paired
+Cloudflare Access team domain/audience, and the Coinbase reference feed enabled. Secure transport
+and cookies are mandatory. Simulated funding and withdrawals default on; no real-asset capability
+is introduced.
+
+The API hides these routes with the same `ROUTE_NOT_FOUND` contract as an absent endpoint:
+
+```text
+POST /api/v1/auth/register
+POST /api/v1/auth/resend-verification
+POST /api/v1/auth/verify-email
+POST /api/v1/auth/forgot-password
+POST /api/v1/auth/reset-password
+```
+
+Login and authenticated session management remain enabled. The browser runtime accepts matching
+public feature flags, removes registration/recovery controls, shows invitation-only guidance, and
+keeps `Demo · Simulation` visible in the application header.
+
+## Provision the prepared demo identity
+
+Run migrations first. Then create a mode-`0600` environment file outside the repository and outside
+shell history. Store it in an operator-controlled location; never commit it or paste its values into
+the command line.
+
+```dotenv
+ATLAS_ENV=demo
+DATABASE_URL=postgresql://...
+EXPECTED_SCHEMA_VERSION=15
+PASSWORD_BLOCKLIST_PATH=/absolute/restricted/path/atlas-password-blocklist.sha256
+DEMO_IDENTITY_EMAIL=invited-reviewer@example.com
+DEMO_IDENTITY_PASSWORD=replace-with-a-unique-long-password
+```
+
+```bash
+chmod 600 /absolute/restricted/path/atlas-demo-bootstrap.env
+ATLAS_DEMO_BOOTSTRAP_ENV_FILE=/absolute/restricted/path/atlas-demo-bootstrap.env \
+  pnpm --filter @atlas/api identity:provision-demo
+```
+
+The command refuses non-`demo` execution, validates database schema readiness and the password
+blocklist, creates one active `user` identity without verification/reset tokens, and records a
+security event. An exact repeat returns `existing`; changed password, casing, state, or roles fails
+without overwriting the account. Output never includes the email, password, database URL, or user
+identifier.
 
 ## Intended activation order
 

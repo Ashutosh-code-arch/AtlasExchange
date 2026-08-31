@@ -76,6 +76,10 @@ describe("API configuration", () => {
     expect(config.identity.passwordBlocklistPath).toMatch(
       /resources\/development-password-blocklist\.sha256$/,
     );
+    expect(config.identity.publicAccountFeatures).toEqual({
+      registrationEnabled: true,
+      passwordRecoveryEnabled: true,
+    });
     expect(config.identity.emailDelivery).toEqual({
       host: "127.0.0.1",
       port: 1025,
@@ -407,6 +411,56 @@ describe("API configuration", () => {
     ).toBe(true);
   });
 
+  it("creates a secure invitation-only demo profile without requiring SMTP", () => {
+    const demoEnvironment = {
+      ...validEnvironment,
+      ...cloudflareAccessEnvironment,
+      NODE_ENV: "production",
+      ATLAS_ENV: "demo",
+      WEB_ORIGIN: "https://atlas-demo.example.workers.dev",
+      HTTP_TRUST_PROXY_HOPS: "1",
+      PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
+      CSRF_HMAC_KEY: "a".repeat(43),
+      REFERENCE_MARKET_DATA_ENABLED: "true",
+    };
+    const config = parseApiConfig(demoEnvironment);
+
+    expect(config.logging.environment).toBe("demo");
+    expect(config.http.secureTransport).toBe(true);
+    expect(config.http.stagingAccess).toEqual({
+      enabled: true,
+      teamDomain: "https://atlas-test.cloudflareaccess.com",
+      audience: "a".repeat(64),
+    });
+    expect(config.identity.sessionSecurity.secureCookies).toBe(true);
+    expect(config.identity.publicAccountFeatures).toEqual({
+      registrationEnabled: false,
+      passwordRecoveryEnabled: false,
+    });
+    expect(config.identity.emailDelivery).toMatchObject({
+      host: "127.0.0.1",
+      requireTls: false,
+    });
+    expect(config.financial).toEqual({
+      simulatedFundingEnabled: true,
+      simulatedWithdrawalsEnabled: true,
+    });
+    expect(config.marketData.reference.enabled).toBe(true);
+
+    expect(() =>
+      parseApiConfig({ ...demoEnvironment, REFERENCE_MARKET_DATA_ENABLED: "false" }),
+    ).toThrowError(new ConfigurationError(["REFERENCE_MARKET_DATA_ENABLED"]));
+    expect(() =>
+      parseApiConfig({
+        ...demoEnvironment,
+        CLOUDFLARE_ACCESS_TEAM_DOMAIN: undefined,
+        CLOUDFLARE_ACCESS_AUDIENCE: undefined,
+      }),
+    ).toThrowError(
+      new ConfigurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]),
+    );
+  });
+
   it("does not expose a rejected secret-bearing URL", () => {
     const secret = "never-print-this";
 
@@ -421,7 +475,7 @@ describe("API configuration", () => {
     ).toThrow(/NODE_ENV, ATLAS_ENV/);
   });
 
-  it("requires an explicit managed password blocklist in staging and production", () => {
+  it("requires an explicit managed password blocklist in demo, staging, and production", () => {
     expect(() => parseApiConfig({ ...validEnvironment, ATLAS_ENV: "staging" })).toThrowError(
       new ConfigurationError(["PASSWORD_BLOCKLIST_PATH"]),
     );

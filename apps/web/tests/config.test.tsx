@@ -6,6 +6,30 @@ describe("web configuration", () => {
   it("validates and normalizes the public API URL", () => {
     expect(parseWebConfig({ apiBaseUrl: "https://api.atlas.test/" })).toEqual({
       apiBaseUrl: "https://api.atlas.test",
+      environment: "local",
+      publicAccountFeatures: {
+        registrationEnabled: true,
+        passwordRecoveryEnabled: true,
+      },
+    });
+  });
+
+  it("accepts a demo runtime that hides public identity provisioning", () => {
+    expect(
+      parseWebConfig({
+        apiBaseUrl: "https://atlas-demo.example.workers.dev",
+        environment: "demo",
+        publicAccountFeatures: {
+          registrationEnabled: false,
+          passwordRecoveryEnabled: false,
+        },
+      }),
+    ).toMatchObject({
+      environment: "demo",
+      publicAccountFeatures: {
+        registrationEnabled: false,
+        passwordRecoveryEnabled: false,
+      },
     });
   });
 

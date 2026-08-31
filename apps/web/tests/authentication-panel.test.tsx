@@ -35,6 +35,10 @@ function renderPanel(options: {
   readonly verificationResender?: VerificationResender;
   readonly passwordResetRequester?: PasswordResetRequester;
   readonly sessionLister?: SessionLister;
+  readonly publicAccountFeatures?: Readonly<{
+    registrationEnabled: boolean;
+    passwordRecoveryEnabled: boolean;
+  }>;
 }): void {
   const client: AuthenticationSessionClient = {
     request: vi.fn(),
@@ -62,7 +66,11 @@ function renderPanel(options: {
         : { passwordResetRequester: options.passwordResetRequester })}
       {...(options.sessionLister === undefined ? {} : { sessionLister: options.sessionLister })}
     >
-      <AuthenticationPanel />
+      <AuthenticationPanel
+        {...(options.publicAccountFeatures === undefined
+          ? {}
+          : { publicAccountFeatures: options.publicAccountFeatures })}
+      />
     </AuthenticationProvider>,
   );
 }
@@ -71,6 +79,22 @@ const anonymousSession = (): ApiHttpError =>
   new ApiHttpError(401, "AUTHENTICATION_REQUIRED", "anonymous-request");
 
 describe("AuthenticationPanel", () => {
+  it("shows login only for an invitation-only demo", async () => {
+    const currentUserLoader = vi.fn<CurrentUserLoader>().mockRejectedValue(anonymousSession());
+    renderPanel({
+      currentUserLoader,
+      publicAccountFeatures: {
+        registrationEnabled: false,
+        passwordRecoveryEnabled: false,
+      },
+    });
+
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByText(/invitation-only demo/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create account" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Forgot password?" })).not.toBeInTheDocument();
+  });
+
   it("submits password-manager-friendly credentials and shows server-confirmed identity", async () => {
     const currentUserLoader = vi
       .fn<CurrentUserLoader>()

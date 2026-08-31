@@ -73,7 +73,16 @@ export interface IdentityRouterOptions {
   readonly sessionCsrfTokenService: SessionCsrfTokenService;
   readonly secureCookies: boolean;
   readonly webOrigin: string;
+  readonly publicAccountFeatures?: Readonly<{
+    registrationEnabled: boolean;
+    passwordRecoveryEnabled: boolean;
+  }>;
 }
+
+const defaultPublicAccountFeatures = Object.freeze({
+  registrationEnabled: true,
+  passwordRecoveryEnabled: true,
+});
 
 function requirePreSessionJsonRequest(webOrigin: string): RequestHandler {
   return (request, _response, next) => {
@@ -113,9 +122,28 @@ function enforceRateLimit(rateLimiter: RegistrationRateLimiter, message: string)
   };
 }
 
+function requirePublicAccountFeature(enabled: boolean): RequestHandler {
+  return (request, _response, next) => {
+    if (!enabled) {
+      next(
+        new AppError(404, "ROUTE_NOT_FOUND", `Route ${request.method} ${request.path} not found.`),
+      );
+      return;
+    }
+    next();
+  };
+}
+
 export function createIdentityRouter(options: IdentityRouterOptions): Router {
   const router = Router();
   const requirePreSessionJson = requirePreSessionJsonRequest(options.webOrigin);
+  const publicAccountFeatures = options.publicAccountFeatures ?? defaultPublicAccountFeatures;
+  const requirePublicRegistration = requirePublicAccountFeature(
+    publicAccountFeatures.registrationEnabled,
+  );
+  const requirePublicPasswordRecovery = requirePublicAccountFeature(
+    publicAccountFeatures.passwordRecoveryEnabled,
+  );
 
   router.use((_request, response, next) => {
     response.setHeader("cache-control", "no-store");
@@ -212,6 +240,7 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
 
   router.post(
     "/reset-password",
+    requirePublicPasswordRecovery,
     requirePreSessionJson,
     enforceRateLimit(options.passwordResetRateLimiter, "Password reset rate limit exceeded."),
     async (request, response, next) => {
@@ -246,6 +275,7 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
 
   router.post(
     "/forgot-password",
+    requirePublicPasswordRecovery,
     requirePreSessionJson,
     enforceRateLimit(options.passwordRecoveryRateLimiter, "Password recovery rate limit exceeded."),
     async (request, response, next) => {
@@ -431,6 +461,7 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
 
   router.post(
     "/register",
+    requirePublicRegistration,
     requirePreSessionJson,
     enforceRateLimit(options.registrationRateLimiter, "Registration rate limit exceeded."),
     async (request, response, next) => {
@@ -459,6 +490,7 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
 
   router.post(
     "/resend-verification",
+    requirePublicRegistration,
     requirePreSessionJson,
     enforceRateLimit(
       options.resendVerificationRateLimiter,
@@ -486,32 +518,37 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
     },
   );
 
-  router.post("/verify-email", requirePreSessionJson, async (request, response, next) => {
-    const parsedRequest = verifyEmailRequestSchema.safeParse(request.body);
-    if (!parsedRequest.success) {
-      next(new AppError(400, "VALIDATION_FAILED", "Email verification request is invalid."));
-      return;
-    }
+  router.post(
+    "/verify-email",
+    requirePublicRegistration,
+    requirePreSessionJson,
+    async (request, response, next) => {
+      const parsedRequest = verifyEmailRequestSchema.safeParse(request.body);
+      if (!parsedRequest.success) {
+        next(new AppError(400, "VALIDATION_FAILED", "Email verification request is invalid."));
+        return;
+      }
 
-    try {
-      const requestIdHeader = response.getHeader("x-request-id");
-      const result = await options.verifyEmail.execute({
-        token: parsedRequest.data.token,
-        requestId: typeof requestIdHeader === "string" ? requestIdHeader : "unavailable",
-      });
-      if (result.status === "invalid") {
-        next(new AppError(400, "VALIDATION_FAILED", "Email verification request is invalid."));
-        return;
+      try {
+        const requestIdHeader = response.getHeader("x-request-id");
+        const result = await options.verifyEmail.execute({
+          token: parsedRequest.data.token,
+          requestId: typeof requestIdHeader === "string" ? requestIdHeader : "unavailable",
+        });
+        if (result.status === "invalid") {
+          next(new AppError(400, "VALIDATION_FAILED", "Email verification request is invalid."));
+          return;
+        }
+        response.status(204).end();
+      } catch (error) {
+        if (error instanceof IdentityInputValidationError) {
+          next(new AppError(400, "VALIDATION_FAILED", "Email verification request is invalid."));
+          return;
+        }
+        next(error);
       }
-      response.status(204).end();
-    } catch (error) {
-      if (error instanceof IdentityInputValidationError) {
-        next(new AppError(400, "VALIDATION_FAILED", "Email verification request is invalid."));
-        return;
-      }
-      next(error);
-    }
-  });
+    },
+  );
 
   return router;
 }

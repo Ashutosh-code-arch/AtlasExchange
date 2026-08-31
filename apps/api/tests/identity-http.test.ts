@@ -106,6 +106,10 @@ function createTestApp(
     readonly resendVerificationRateLimiter?: RegistrationRateLimiter;
     readonly sessionCsrfIssue?: ReturnType<typeof vi.fn<SessionCsrfTokenService["issue"]>>;
     readonly secureCookies?: boolean;
+    readonly publicAccountFeatures?: Readonly<{
+      registrationEnabled: boolean;
+      passwordRecoveryEnabled: boolean;
+    }>;
   } = {},
 ): {
   readonly app: ReturnType<typeof createApp>;
@@ -214,6 +218,9 @@ function createTestApp(
     },
     secureCookies: options.secureCookies ?? false,
     webOrigin,
+    ...(options.publicAccountFeatures === undefined
+      ? {}
+      : { publicAccountFeatures: options.publicAccountFeatures }),
   });
   const lifecycle = new LifecycleState({ checkReadiness: () => Promise.resolve(true) });
 
@@ -1158,5 +1165,47 @@ describe("Identity registration HTTP API", () => {
     expect(malformedResponse.status).toBe(400);
     expect(invalidResponse.body).toMatchObject({ error: { code: "VALIDATION_FAILED" } });
     expect(malformedResponse.body).toMatchObject({ error: { code: "VALIDATION_FAILED" } });
+  });
+});
+
+describe("Identity demo HTTP surface", () => {
+  it("hides every public provisioning and recovery route while preserving login", async () => {
+    const harness = createTestApp({
+      publicAccountFeatures: {
+        registrationEnabled: false,
+        passwordRecoveryEnabled: false,
+      },
+    });
+    const disabledRequests = [
+      request(harness.app).post("/api/v1/auth/register").send(validRegistration),
+      request(harness.app)
+        .post("/api/v1/auth/resend-verification")
+        .send({ email: validRegistration.email }),
+      request(harness.app)
+        .post("/api/v1/auth/verify-email")
+        .send({ token: `019c0000-0000-7000-8000-000000000001.${"a".repeat(43)}` }),
+      request(harness.app)
+        .post("/api/v1/auth/forgot-password")
+        .send({ email: validRegistration.email }),
+      request(harness.app)
+        .post("/api/v1/auth/reset-password")
+        .send({
+          token: `019c0000-0000-7000-8000-000000000001.${"a".repeat(43)}`,
+          password: "replacement password value",
+        }),
+    ];
+
+    for (const response of await Promise.all(disabledRequests)) {
+      expect(response.status).toBe(404);
+      expect(response.body).toMatchObject({ error: { code: "ROUTE_NOT_FOUND" } });
+    }
+    expect(harness.execute).not.toHaveBeenCalled();
+    expect(harness.resendVerification).not.toHaveBeenCalled();
+    expect(harness.verifyEmail).not.toHaveBeenCalled();
+    expect(harness.requestPasswordReset).not.toHaveBeenCalled();
+    expect(harness.resetPassword).not.toHaveBeenCalled();
+
+    await expect(postLogin(harness.app).send(validLogin)).resolves.toMatchObject({ status: 200 });
+    expect(harness.loginUser).toHaveBeenCalledOnce();
   });
 });

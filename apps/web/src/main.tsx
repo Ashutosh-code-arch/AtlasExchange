@@ -17,7 +17,12 @@ if (rootElement === null) {
 createRoot(rootElement).render(
   <StrictMode>
     <AuthenticationProvider apiBaseUrl={webConfig.apiBaseUrl}>
-      <App apiBaseUrl={webConfig.apiBaseUrl} initialRoute={initialRoute} />
+      <App
+        apiBaseUrl={webConfig.apiBaseUrl}
+        environment={webConfig.environment}
+        publicAccountFeatures={webConfig.publicAccountFeatures}
+        initialRoute={initialRoute}
+      />
     </AuthenticationProvider>
   </StrictMode>,
 );

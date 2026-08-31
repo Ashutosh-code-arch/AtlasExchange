@@ -56,6 +56,12 @@ export {
 } from "./http/require-authentication.js";
 export { requireSessionCsrf, type RequireSessionCsrfOptions } from "./http/require-session-csrf.js";
 export type { AuthenticateAccess } from "./application/authenticate-access.js";
+export {
+  DemoIdentityProvisioningConflictError,
+  ProvisionDemoIdentity,
+  type ProvisionDemoIdentityCommand,
+  type ProvisionDemoIdentityResult,
+} from "./application/provision-demo-identity.js";
 export type { SessionCsrfTokenService } from "./application/session-csrf-token-service.js";
 export { CryptoSessionCsrfTokenService } from "./infrastructure/security/crypto-session-csrf-token-service.js";
 export type { AuthenticatedContext, IdentityRole } from "./application/authenticated-context.js";
@@ -67,10 +73,13 @@ export {
   PostgresIdentityAdministrationStore,
   bindPostgresIdentityAdministrationStore,
 } from "./infrastructure/persistence/postgres-identity-administration-store.js";
+export { PostgresDemoIdentityProvisioningTransactionRunner } from "./infrastructure/persistence/postgres-demo-identity-provisioning-transaction-runner.js";
 export {
   SmtpVerificationEmailDelivery,
   type SmtpVerificationEmailDeliveryOptions,
 } from "./infrastructure/delivery/smtp-verification-email-delivery.js";
+export { Argon2PasswordHasher } from "./infrastructure/security/argon2-password-hasher.js";
+export { LocalCompromisedPasswordChecker } from "./infrastructure/security/local-compromised-password-checker.js";
 
 export interface CreateIdentityModuleRouterOptions {
   readonly database: Kysely<IdentityDatabaseSchema>;
@@ -81,6 +90,10 @@ export interface CreateIdentityModuleRouterOptions {
   readonly sessionSecurity: Readonly<{
     readonly secureCookies: boolean;
     readonly csrfHmacKey: string;
+  }>;
+  readonly publicAccountFeatures?: Readonly<{
+    registrationEnabled: boolean;
+    passwordRecoveryEnabled: boolean;
   }>;
   readonly authenticateAccess?: AuthenticateAccess;
   readonly sessionCsrfTokenService?: SessionCsrfTokenService;
@@ -187,5 +200,8 @@ export async function createIdentityModuleRouter(
     sessionCsrfTokenService,
     secureCookies: options.sessionSecurity.secureCookies,
     webOrigin: options.webOrigin,
+    ...(options.publicAccountFeatures === undefined
+      ? {}
+      : { publicAccountFeatures: options.publicAccountFeatures }),
   });
 }

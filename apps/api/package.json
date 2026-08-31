@@ -18,6 +18,7 @@
     "lint": "eslint src tests scripts --max-warnings 0",
     "benchmark:password": "tsx scripts/benchmark-password-hashing.ts",
     "test:performance": "tsx scripts/run-http-performance-baseline.ts",
+    "identity:provision-demo": "tsx scripts/provision-demo-identity.ts",
     "db:migrate": "node --env-file-if-exists=.env --import tsx src/platform/database/migrate.ts",
     "db:verify-recovery": "node --env-file-if-exists=.env --import tsx src/platform/database/verify-recovery.ts"
   },

@@ -716,9 +716,16 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   metrics, five-minute UTC candlesticks, volume, live/stale state, and explicit read-only language.
   It retains the last validated reference through refresh failure and never allows external data to
   price, match, route, or settle the separately labeled Atlas simulation.
-- Repository work still required includes the Worker gateway, `demo` configuration, pre-verified
-  identity bootstrap with public registration disabled, zero-cost deployment contract, new release,
-  and live free-provider evidence.
+- `demo` is now a fail-closed managed runtime profile: HTTPS, proxy trust, CSRF, password blocklist,
+  Cloudflare Access, and Coinbase reference data are mandatory without weakening staging or
+  production. Its API and browser runtime remove public registration, verification, and password
+  recovery while preserving login and visibly identifying the environment as a simulation.
+- An operator-only command now creates one pre-verified active `user` identity from a restricted
+  environment file outside Git and shell history. It validates schema and password policy, creates
+  no verification/reset token, records a security event, permits only an exact idempotent repeat,
+  and never prints identity or credential values.
+- Repository work still required includes the Worker gateway, zero-cost deployment contract, new
+  release, and live free-provider evidence.
 - ADRs 067–070 and their Render/domain/collector runbooks are superseded for initial hosting. The
   implementation evidence below remains historical work that can inform a future paid
   production-shaped environment, but it must not be applied to the zero-cost demo.

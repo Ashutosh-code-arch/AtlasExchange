@@ -57,6 +57,11 @@ function AdministrationRoute(): React.JSX.Element | null {
 
 interface AppProps {
   readonly apiBaseUrl: string;
+  readonly environment?: "local" | "demo" | "staging" | "production";
+  readonly publicAccountFeatures?: Readonly<{
+    registrationEnabled: boolean;
+    passwordRecoveryEnabled: boolean;
+  }>;
   readonly readinessClient?: (apiBaseUrl: string) => ReturnType<typeof getReadiness>;
   readonly initialRoute?: ApplicationRoute;
 }
@@ -64,7 +69,10 @@ interface AppProps {
 function OverviewRoute({
   apiBaseUrl,
   readinessClient,
-}: Required<Pick<AppProps, "apiBaseUrl" | "readinessClient">>): React.JSX.Element {
+  publicAccountFeatures,
+}: Required<
+  Pick<AppProps, "apiBaseUrl" | "readinessClient" | "publicAccountFeatures">
+>): React.JSX.Element {
   const [readiness, setReadiness] = useState<ReadinessView>("checking");
 
   const refresh = useCallback(async () => {
@@ -98,7 +106,7 @@ function OverviewRoute({
 
   return (
     <>
-      <AuthenticationPanel />
+      <AuthenticationPanel publicAccountFeatures={publicAccountFeatures} />
       <OverviewPage readiness={readiness} onRefresh={() => void refresh()} />
       <Suspense
         fallback={
@@ -134,18 +142,26 @@ function OverviewRoute({
 
 export function App({
   apiBaseUrl,
+  environment = "local",
+  publicAccountFeatures = {
+    registrationEnabled: true,
+    passwordRecoveryEnabled: true,
+  },
   readinessClient = getReadiness,
   initialRoute = { name: "overview" },
 }: AppProps): React.JSX.Element {
   return (
     <div className="app-shell">
-      <header className="site-header">
+      <header className="site-header" data-environment={environment}>
         <a className="brand" href="/" aria-label="Atlas Exchange home">
           <span className="brand__symbol" aria-hidden="true">
             A
           </span>
           <span>ATLAS / EXCHANGE</span>
         </a>
+        {environment === "demo" ? (
+          <span className="site-header__environment">Demo · Simulation</span>
+        ) : null}
         <div className="site-header__actions">
           <nav aria-label="Primary navigation">
             {initialRoute.name === "overview" ? (
@@ -173,7 +189,11 @@ export function App({
         </div>
       </header>
       {initialRoute.name === "overview" ? (
-        <OverviewRoute apiBaseUrl={apiBaseUrl} readinessClient={readinessClient} />
+        <OverviewRoute
+          apiBaseUrl={apiBaseUrl}
+          readinessClient={readinessClient}
+          publicAccountFeatures={publicAccountFeatures}
+        />
       ) : initialRoute.name === "verify-email" ? (
         <VerifyEmailPage token={initialRoute.token} />
       ) : (
