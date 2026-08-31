@@ -10,13 +10,14 @@ import {
 
 function createRecord({ outcome = "go", status = "passed" } = {}) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     environment: "production",
     release: {
       version: "1.2.3",
       revision: "a".repeat(40),
       apiImageDigest: `sha256:${"b".repeat(64)}`,
       webImageDigest: `sha256:${"c".repeat(64)}`,
+      metricsCollectorImageDigest: `sha256:${"d".repeat(64)}`,
     },
     decision: {
       outcome,
@@ -140,6 +141,10 @@ describe("production readiness record validation", () => {
     const invalidDigest = createRecord();
     invalidDigest.release.apiImageDigest = "atlas-api:latest";
     assert.throws(() => validateReadinessRecord(invalidDigest), /immutable SHA-256/);
+
+    const missingCollector = createRecord();
+    delete missingCollector.release.metricsCollectorImageDigest;
+    assert.throws(() => validateReadinessRecord(missingCollector), /metricsCollectorImageDigest/);
   });
 
   it("rejects ambiguous decision metadata and local targets", () => {

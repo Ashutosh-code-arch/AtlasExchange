@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "environment": "staging",
+  "evaluationInterval": "1m",
+  "rules": [
+    {
+      "name": "AtlasMetricsCollectionLost",
+      "severity": "sev2",
+      "expression": "up{environment=\"staging\",job=\"atlas-api\"} == 0",
+      "pendingFor": "2m",
+      "noDataState": "Alerting",
+      "errorState": "Alerting",
+      "owner": "Operations Lead",
+      "runbookAnchor": "metrics-collection-lost",
+      "action": "Check the collector deployment, private API reachability, bearer-token agreement, and Grafana remote-write delivery."
+    },
+    {
+      "name": "AtlasMarketDataProjectionStopped",
+      "severity": "sev2",
+      "expression": "atlas_market_data_projection_running{environment=\"staging\"} == 0",
+      "pendingFor": "5m",
+      "noDataState": "Alerting",
+      "errorState": "Alerting",
+      "owner": "Operations Lead",
+      "runbookAnchor": "market-data-projection-stopped",
+      "action": "Confirm projection is enabled, inspect projection lifecycle logs, and stop promotion if command/read-model freshness cannot be reconciled."
+    },
+    {
+      "name": "AtlasMarketDataProjectionFailed",
+      "severity": "sev2",
+      "expression": "atlas_market_data_projection_markets{environment=\"staging\",state=\"failed\"} > 0",
+      "pendingFor": "5m",
+      "noDataState": "Alerting",
+      "errorState": "Alerting",
+      "owner": "Operations Lead",
+      "runbookAnchor": "market-data-projection-failed",
+      "action": "Correlate the latest projection failure logs, compare checkpoint lag, and preserve Trading command authority while recovery is evaluated."
+    }
+  ],
+  "baselineCandidates": [
+    {
+      "signal": "HTTP 5xx ratio and count",
+      "query": "sum(rate(atlas_http_requests_total{environment=\"staging\",status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(atlas_http_requests_total{environment=\"staging\"}[5m])), 0.001)",
+      "activationRequirement": "Choose count floor, ratio, and duration from representative staging traffic."
+    },
+    {
+      "signal": "PostgreSQL pool pressure",
+      "query": "atlas_database_pool_waiting_requests{environment=\"staging\"}",
+      "activationRequirement": "Choose sustained waiter and saturation windows from the capacity run."
+    },
+    {
+      "signal": "Event-loop delay",
+      "query": "atlas_nodejs_event_loop_delay_p99_seconds{environment=\"staging\"}",
+      "activationRequirement": "Choose a duration threshold from representative API and Argon2 load."
+    },
+    {
+      "signal": "Projection lag and stale success",
+      "query": "atlas_market_data_projection_max_lag{environment=\"staging\"}",
+      "activationRequirement": "Choose lag and freshness windows from active-market staging observations."
+    }
+  ],
+  "externalSynthetic": {
+    "name": "Atlas staging API readiness",
+    "path": "/health/ready",
+    "interval": "1m",
+    "timeout": "10s",
+    "expectedStatus": 200,
+    "failedExecutionsBeforeAlert": 2,
+    "locations": 2,
+    "authentication": "Cloudflare Access service token stored as Grafana Synthetic Monitoring secrets",
+    "noDataState": "Alerting",
+    "owner": "Operations Lead",
+    "runbookAnchor": "public-readiness-probe-failed"
+  }
+}

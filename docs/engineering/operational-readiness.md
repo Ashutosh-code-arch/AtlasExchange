@@ -14,8 +14,8 @@ Create a new record from
 restricted deployment evidence store. Do not overwrite the example and do not commit provider
 details, internal endpoints, credentials, user records, or confidential evidence to Git.
 
-Replace the placeholder release with the exact candidate version, full source revision, and API/web
-image digests. Evaluate every control:
+Replace the placeholder release with the exact candidate version, full source revision, and API,
+web, and metrics-collector image digests. Evaluate every control:
 
 - [ ] Runtime and managed PostgreSQL are selected, reviewed, supported, and ownership is named.
 - [ ] DNS, certificate renewal, same-site HTTPS origins, exact proxy hops, and private API
@@ -27,7 +27,7 @@ image digests. Evaluate every control:
 - [ ] A provider PITR drill met the accepted RPO/RTO in an isolated target.
 - [ ] A recent portable archive restored and passed Atlas schema and Financial validation.
 - [ ] Dependencies and every published platform image digest passed current vulnerability gates.
-- [ ] Release source, migrations, SBOM, provenance, signatures, and both digests were verified.
+- [ ] Release source, migrations, SBOM, provenance, signatures, and all three digests were verified.
 - [ ] Previous known-good digests, schema compatibility, operator, and traffic rollback are recorded.
 - [ ] Candidate staging smoke tests passed for health, session, ownership, Financial, Trading, and
       Market Data.
@@ -125,7 +125,7 @@ is uncertain. Record evidence before downgrading.
 ## First response
 
 1. Declare severity and the Incident Commander; stop unrelated production changes.
-2. Record the exact environment, release version, source revision, API/web digests, schema version,
+2. Record the exact environment, release version, source revision, API/web/collector digests, schema version,
    and first observed UTC time.
 3. Decide whether to disable all traffic, freeze affected mutations, disable one capability, revoke a
    credential, or continue read-only service. Prefer the smallest boundary that is demonstrably safe.

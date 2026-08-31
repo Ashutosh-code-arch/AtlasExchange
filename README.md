@@ -34,9 +34,11 @@ been approved.
 
 Phase 8 has selected Render as the initial production-shaped staging target and Cloudflare Access as
 its deny-by-default sharing boundary. Both deployables enforce the signed staging assertion at their
-Render origins. Live cost approval, an owned domain, exact invited identities, verified proxy
-semantics, and a later committed deployment manifest remain required. No provider resource, domain,
-or production environment has been created.
+Render origins. Grafana Alloy and Grafana Cloud now define the private metrics, dashboard, alert, and
+external-readiness boundary, including an immutable collector image and validated operational
+configuration. Live cost approval, an owned domain, exact invited identities, provider accounts,
+verified proxy semantics, and a later committed deployment manifest remain required. No provider
+resource, domain, or production environment has been created.
 
 ## Prerequisites
 
@@ -73,15 +75,17 @@ pnpm db:recovery:drill:local # prove an isolated local dump/restore and financia
 pnpm verify         # typecheck, lint, format-check, and test
 pnpm test:e2e       # run the isolated full-stack browser journeys
 pnpm build          # create production artifacts
-pnpm containers:build # build the API and web production images
+pnpm containers:build # build the API, web, and metrics-collector images
+pnpm observability:validate # validate the staging dashboard and alert policy
 pnpm security:secrets # scan source-control candidates without printing credential values
 pnpm security:dependencies # fail on High/Critical workspace advisories
-pnpm security:containers # fail on High/Critical findings in both built images
-pnpm security:check # run all security checks; expects both local images to exist
+pnpm security:containers # fail on High/Critical findings in all built images
+pnpm security:check # run all security checks; expects all local images to exist
 pnpm readiness:validate -- <record.json> # validate a staging/production go-no-go record
 ```
 
-Production images are built independently as `atlas-api:local` and `atlas-web:local`. The web image
+Production images are built independently as `atlas-api:local`, `atlas-web:local`, and
+`atlas-metrics-collector:local`. The web image
 requires the public `ATLAS_WEB_API_BASE_URL` at startup, so one immutable image can be promoted
 between environments without rebuilding browser assets. The API image exposes its migration runner
 at `node --enable-source-maps dist/platform/database/migrate.js`; migrations remain a separate
@@ -91,11 +95,11 @@ for the complete packaging boundary.
 
 Stable published GitHub Releases produce signed, SBOM-attached AMD64/ARM64 images in GHCR. Releases
 must use `vMAJOR.MINOR.PATCH`, match the root package version, and point to `main`; environments
-promote the resulting API and web digests rather than mutable tags. See the
+promote the resulting API, web, and collector digests rather than mutable tags. See the
 [release and deployment runbook](docs/engineering/release-and-deployment.md).
 
 CI and stable-release preparation scan source-control candidates for likely credentials, audit the
-complete workspace graph, and scan both built runtime images with a digest-pinned least-authority
+complete workspace graph, and scan all built runtime images with a digest-pinned least-authority
 scanner. High or Critical findings block publication. The security evidence is deliberately
 separate from deterministic `pnpm verify`; see
 [ADR-065](docs/architecture/decisions/ADR-065-software-supply-chain-vulnerability-and-secret-response.md).

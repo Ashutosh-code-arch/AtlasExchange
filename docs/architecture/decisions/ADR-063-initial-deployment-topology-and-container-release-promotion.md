@@ -26,7 +26,7 @@ The initial deployment and release boundary should:
 2. derive client network identity only through a bounded trusted ingress;
 3. acknowledge process-local limiting, WebSockets, and embedded projection ownership;
 4. keep the API container unreachable directly from the public internet;
-5. publish one source-identifiable API/web release pair;
+5. publish one source-identifiable application and operational-support release set;
 6. support Linux AMD64 and ARM64 without per-platform release versions;
 7. publish SBOM and provenance without long-lived registry credentials;
 8. promote and roll back by immutable digest rather than mutable tags; and
@@ -46,7 +46,7 @@ managed ingress (exactly one trusted hop)
              managed PostgreSQL primary
 
 external SMTP provider ← API
-protected metrics scraper → API /internal/metrics
+private metrics-collector image → API /internal/metrics → external telemetry store
 ```
 
 ## 1. Public origin and ingress topology
@@ -119,6 +119,8 @@ ghcr.io/<owner>/atlas-api:<version>
 ghcr.io/<owner>/atlas-api:sha-<full-commit>
 ghcr.io/<owner>/atlas-web:<version>
 ghcr.io/<owner>/atlas-web:sha-<full-commit>
+ghcr.io/<owner>/atlas-metrics-collector:<version>
+ghcr.io/<owner>/atlas-metrics-collector:sha-<full-commit>
 ```
 
 Each tag points to one multi-platform index containing Linux AMD64 and ARM64 images. Atlas does not
@@ -153,13 +155,15 @@ application is defect-free or that its dependencies contain no vulnerability.
 ## 6. Promotion and deployment contract
 
 Tags aid discovery, but deployment resolves and records the immutable multi-platform digest. The
-same API and web digests are promoted through staging and production; environment configuration and
-secrets are injected at runtime. Images are never rebuilt merely to change an endpoint or secret.
+same API, web, and selected operational-support digests are promoted through staging and production;
+environment configuration and secrets are injected at runtime. Images are never rebuilt merely to
+change an endpoint or secret. ADR-069 adds the metrics collector to this release set without making
+it part of the browser/API public contract.
 
 A release record must preserve:
 
 - semantic release version and source commit;
-- API and web image digests;
+- API, web, and metrics-collector image digests;
 - migration result and schema version;
 - target environment and deployment time; and
 - previous known-good digests.
@@ -237,7 +241,7 @@ architectures, while a single multi-platform release keeps deployment choice ope
 
 - The initial edge path and forwarded-identity authority are explicit and tested.
 - Release images are tied to stable version, source commit, and commit timestamp.
-- API and web support AMD64 and ARM64 under one immutable digest each.
+- API, web, and metrics collector support AMD64 and ARM64 under one immutable digest each.
 - Registry publication uses short-lived repository authority and pinned actions.
 - SBOM and signed provenance are available before a runtime vendor is selected.
 - Deployment can promote the same bytes and roll back to recorded digests.
@@ -272,3 +276,4 @@ signatures, or adds automated staging/production deployment.
 - [ADR-062 — Production Application Packaging and Runtime Web Configuration](ADR-062-production-application-packaging-and-runtime-web-configuration.md)
 - [ADR-064 — PostgreSQL Backup, Restore, and Recovery Validation](ADR-064-postgresql-backup-restore-and-recovery-validation.md)
 - [ADR-065 — Software Supply-Chain, Vulnerability, and Secret Response](ADR-065-software-supply-chain-vulnerability-and-secret-response.md)
+- [ADR-069 — Staging Observability Collection, Alerting, and Availability](ADR-069-staging-observability-collection-alerting-and-availability.md)

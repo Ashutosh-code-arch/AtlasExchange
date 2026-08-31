@@ -724,6 +724,20 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 - The canonical Cloudflare Access staging runbook records external inputs, activation order,
   browser/CORS/WebSocket proof, direct-origin bypass tests, proxy evidence, rollback, and stop
   conditions. No domain, DNS record, invited user, provider account, or deployment is created.
+- [ADR-069 — Staging Observability Collection, Alerting, and Availability](../architecture/decisions/ADR-069-staging-observability-collection-alerting-and-availability.md)
+  selects a digest-pinned Grafana Alloy private collector and Grafana Cloud for initial staging
+  metrics retention, dashboarding, alerts, and external readiness. The collector is a third scanned,
+  signed release image; its bounded private scrape/remote-write configuration is build-validated.
+- An importable staging operations dashboard, machine-validated active alert policy, deferred
+  baseline-dependent queries, and two-location Cloudflare-authenticated readiness probe contract are
+  committed. The canonical Grafana runbook defines activation, secret isolation, firing/recovery
+  proof, investigation, rollback, and stop conditions. No Grafana stack, Cloudflare service token,
+  contact point, provider spend, or readiness evidence exists yet.
+- The three-image vulnerability gate passes with current advisory data. Alloy's embedded optional
+  Docker client triggers `GO-2026-4887`, whose upstream affected path exists only in a Docker Engine
+  daemon using authorization plugins. Atlas records an exact collector-only, package-version-bound
+  non-applicability exception with compensating controls and automatic expiry on 2026-09-30; every
+  other High/Critical finding continues to block publication.
 
 ## Phase transition rule
 

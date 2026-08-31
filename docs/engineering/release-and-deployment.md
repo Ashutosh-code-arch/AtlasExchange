@@ -46,6 +46,8 @@ ghcr.io/ashutosh-code-arch/atlas-api:1.2.3
 ghcr.io/ashutosh-code-arch/atlas-api:sha-<full-commit>
 ghcr.io/ashutosh-code-arch/atlas-web:1.2.3
 ghcr.io/ashutosh-code-arch/atlas-web:sha-<full-commit>
+ghcr.io/ashutosh-code-arch/atlas-metrics-collector:1.2.3
+ghcr.io/ashutosh-code-arch/atlas-metrics-collector:sha-<full-commit>
 ```
 
 Do not deploy these tag strings directly. Resolve and record each multi-platform digest.
@@ -58,8 +60,8 @@ gh attestation verify \
   --repo Ashutosh-code-arch/AtlasExchange
 ```
 
-Repeat verification for the web image. Inspect OCI metadata and the attached SBOM/provenance before
-promotion.
+Repeat verification for the web and metrics-collector images. Inspect OCI metadata and the attached
+SBOM/provenance before promotion.
 
 ## Deployment configuration
 
@@ -84,17 +86,18 @@ Before a production promotion, complete and validate the exact candidate's go/no
 [operational readiness and incident runbook](operational-readiness.md). A successful release workflow
 or image scan is not approval. A missing, stale, blocked, or changed control is a `no-go`.
 
-Record the API and web digests, source revision, version, target environment, schema version, and
-previous known-good digests. After an explicit `go`:
+Record the API, web, and metrics-collector digests, source revision, version, target environment,
+schema version, and previous known-good digests. After an explicit `go`:
 
 1. verify a recent recovery point, successful backup evidence, latest accepted restore drill, and
    database capacity under ADR-064;
 2. run the API image migration entry point once using the API digest;
 3. start the API digest without public traffic;
 4. wait for `/health/live` and `/health/ready`;
-5. enable API ingress traffic;
-6. start the web digest with its runtime API URL; and
-7. smoke-test health, session establishment, and public Market Data.
+5. start the metrics-collector digest privately and prove remote collection;
+6. enable API ingress traffic;
+7. start the web digest with its runtime API URL; and
+8. smoke-test health, session establishment, public Market Data, and external readiness.
 
 Do not run migrations from ordinary API startup and do not run concurrent migration jobs.
 

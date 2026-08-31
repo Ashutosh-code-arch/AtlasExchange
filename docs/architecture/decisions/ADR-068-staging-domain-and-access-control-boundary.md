@@ -67,6 +67,7 @@ uses:
 
 - deny by default;
 - one Allow policy containing exact invited email addresses;
+- one separate Service Auth policy containing only the dedicated ADR-069 availability-probe token;
 - one-time PIN for the initial small external reviewer set;
 - no `Everyone`, email-domain-wide, login-method-only, or permanent Bypass rule;
 - an eight-hour application and policy session;
@@ -78,6 +79,10 @@ An organizational identity provider and enforced MFA are preferred when Atlas ha
 OTP is a staging-sharing convenience, not Atlas account authentication and not a production identity
 decision. Removing a reviewer from the exact allow-list is the revocation mechanism; session
 revocation evidence must also be tested.
+
+The monitoring Service Auth policy is machine admission, not user admission. It must select one exact
+service token and must not use `Any Access Service Token`, `Everyone`, or Bypass. Its credentials live
+only in the synthetic-monitoring secret store and grant no Atlas identity or application authority.
 
 ## 3. CORS and browser behavior
 
@@ -216,3 +221,4 @@ moves providers, or production access requirements are being selected.
 - [ADR-042 — Realtime Market Data WebSocket Protocol and Server Delivery](ADR-042-realtime-market-data-websocket-protocol-and-server-delivery.md)
 - [ADR-056 — Production HTTP Edge Security and Resource Boundary](ADR-056-production-http-edge-security-and-resource-boundary.md)
 - [ADR-067 — Initial Staging Platform and Managed PostgreSQL Provider](ADR-067-initial-staging-platform-and-managed-postgresql-provider.md)
+- [ADR-069 — Staging Observability Collection, Alerting, and Availability](ADR-069-staging-observability-collection-alerting-and-availability.md)

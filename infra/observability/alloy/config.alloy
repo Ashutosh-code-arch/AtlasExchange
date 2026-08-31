@@ -1,0 +1,58 @@
+logging {
+  level  = "info"
+  format = "json"
+}
+
+prometheus.remote_write "grafana_cloud" {
+  external_labels = {
+    environment = "staging",
+    service     = "atlas-api",
+  }
+
+  endpoint {
+    name           = "grafana-cloud-metrics"
+    url            = sys.env("GRAFANA_CLOUD_PROMETHEUS_URL")
+    remote_timeout = "10s"
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_PROMETHEUS_USERNAME")
+      password = sys.env("GRAFANA_CLOUD_METRICS_TOKEN")
+    }
+
+    queue_config {
+      min_shards           = 1
+      max_shards           = 2
+      capacity             = 2500
+      max_samples_per_send = 500
+      batch_send_deadline  = "5s"
+      retry_on_http_429    = true
+    }
+  }
+
+  wal {
+    truncate_frequency = "2h"
+    min_keepalive_time = "5m"
+    max_keepalive_time = "4h"
+  }
+}
+
+prometheus.scrape "atlas_api" {
+  targets = [
+    {
+      "__address__" = sys.env("ATLAS_METRICS_TARGET"),
+    },
+  ]
+
+  forward_to               = [prometheus.remote_write.grafana_cloud.receiver]
+  job_name                 = "atlas-api"
+  scheme                   = "http"
+  metrics_path             = "/internal/metrics"
+  bearer_token             = sys.env("METRICS_BEARER_TOKEN")
+  scrape_interval          = "30s"
+  scrape_timeout           = "5s"
+  sample_limit             = 1000
+  label_limit              = 12
+  label_name_length_limit  = 128
+  label_value_length_limit = 256
+  body_size_limit          = "1MiB"
+}

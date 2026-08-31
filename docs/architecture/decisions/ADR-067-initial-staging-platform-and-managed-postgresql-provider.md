@@ -177,9 +177,9 @@ explicit temporary configuration decision and synthetic identities only.
 ## 8. Observability and alerts
 
 Render's built-in service/database metrics and failure notifications are useful platform signals,
-but they do not collect Atlas's protected application metrics or prove alert delivery. A later slice
-will run a private collector that scrapes `/internal/metrics` over Render's private network and
-forwards bounded telemetry to the selected external store.
+but they do not collect Atlas's protected application metrics or prove alert delivery. ADR-069 now
+selects one image-backed private Grafana Alloy service that scrapes `/internal/metrics` over Render's
+private network and forwards bounded telemetry to Grafana Cloud.
 
 The staging go/no-go remains blocked until platform and application signals have retention,
 dashboards, actionable thresholds, and a tested delivery path. Render's continuing routing/restart

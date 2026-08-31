@@ -10,6 +10,10 @@ const rootManifest = JSON.parse(readFileSync(resolve(repositoryDirectory, "packa
 const images = Object.freeze([
   Object.freeze({ dockerfile: "apps/api/Dockerfile", tag: "atlas-api:local" }),
   Object.freeze({ dockerfile: "apps/web/Dockerfile", tag: "atlas-web:local" }),
+  Object.freeze({
+    dockerfile: "infra/observability/alloy/Dockerfile",
+    tag: "atlas-metrics-collector:local",
+  }),
 ]);
 
 function gitValue(arguments_) {

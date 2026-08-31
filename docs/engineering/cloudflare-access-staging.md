@@ -14,6 +14,7 @@ Access provider selected:          Cloudflare Access
 Origin JWT validation implemented: API HTTP + WebSocket, web HTTP
 Owned domain supplied:             no
 Cloudflare zone/team created:      no evidence
+Monitor service token/policy:      no evidence
 Exact invited emails approved:     no
 Access application/AUD created:    no
 DNS records changed:               no
@@ -30,6 +31,7 @@ Staging publicly reachable:        no
 - [ ] Live confirmation that the Zero Trust Free plan covers the intended reviewer count and features.
 - [ ] Render service hostnames used only as CNAME targets and certificate-verification inputs.
 - [ ] Approved Access application/policy session duration if eight hours is unsuitable.
+- [ ] Dedicated ADR-069 availability-probe service token and approved expiry.
 
 Do not commit email addresses, provider account identifiers, DNS verification values, or access-event
 exports merely to satisfy this checklist.
@@ -50,11 +52,14 @@ HttpOnly:                 enabled
 SameSite:                 Lax
 Binding cookie:           enable, then test HTTP and WebSocket
 Bypass policies:          none
+Machine policy:           Service Auth, exact availability-probe token only
 API OPTIONS behavior:     bypass Access to Atlas origin CORS
 ```
 
 Never create an Allow rule containing `Everyone`, only `One-time PIN`, or an entire public email
 domain. OTP sends mail only to identities already allowed by the exact-email policy.
+Never select `Any Access Service Token` for monitoring. The machine policy must name only the
+dedicated probe token and must not become a Bypass policy.
 
 ## Activation sequence
 
@@ -65,8 +70,9 @@ domain. OTP sends mail only to identities already allowed by the exact-email pol
 5. Wait for Render domain verification and valid certificates.
 6. Create the single two-host Access application and exact-email policy.
 7. Enable eager cookies, bounded sessions, API `OPTIONS` bypass, and the reviewed cookie settings.
-8. Set both CNAMEs to Cloudflare Proxied and use Full TLS mode.
-9. Put the same team origin and application audience into both Render services:
+8. Add the exact-token Service Auth policy only when the ADR-069 synthetic secret store is ready.
+9. Set both CNAMEs to Cloudflare Proxied and use Full TLS mode.
+10. Put the same team origin and application audience into both Render services:
 
    ```text
    ATLAS_ENV=staging
@@ -74,9 +80,9 @@ domain. OTP sends mail only to identities already allowed by the exact-email pol
    CLOUDFLARE_ACCESS_AUDIENCE=<application audience>
    ```
 
-10. Deploy the exact candidate digests and confirm both services start fail-closed.
-11. Disable both Render `onrender.com` subdomains.
-12. Complete every proof below before inviting a reviewer.
+11. Deploy the exact candidate digests and confirm both services start fail-closed.
+12. Disable both Render `onrender.com` subdomains.
+13. Complete every proof below before inviting a reviewer.
 
 If Render requires DNS-only mode again for certificate renewal, stop reviewer access and establish a
 documented maintenance path before weakening the proxy boundary.
@@ -93,6 +99,8 @@ documented maintenance path before weakening the proxy boundary.
 - Missing, malformed, expired, wrong-audience, wrong-issuer, and incorrectly signed assertions fail
   with generic `403` behavior.
 - Render health checks still pass, and private metrics still require their independent bearer token.
+- The external readiness probe succeeds only with the exact service token, fails after its policy is
+  removed/revoked, and still reaches an origin-validated Cloudflare assertion.
 
 ### Browser and protocol
 
@@ -120,7 +128,7 @@ documented maintenance path before weakening the proxy boundary.
 Record timestamps, reviewer/policy revision identifiers, application audience fingerprint, source
 revision, image digests, DNS/TLS results, Access decision IDs, browser versions, WebSocket results,
 origin-bypass results, and proxy observations. Redact assertion tokens, cookies, OTPs, email addresses,
-provider credentials, and complete DNS-account screenshots.
+provider credentials, service-token values, and complete DNS-account screenshots.
 
 Cloudflare's short free-plan log retention is operational evidence only. Exported durable audit
 retention remains a later observability decision.

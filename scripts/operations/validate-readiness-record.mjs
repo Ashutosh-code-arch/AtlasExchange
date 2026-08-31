@@ -57,6 +57,10 @@ function validateRelease(value) {
   const revision = assertString(release.revision, "release.revision");
   const apiImageDigest = assertString(release.apiImageDigest, "release.apiImageDigest");
   const webImageDigest = assertString(release.webImageDigest, "release.webImageDigest");
+  const metricsCollectorImageDigest = assertString(
+    release.metricsCollectorImageDigest,
+    "release.metricsCollectorImageDigest",
+  );
 
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
     throw new Error("release.version must use stable MAJOR.MINOR.PATCH syntax");
@@ -67,13 +71,14 @@ function validateRelease(value) {
   for (const [field, digest] of [
     ["release.apiImageDigest", apiImageDigest],
     ["release.webImageDigest", webImageDigest],
+    ["release.metricsCollectorImageDigest", metricsCollectorImageDigest],
   ]) {
     if (!/^sha256:[0-9a-f]{64}$/.test(digest)) {
       throw new Error(`${field} must be an immutable SHA-256 image digest`);
     }
   }
 
-  return { apiImageDigest, revision, version, webImageDigest };
+  return { apiImageDigest, metricsCollectorImageDigest, revision, version, webImageDigest };
 }
 
 function validateDecision(value) {
@@ -160,7 +165,7 @@ function validateControls(value, decision) {
 
 export function validateReadinessRecord(value) {
   const record = assertObject(value, "readiness record");
-  if (record.schemaVersion !== 1) throw new Error("schemaVersion must equal 1");
+  if (record.schemaVersion !== 2) throw new Error("schemaVersion must equal 2");
   const environment = assertString(record.environment, "environment");
   if (environment !== "staging" && environment !== "production") {
     throw new Error("environment must be staging or production");

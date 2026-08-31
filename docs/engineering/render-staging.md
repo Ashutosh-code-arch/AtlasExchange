@@ -19,6 +19,8 @@ Staging access boundary:         Cloudflare Access selected; not configured
 Proxy chain:                     not verified
 GHCR visibility/pull authority:  not verified
 Deployment manifest:             deliberately deferred
+Private metrics collector:       selected and implemented; not deployed
+Grafana Cloud destination:        selected; no stack evidence
 Production approval:             no-go
 ```
 
@@ -34,7 +36,7 @@ Production approval:             no-go
 - [ ] Decide whether GHCR release packages are public or use a rotatable read-only pull credential.
 - [ ] Confirm the SMTP provider and staging sender identity.
 - [ ] Prepare a production-grade offline password-blocklist file.
-- [ ] Define the private metrics collector and external retention destination.
+- [x] Define the private metrics collector and external retention destination.
 - [ ] Obtain an authoritative answer or controlled test plan for Render forwarding semantics.
 
 Do not create placeholder public services merely to discover their URLs. Domain, CORS, secure-cookie,
@@ -48,11 +50,13 @@ All resources belong to one Render staging project in `singapore`:
 |---|---|---|---:|
 | `atlas-api-staging` | Image-backed web service | `1c-2g` | 1 instance |
 | `atlas-web-staging` | Image-backed web service | `0.5c-512mb` | 1 instance |
+| `atlas-metrics-collector-staging` | Image-backed private service | live estimate required | 1 instance |
 | `atlas-postgres-staging` | Render Postgres 18 | `0.5c-1g` | 15 GB |
 
 Autoscaling is disabled. Database public access uses an empty allow-list. Services consume the
-database's internal connection string. API and web images use exact GHCR digests from the same
-release record.
+database's internal connection string. API, web, and collector images use exact GHCR digests from
+the same release record. The collector has no public route; its plan remains a live cost input
+because this runbook must not invent a Render SKU.
 
 ## Intended non-secret API configuration
 
@@ -94,6 +98,11 @@ SMTP_PASSWORD       # only when required
 registry credential # only while GHCR images remain private
 ```
 
+The collector separately receives the same `METRICS_BEARER_TOKEN`, its exact private API target,
+Grafana Cloud's HTTPS remote-write URL and username, and a metrics-write-only Grafana token. Follow
+the [Grafana Cloud staging observability runbook](grafana-cloud-staging-observability.md); none of
+those values belong in the future Blueprint.
+
 Database URLs and secret values must not enter shell history, deployment logs, screenshots, ADRs, or
 readiness evidence. Seal or otherwise restrict provider variables after initial configuration.
 
@@ -120,6 +129,15 @@ Web:
 - deploy health path: `/health/live`; and
 - one instance.
 
+Metrics collector:
+
+- image: `ghcr.io/ashutosh-code-arch/atlas-metrics-collector@sha256:<candidate>`;
+- service type: private, image-backed, exactly one instance;
+- start command: image default;
+- private health path: `/` on port `12345`;
+- target: exact API private hostname and effective private port; and
+- no public route, autoscaling, or overlapping collector during rollout.
+
 Automatic source builds and deploy-on-push remain disabled. Deployment begins from a reviewed release
 record and promotes immutable digests.
 
@@ -134,12 +152,13 @@ After a later slice commits and validates the Render manifest:
 5. enter and seal secrets, upload the blocklist, and wire the internal database reference;
 6. deploy the API digest without enabling normal browser traffic;
 7. run the migration job once and require `/health/ready`;
-8. deploy the web digest and require `/health/live`;
-9. disable both default `onrender.com` subdomains after custom-domain verification;
-10. execute hostile-forwarded-header and direct-bypass tests;
-11. execute identity, Financial, Trading, Market Data, ownership, WebSocket, and stale-recovery smoke
+8. deploy the collector digest privately and prove remote `up == 1` before traffic;
+9. deploy the web digest and require `/health/live`;
+10. disable both default `onrender.com` subdomains after custom-domain verification;
+11. execute hostile-forwarded-header and direct-bypass tests;
+12. execute identity, Financial, Trading, Market Data, ownership, WebSocket, and stale-recovery smoke
     checks with synthetic identities; and
-12. keep the readiness outcome `no-go` until monitoring, alert delivery, recovery, capacity, security,
+13. keep the readiness outcome `no-go` until monitoring, alert delivery, recovery, capacity, security,
     incident exercise, and remaining ADR-066 controls pass.
 
 ## Mandatory provider evidence

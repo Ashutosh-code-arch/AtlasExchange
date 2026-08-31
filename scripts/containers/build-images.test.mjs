@@ -63,12 +63,14 @@ describe("container image build metadata", () => {
     );
   });
 
-  it("builds exactly the API and web local image plans", () => {
+  it("builds exactly the API, web, and metrics-collector local image plans", () => {
     const plan = createContainerBuildPlan(metadata);
-    assert.equal(plan.length, 2);
+    assert.equal(plan.length, 3);
     assert.equal(plan[0][2], "apps/api/Dockerfile");
     assert.equal(plan[0][4], "atlas-api:local");
     assert.equal(plan[1][2], "apps/web/Dockerfile");
     assert.equal(plan[1][4], "atlas-web:local");
+    assert.equal(plan[2][2], "infra/observability/alloy/Dockerfile");
+    assert.equal(plan[2][4], "atlas-metrics-collector:local");
   });
 });
