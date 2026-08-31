@@ -20,7 +20,7 @@ Render account/Free API:       no evidence
 Neon account/Free PostgreSQL:  no evidence
 Demo identity path:            not implemented
 Coinbase reference adapter:    implemented; runtime activation pending
-Reference chart:               not implemented
+Reference chart:               implemented; deployment activation pending
 Candidate API image:           v0.1.1 published and verified
 Production approval:           no-go
 ```
@@ -44,7 +44,7 @@ increase a limit. When an allowance is exhausted, accept suspension or revise AD
 - [ ] Add the Cloudflare Worker static/gateway application and tests.
 - [ ] Add an operator-only pre-verified demo-identity command and disable public demo registration.
 - [x] Add the Coinbase reference-data adapter, contracts, freshness, and reconnect tests.
-- [ ] Add the labeled real-price/candlestick surface.
+- [x] Add the labeled real-price/candlestick surface.
 - [ ] Add a zero-cost deployment manifest/input validator.
 - [ ] Publish and verify a new release containing the demo runtime.
 
@@ -74,6 +74,11 @@ Only `BTC-USD` and `ETH-USD` are accepted. Responses name Coinbase and include o
 and live/stale metadata. No response includes Atlas projection sequences or any command that can
 enter Trading or Financial. Before the first valid provider message, the API returns
 `REFERENCE_DATA_UNAVAILABLE` rather than substituting a simulated price.
+
+The Trading workspace renders those snapshots in a source-labeled Coinbase quote and five-minute
+candlestick surface. It keeps the Atlas order book, ticket, activity, orders, fills, balances, and
+settlement visibly labeled as simulation. Provider failure produces a stale or unavailable
+reference state; the browser never substitutes an Atlas simulated price.
 
 ## Intended activation order
 

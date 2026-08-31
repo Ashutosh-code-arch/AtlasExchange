@@ -12,9 +12,10 @@ import { useAuthenticationSession } from "../../authentication";
 import {
   BrowserMarketDataStreamClient,
   LevelTwoOrderBook,
-  CandlestickChart,
-  TradeTickerPanel,
+  ReferenceMarketOverview,
   type MarketDataSubscriptionClient,
+  type ReferenceMarketCandlesLoader,
+  type ReferenceMarketTickerLoader,
 } from "../../market-data";
 import {
   cancelTradingOrder,
@@ -45,6 +46,9 @@ export interface TradingWorkspaceProps extends TradingStateProps {
   readonly candleHistoryLimit?: number;
   readonly orderBookDepth?: number;
   readonly marketDataStreamClient?: MarketDataSubscriptionClient;
+  readonly referenceMarketTickerLoader?: ReferenceMarketTickerLoader;
+  readonly referenceMarketCandlesLoader?: ReferenceMarketCandlesLoader;
+  readonly referenceMarketRefreshIntervalMs?: number;
 }
 
 interface Feedback {
@@ -195,7 +199,7 @@ function OrderTicket({
     <aside className="trading-ticket" aria-labelledby="trading-ticket-title">
       <div className="trading-ticket__heading">
         <div>
-          <p className="eyebrow">Limit order</p>
+          <p className="eyebrow">Atlas simulation · limit order</p>
           <h3 id="trading-ticket-title">Order ticket</h3>
         </div>
         <span>GTC</span>
@@ -451,6 +455,7 @@ function TradingActivity({
             Executions <span>{controller.trades.length}</span>
           </button>
         </div>
+        <span className="trading-activity__simulation">Atlas simulation</span>
         {authenticated ? (
           <button
             className="text-button"
@@ -533,6 +538,9 @@ export function TradingWorkspace({
   candleHistoryLimit = 120,
   orderBookDepth = 15,
   marketDataStreamClient,
+  referenceMarketTickerLoader,
+  referenceMarketCandlesLoader,
+  referenceMarketRefreshIntervalMs,
   pageSize = 25,
   idempotencyKeyFactory,
 }: TradingWorkspaceProps): React.JSX.Element {
@@ -545,6 +553,7 @@ export function TradingWorkspace({
       }),
     [apiBaseUrl, marketDataStreamClient],
   );
+  const referenceMarketHttpClient = useMemo(() => ({ request }), [request]);
   const authenticated = state.status === "authenticated";
   const controller = useTradingWorkspaceState({
     request,
@@ -701,24 +710,32 @@ export function TradingWorkspace({
             <dl>
               <div>
                 <dt>Market state</dt>
-                <dd>{selectedMarket === undefined ? "—" : humanize(selectedMarket.status)}</dd>
+                <dd>
+                  {selectedMarket === undefined
+                    ? "—"
+                    : `Simulation · ${humanize(selectedMarket.status)}`}
+                </dd>
               </div>
               <div>
-                <dt>Price feed</dt>
-                <dd className="trading-market-header__live">Candles + ticker + Level 2 · Live</dd>
+                <dt>External reference</dt>
+                <dd className="trading-market-header__live">Coinbase · Read only</dd>
               </div>
             </dl>
           </header>
 
-          <TradeTickerPanel
-            stream={marketDataStream}
-            {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
-          />
-
-          <CandlestickChart
-            stream={marketDataStream}
+          <ReferenceMarketOverview
+            client={referenceMarketHttpClient}
             limit={candleHistoryLimit}
             {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
+            {...(referenceMarketTickerLoader === undefined
+              ? {}
+              : { tickerLoader: referenceMarketTickerLoader })}
+            {...(referenceMarketCandlesLoader === undefined
+              ? {}
+              : { candlesLoader: referenceMarketCandlesLoader })}
+            {...(referenceMarketRefreshIntervalMs === undefined
+              ? {}
+              : { refreshIntervalMs: referenceMarketRefreshIntervalMs })}
           />
 
           <LevelTwoOrderBook

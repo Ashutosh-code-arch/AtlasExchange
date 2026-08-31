@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type {
   MarketDataOrderBookResponse,
-  MarketDataCandlesResponse,
-  MarketDataTickerResponse,
+  ReferenceMarketDataCandlesResponse,
+  ReferenceMarketDataTickerResponse,
   TradingMarket,
   TradingOrder,
   TradingTrade,
@@ -81,6 +81,8 @@ type OrderLoader = NonNullable<TradingWorkspaceProps["orderLoader"]>;
 type TradeLoader = NonNullable<TradingWorkspaceProps["tradeLoader"]>;
 type OrderPlacer = NonNullable<TradingWorkspaceProps["orderPlacer"]>;
 type OrderCanceller = NonNullable<TradingWorkspaceProps["orderCanceller"]>;
+type ReferenceTickerLoader = NonNullable<TradingWorkspaceProps["referenceMarketTickerLoader"]>;
+type ReferenceCandlesLoader = NonNullable<TradingWorkspaceProps["referenceMarketCandlesLoader"]>;
 
 const orderBook: MarketDataOrderBookResponse["data"] = {
   marketCode: "BTC-USD",
@@ -95,37 +97,37 @@ const orderBook: MarketDataOrderBookResponse["data"] = {
   asks: [{ price: "50010", quantity: "0.002", orderCount: "1" }],
 };
 
-const ticker: MarketDataTickerResponse["data"] = {
+const referenceTicker: ReferenceMarketDataTickerResponse["data"] = {
   marketCode: "BTC-USD",
-  sequence: "3",
-  publishedSequence: "3",
-  lag: "0",
-  freshness: "current",
-  asOf: "2026-08-28T12:00:03.000Z",
-  generatedAt: "2026-08-28T12:00:03.250Z",
-  windowStart: "2026-08-27T12:00:03.250Z",
-  windowEnd: "2026-08-28T12:00:03.250Z",
-  lastPrice: "50000",
-  lastQuantity: "0.001",
-  lastExecutedAt: "2026-08-28T12:00:02.000Z",
-  highPrice: "50000",
-  lowPrice: "49000",
-  baseVolume: "0.002",
-  quoteVolume: "99",
+  source: "coinbase",
+  freshness: "live",
+  observedAt: "2026-08-31T12:02:01.000Z",
+  receivedAt: "2026-08-31T12:02:01.250Z",
+  price: "108500.25",
+  priceChange24hPercent: "-0.25",
+  highPrice24h: "110000",
+  lowPrice24h: "107900.5",
+  baseVolume24h: "1250.125",
 };
 
-const candleHistory: MarketDataCandlesResponse["data"] = {
+const referenceCandles: ReferenceMarketDataCandlesResponse["data"] = {
   marketCode: "BTC-USD",
+  source: "coinbase",
+  freshness: "live",
+  observedAt: "2026-08-31T12:02:02.000Z",
+  receivedAt: "2026-08-31T12:02:02.250Z",
   interval: "5m",
-  limit: 120,
-  sequence: "3",
-  publishedSequence: "3",
-  lag: "0",
-  freshness: "current",
-  asOf: "2026-08-28T12:06:00.000Z",
-  generatedAt: "2026-08-28T12:07:00.000Z",
-  candles: [],
-  nextBefore: null,
+  candles: [
+    {
+      start: "2026-08-31T12:00:00.000Z",
+      end: "2026-08-31T12:05:00.000Z",
+      openPrice: "108500",
+      highPrice: "108700",
+      lowPrice: "108450",
+      closePrice: "108650",
+      baseVolume: "3.25",
+    },
+  ],
 };
 
 function renderWorkspace(
@@ -137,9 +139,7 @@ function renderWorkspace(
     dispose: vi.fn(),
     announceAuthenticationLost: vi.fn(),
   };
-  const stream =
-    props.marketDataStreamClient ??
-    new ControlledMarketDataStream({ orderBook, ticker, candles: candleHistory });
+  const stream = props.marketDataStreamClient ?? new ControlledMarketDataStream({ orderBook });
   const apiBaseUrl = props.apiBaseUrl ?? "http://api.test";
   render(
     <AuthenticationProvider
@@ -151,7 +151,20 @@ function renderWorkspace(
           : Promise.reject(new ApiHttpError(401, "AUTHENTICATION_REQUIRED", "anonymous"))
       }
     >
-      <TradingWorkspace {...props} apiBaseUrl={apiBaseUrl} marketDataStreamClient={stream} />
+      <TradingWorkspace
+        referenceMarketTickerLoader={
+          props.referenceMarketTickerLoader ??
+          vi.fn<ReferenceTickerLoader>().mockResolvedValue(referenceTicker)
+        }
+        referenceMarketCandlesLoader={
+          props.referenceMarketCandlesLoader ??
+          vi.fn<ReferenceCandlesLoader>().mockResolvedValue(referenceCandles)
+        }
+        referenceMarketRefreshIntervalMs={0}
+        {...props}
+        apiBaseUrl={apiBaseUrl}
+        marketDataStreamClient={stream}
+      />
     </AuthenticationProvider>,
   );
   return client;
@@ -167,11 +180,12 @@ function standardProps(overrides: Partial<TradingWorkspaceProps> = {}): TradingW
     tradeLoader: vi
       .fn<TradeLoader>()
       .mockResolvedValue({ trades: [execution], page: { nextCursor: null } }),
-    marketDataStreamClient: new ControlledMarketDataStream({
-      orderBook,
-      ticker,
-      candles: candleHistory,
-    }),
+    marketDataStreamClient: new ControlledMarketDataStream({ orderBook }),
+    referenceMarketTickerLoader: vi.fn<ReferenceTickerLoader>().mockResolvedValue(referenceTicker),
+    referenceMarketCandlesLoader: vi
+      .fn<ReferenceCandlesLoader>()
+      .mockResolvedValue(referenceCandles),
+    referenceMarketRefreshIntervalMs: 0,
     ...overrides,
   };
 }
@@ -181,11 +195,7 @@ describe("TradingWorkspace", () => {
     const marketLoader = vi.fn<MarketLoader>().mockResolvedValue(markets);
     const orderLoader = vi.fn<OrderLoader>();
     const tradeLoader = vi.fn<TradeLoader>();
-    const stream = new ControlledMarketDataStream({
-      orderBook,
-      ticker,
-      candles: candleHistory,
-    });
+    const stream = new ControlledMarketDataStream({ orderBook });
     renderWorkspace(
       {
         marketLoader,
@@ -204,24 +214,21 @@ describe("TradingWorkspace", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Current snapshot")).toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: "BTC-USD rolling 24-hour ticker" }),
-    ).toHaveTextContent(/50000.*Last size.*0\.001.*24h high.*50000/i);
+      screen.getByRole("region", { name: "BTC-USD Coinbase reference market" }),
+    ).toHaveTextContent(/Coinbase.*Real market reference.*108[,.]500\.25.*24h high/i);
     expect(screen.getByText("Sign in above to place and manage orders.")).toBeInTheDocument();
     expect(screen.getByLabelText("Quantity")).toBeDisabled();
     expect(screen.getByText(/Sign in to view your private orders/i)).toBeInTheDocument();
     expect(marketLoader).toHaveBeenCalledTimes(1);
     expect(orderLoader).not.toHaveBeenCalled();
     expect(tradeLoader).not.toHaveBeenCalled();
-    expect(screen.getByRole("region", { name: "BTC-USD candlestick chart" })).toHaveTextContent(
-      /Price history.*No committed trades/i,
-    );
-    expect(stream.activeSubscriptions).toEqual(
-      expect.arrayContaining([
-        { topic: "order_book", marketCode: "BTC-USD", depth: 15 },
-        { topic: "ticker", marketCode: "BTC-USD" },
-        { topic: "candles", marketCode: "BTC-USD", interval: "5m", limit: 120 },
-      ]),
-    );
+    expect(
+      screen.getByRole("img", { name: "BTC-USD Coinbase 5-minute candlestick chart" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Atlas simulation/i).length).toBeGreaterThanOrEqual(3);
+    expect(stream.activeSubscriptions).toEqual([
+      { topic: "order_book", marketCode: "BTC-USD", depth: 15 },
+    ]);
   });
 
   it("places a sell limit order from the selected market and shows server-confirmed success", async () => {

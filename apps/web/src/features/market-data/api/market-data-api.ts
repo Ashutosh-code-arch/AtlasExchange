@@ -8,10 +8,17 @@ import {
   marketDataTickerParamsSchema,
   marketDataTickerQuerySchema,
   marketDataTickerResponseSchema,
+  referenceMarketDataCandlesQuerySchema,
+  referenceMarketDataCandlesResponseSchema,
+  referenceMarketDataParamsSchema,
+  referenceMarketDataTickerQuerySchema,
+  referenceMarketDataTickerResponseSchema,
   type MarketDataOrderBookResponse,
   type MarketDataCandleInterval,
   type MarketDataCandlesResponse,
   type MarketDataTickerResponse,
+  type ReferenceMarketDataCandlesResponse,
+  type ReferenceMarketDataTickerResponse,
 } from "@atlas/contracts";
 
 import type { AuthenticationHttpClient } from "../../authentication";
@@ -40,6 +47,20 @@ export interface GetCandleHistoryInput {
 
 export type CandleHistorySnapshot = MarketDataCandlesResponse["data"];
 export type CandleHistoryLoader = typeof getCandleHistory;
+
+export interface GetReferenceMarketTickerInput {
+  readonly marketCode: string;
+}
+
+export interface GetReferenceMarketCandlesInput {
+  readonly marketCode: string;
+  readonly limit?: number;
+}
+
+export type ReferenceMarketTickerSnapshot = ReferenceMarketDataTickerResponse["data"];
+export type ReferenceMarketCandlesSnapshot = ReferenceMarketDataCandlesResponse["data"];
+export type ReferenceMarketTickerLoader = typeof getReferenceMarketTicker;
+export type ReferenceMarketCandlesLoader = typeof getReferenceMarketCandles;
 
 export async function getLevelTwoOrderBook(
   client: MarketDataHttpClient,
@@ -93,4 +114,36 @@ export async function getCandleHistory(
   );
   const payload = (await response.json()) as unknown;
   return marketDataCandlesResponseSchema.parse(payload).data;
+}
+
+export async function getReferenceMarketTicker(
+  client: MarketDataHttpClient,
+  input: GetReferenceMarketTickerInput,
+): Promise<ReferenceMarketTickerSnapshot> {
+  const params = referenceMarketDataParamsSchema.parse({ marketCode: input.marketCode });
+  referenceMarketDataTickerQuerySchema.parse({});
+  const response = await client.request(
+    `/api/v1/reference-market-data/markets/${encodeURIComponent(params.marketCode)}/ticker`,
+    { method: "GET", recoverAuthentication: false },
+  );
+  const payload = (await response.json()) as unknown;
+  return referenceMarketDataTickerResponseSchema.parse(payload).data;
+}
+
+export async function getReferenceMarketCandles(
+  client: MarketDataHttpClient,
+  input: GetReferenceMarketCandlesInput,
+): Promise<ReferenceMarketCandlesSnapshot> {
+  const params = referenceMarketDataParamsSchema.parse({ marketCode: input.marketCode });
+  const query = referenceMarketDataCandlesQuerySchema.parse({
+    interval: "5m",
+    limit: input.limit === undefined ? undefined : String(input.limit),
+  });
+  const search = new URLSearchParams({ interval: query.interval, limit: String(query.limit) });
+  const response = await client.request(
+    `/api/v1/reference-market-data/markets/${encodeURIComponent(params.marketCode)}/candles?${search.toString()}`,
+    { method: "GET", recoverAuthentication: false },
+  );
+  const payload = (await response.json()) as unknown;
+  return referenceMarketDataCandlesResponseSchema.parse(payload).data;
 }

@@ -83,7 +83,7 @@ export function LevelTwoOrderBook({
     <section className="order-book" aria-labelledby="order-book-title">
       <header className="order-book__heading">
         <div>
-          <p className="eyebrow">Market depth</p>
+          <p className="eyebrow">Atlas simulation · market depth</p>
           <h3 id="order-book-title">Order book</h3>
         </div>
         <div className="order-book__status" data-status={displayStatus}>

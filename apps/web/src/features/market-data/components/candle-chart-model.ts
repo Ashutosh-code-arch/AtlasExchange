@@ -1,4 +1,4 @@
-import type { MarketDataCandle, MarketDataCandleInterval } from "@atlas/contracts";
+import type { MarketDataCandleInterval } from "@atlas/contracts";
 
 const intervalMilliseconds: Record<MarketDataCandleInterval, number> = {
   "1m": 60_000,
@@ -20,8 +20,18 @@ export const candleChartGeometry = {
   volumeBottom: 352,
 } as const;
 
-export interface ChartCandle {
-  readonly candle: MarketDataCandle;
+export interface CandleChartValue {
+  readonly start: string;
+  readonly end: string;
+  readonly openPrice: string;
+  readonly highPrice: string;
+  readonly lowPrice: string;
+  readonly closePrice: string;
+  readonly baseVolume: string;
+}
+
+export interface ChartCandle<Candle extends CandleChartValue = CandleChartValue> {
+  readonly candle: Candle;
   readonly x: number;
   readonly bodyTop: number;
   readonly bodyHeight: number;
@@ -31,18 +41,27 @@ export interface ChartCandle {
   readonly rising: boolean;
 }
 
-export interface CandleChartModel {
-  readonly candles: readonly ChartCandle[];
+export interface CandleChartModel<Candle extends CandleChartValue = CandleChartValue> {
+  readonly candles: readonly ChartCandle<Candle>[];
   readonly candleWidth: number;
   readonly priceGuides: readonly { readonly label: string; readonly y: number }[];
   readonly timeGuides: readonly { readonly label: string; readonly x: number }[];
 }
 
-export function displayCandleTimestamp(value: string, interval: MarketDataCandleInterval): string {
+export interface CandleChartOptions {
+  readonly timeZone?: string;
+}
+
+export function displayCandleTimestamp(
+  value: string,
+  interval: MarketDataCandleInterval,
+  options: CandleChartOptions = {},
+): string {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "2-digit",
     ...(interval === "1d" ? {} : { hour: "2-digit", minute: "2-digit" }),
+    ...(options.timeZone === undefined ? {} : { timeZone: options.timeZone }),
   }).format(new Date(value));
 }
 
@@ -52,10 +71,11 @@ function compactDecimal(value: number): string {
   }).format(value);
 }
 
-export function buildCandleChartModel(
-  candles: readonly MarketDataCandle[],
+export function buildCandleChartModel<Candle extends CandleChartValue>(
+  candles: readonly Candle[],
   interval: MarketDataCandleInterval,
-): CandleChartModel | null {
+  options: CandleChartOptions = {},
+): CandleChartModel<Candle> | null {
   if (candles.length === 0) return null;
   const values = candles.flatMap((candle) => [
     Number(candle.openPrice),
@@ -89,7 +109,7 @@ export function buildCandleChartModel(
     priceTop + ((maximum - value) / priceRange) * (priceBottom - priceTop);
   const timeX = (value: number): number => left + ((value - firstStart) / timeRange) * plotWidth;
 
-  const chartCandles = candles.map((candle): ChartCandle => {
+  const chartCandles = candles.map((candle): ChartCandle<Candle> => {
     const open = Number(candle.openPrice);
     const close = Number(candle.closePrice);
     const openY = priceY(open);
@@ -115,7 +135,7 @@ export function buildCandleChartModel(
   });
   const middleTime = firstStart + timeRange / 2;
   const timeGuides = [firstStart, middleTime, lastEnd].map((time) => ({
-    label: displayCandleTimestamp(new Date(time).toISOString(), interval),
+    label: displayCandleTimestamp(new Date(time).toISOString(), interval, options),
     x: timeX(time),
   }));
   return { candles: chartCandles, candleWidth, priceGuides, timeGuides };

@@ -712,9 +712,13 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   normalizes exact decimal strings, bounds its in-memory candle window, requires heartbeats, and
   reconnects with capped exponential delay. It subscribes without credentials and is owned only by
   Market Data infrastructure and API composition.
+- The Trading workspace now renders a light, source-labeled Coinbase quote with exact 24-hour
+  metrics, five-minute UTC candlesticks, volume, live/stale state, and explicit read-only language.
+  It retains the last validated reference through refresh failure and never allows external data to
+  price, match, route, or settle the separately labeled Atlas simulation.
 - Repository work still required includes the Worker gateway, `demo` configuration, pre-verified
-  identity bootstrap with public registration disabled, labeled candlestick chart, zero-cost
-  deployment contract, new release, and live free-provider evidence.
+  identity bootstrap with public registration disabled, zero-cost deployment contract, new release,
+  and live free-provider evidence.
 - ADRs 067–070 and their Render/domain/collector runbooks are superseded for initial hosting. The
   implementation evidence below remains historical work that can inform a future paid
   production-shaped environment, but it must not be applied to the zero-cost demo.

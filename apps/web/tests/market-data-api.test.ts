@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getCandleHistory,
   getLevelTwoOrderBook,
+  getReferenceMarketCandles,
+  getReferenceMarketTicker,
   getTradeTicker,
 } from "../src/features/market-data";
 
@@ -71,6 +73,45 @@ const candleResponse = {
       },
     ],
     nextBefore: null,
+  },
+} as const;
+
+const referenceTickerResponse = {
+  success: true,
+  data: {
+    marketCode: "BTC-USD",
+    source: "coinbase",
+    freshness: "live",
+    observedAt: "2026-08-31T12:00:01.000Z",
+    receivedAt: "2026-08-31T12:00:01.250Z",
+    price: "108500.25",
+    priceChange24hPercent: "-0.25",
+    highPrice24h: "110000",
+    lowPrice24h: "107900.5",
+    baseVolume24h: "1250.125",
+  },
+} as const;
+
+const referenceCandlesResponse = {
+  success: true,
+  data: {
+    marketCode: "BTC-USD",
+    source: "coinbase",
+    freshness: "live",
+    observedAt: "2026-08-31T12:00:02.000Z",
+    receivedAt: "2026-08-31T12:00:02.250Z",
+    interval: "5m",
+    candles: [
+      {
+        start: "2026-08-31T12:00:00.000Z",
+        end: "2026-08-31T12:05:00.000Z",
+        openPrice: "108500",
+        highPrice: "108700",
+        lowPrice: "108450",
+        closePrice: "108650",
+        baseVolume: "3.25",
+      },
+    ],
   },
 } as const;
 
@@ -177,6 +218,46 @@ describe("Market Data API", () => {
 
     await expect(
       getCandleHistory({ request }, { marketCode: "BTC-USD", interval: "5m" }),
+    ).rejects.toMatchObject({ name: "ZodError" });
+  });
+
+  it("requests and validates distinct read-only Coinbase ticker and candle contracts", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(referenceTickerResponse))
+      .mockResolvedValueOnce(Response.json(referenceCandlesResponse));
+
+    await expect(getReferenceMarketTicker({ request }, { marketCode: "BTC-USD" })).resolves.toEqual(
+      referenceTickerResponse.data,
+    );
+    await expect(
+      getReferenceMarketCandles({ request }, { marketCode: "BTC-USD", limit: 120 }),
+    ).resolves.toEqual(referenceCandlesResponse.data);
+    expect(request).toHaveBeenNthCalledWith(
+      1,
+      "/api/v1/reference-market-data/markets/BTC-USD/ticker",
+      { method: "GET", recoverAuthentication: false },
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      2,
+      "/api/v1/reference-market-data/markets/BTC-USD/candles?interval=5m&limit=120",
+      { method: "GET", recoverAuthentication: false },
+    );
+  });
+
+  it("rejects unsupported reference markets and provider fields before UI consumption", async () => {
+    const request = vi.fn().mockResolvedValue(
+      Response.json({
+        ...referenceTickerResponse,
+        data: { ...referenceTickerResponse.data, providerOrderId: "private" },
+      }),
+    );
+    await expect(
+      getReferenceMarketTicker({ request }, { marketCode: "SOL-USD" }),
+    ).rejects.toMatchObject({ name: "ZodError" });
+    expect(request).not.toHaveBeenCalled();
+    await expect(
+      getReferenceMarketTicker({ request }, { marketCode: "BTC-USD" }),
     ).rejects.toMatchObject({ name: "ZodError" });
   });
 });
