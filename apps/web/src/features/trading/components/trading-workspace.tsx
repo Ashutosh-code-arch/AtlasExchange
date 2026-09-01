@@ -700,23 +700,32 @@ export function TradingWorkspace({
     });
   };
 
+  const historyReady = controller.historyStatus === "ready";
+  const activeOrderCount = controller.orders.filter(
+    ({ status }) => status === "open" || status === "partially_filled",
+  ).length;
+
   return (
-    <section className="trading-workspace" id="trading" aria-labelledby="trading-workspace-title">
+    <section
+      className={`trading-workspace trading-workspace--${mode}`}
+      id="trading"
+      aria-labelledby="trading-workspace-title"
+    >
       <div className="trading-workspace__heading">
         <div>
           <p className="eyebrow">
-            {mode === "terminal" ? "Simulated execution" : "Order activity"}
+            {mode === "terminal" ? "Simulated execution" : "Private account activity"}
           </p>
           <h2 id="trading-workspace-title">
-            {mode === "terminal" ? "Market terminal" : "Orders and executions"}
+            {mode === "terminal" ? "Market terminal" : "Order history"}
           </h2>
         </div>
         <div className="trading-workspace__truth">
-          <span>{mode === "terminal" ? "Reference data live" : "Private activity"}</span>
+          <span>{mode === "terminal" ? "Reference data live" : "Server confirmed"}</span>
           <p>
             {mode === "terminal"
               ? "Coinbase reference · Atlas simulation · no real asset transfer"
-              : "Private activity · server-confirmed status · controlled cancellation"}
+              : "Selected-market records · exact quantities · controlled cancellation"}
           </p>
         </div>
       </div>
@@ -819,15 +828,49 @@ export function TradingWorkspace({
           </div>
         </div>
       ) : (
-        <TradingActivity
-          controller={controller}
-          authenticated={authenticated}
-          view={activityView}
-          cancellingOrderId={cancellingOrderId}
-          onViewChange={setActivityView}
-          onCancel={cancelOrder}
-          onLoadMore={loadMore}
-        />
+        <div className="orders-ledger">
+          <div className="orders-toolbar">
+            <label htmlFor="orders-market-filter">Market</label>
+            <select
+              id="orders-market-filter"
+              value={controller.selectedMarketCode}
+              disabled={controller.catalogStatus !== "ready" || controller.markets.length === 0}
+              onChange={(event) => selectMarket(event.target.value)}
+            >
+              {controller.markets.map((market) => (
+                <option key={market.code} value={market.code}>
+                  {market.baseAssetCode} / {market.quoteAssetCode}
+                </option>
+              ))}
+            </select>
+            <p>Records shown below are scoped to the selected Atlas market.</p>
+          </div>
+
+          <dl className="orders-overview" aria-label="Loaded activity summary">
+            <div>
+              <dt>Loaded orders</dt>
+              <dd>{historyReady ? controller.orders.length : "—"}</dd>
+            </div>
+            <div>
+              <dt>Active orders</dt>
+              <dd>{historyReady ? activeOrderCount : "—"}</dd>
+            </div>
+            <div>
+              <dt>Loaded executions</dt>
+              <dd>{historyReady ? controller.trades.length : "—"}</dd>
+            </div>
+          </dl>
+
+          <TradingActivity
+            controller={controller}
+            authenticated={authenticated}
+            view={activityView}
+            cancellingOrderId={cancellingOrderId}
+            onViewChange={setActivityView}
+            onCancel={cancelOrder}
+            onLoadMore={loadMore}
+          />
+        </div>
       )}
     </section>
   );

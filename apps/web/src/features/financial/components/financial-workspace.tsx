@@ -299,20 +299,29 @@ function AuthenticatedFinancialWorkspace({
         </div>
       ) : (
         <>
-          <dl className="financial-balances" aria-label={`${selectedWallet.assetCode} balance`}>
-            <div>
-              <dt>Available</dt>
-              <dd>{selectedWallet.available}</dd>
-            </div>
-            <div>
-              <dt>Reserved</dt>
-              <dd>{selectedWallet.reserved}</dd>
-            </div>
-            <div>
-              <dt>Total</dt>
-              <dd>{selectedWallet.total}</dd>
-            </div>
-          </dl>
+          <section className="financial-balance-panel" aria-label="Selected wallet balance">
+            <header className="financial-balance-panel__heading">
+              <div>
+                <p className="eyebrow">Selected wallet</p>
+                <h3 id="financial-balance-title">{selectedWallet.assetCode} balance</h3>
+              </div>
+              <span>Server confirmed</span>
+            </header>
+            <dl className="financial-balances" aria-label={`${selectedWallet.assetCode} balance`}>
+              <div>
+                <dt>Available</dt>
+                <dd>{selectedWallet.available}</dd>
+              </div>
+              <div>
+                <dt>Reserved</dt>
+                <dd>{selectedWallet.reserved}</dd>
+              </div>
+              <div>
+                <dt>Total</dt>
+                <dd>{selectedWallet.total}</dd>
+              </div>
+            </dl>
+          </section>
 
           <div className="financial-actions">
             <form
@@ -322,6 +331,7 @@ function AuthenticatedFinancialWorkspace({
               }}
             >
               <p className="eyebrow">Simulated funding</p>
+              <h3>Add funds</h3>
               <label htmlFor="deposit-amount">Amount in {selectedWallet.assetCode}</label>
               <input
                 id="deposit-amount"
@@ -346,6 +356,7 @@ function AuthenticatedFinancialWorkspace({
               }}
             >
               <p className="eyebrow">Simulated withdrawal</p>
+              <h3>Withdraw funds</h3>
               <label htmlFor="withdrawal-amount">Amount in {selectedWallet.assetCode}</label>
               <input
                 id="withdrawal-amount"
@@ -424,10 +435,10 @@ export function FinancialWorkspace({
     >
       <div className="financial-workspace__heading">
         <div>
-          <p className="eyebrow">Financial sandbox</p>
-          <h2 id="financial-workspace-title">Move simulated value</h2>
+          <p className="eyebrow">Wallets and balances</p>
+          <h2 id="financial-workspace-title">Simulated funds</h2>
         </div>
-        <p>Educational balances only. Deposits and withdrawals never move external assets.</p>
+        <p>Open asset wallets and test ledger movements without transferring external assets.</p>
       </div>
 
       {state.status === "authenticated" ? (

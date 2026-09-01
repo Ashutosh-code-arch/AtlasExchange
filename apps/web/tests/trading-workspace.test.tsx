@@ -274,6 +274,34 @@ describe("TradingWorkspace", () => {
     expect(screen.getByRole("heading", { name: "ETH / USD" })).toBeInTheDocument();
   });
 
+  it("scopes the focused order ledger to an explicitly selected market", async () => {
+    const orderLoader = vi
+      .fn<OrderLoader>()
+      .mockResolvedValue({ orders: [openOrder], page: { nextCursor: null } });
+    const tradeLoader = vi
+      .fn<TradeLoader>()
+      .mockResolvedValue({ trades: [execution], page: { nextCursor: null } });
+    const user = userEvent.setup();
+    renderWorkspace(standardProps({ mode: "activity", orderLoader, tradeLoader }));
+
+    expect(await screen.findByRole("heading", { name: "Order history" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Loaded activity summary")).toHaveTextContent(
+        "Loaded orders1Active orders1Loaded executions1",
+      ),
+    );
+
+    await user.selectOptions(screen.getByLabelText("Market"), "ETH-USD");
+
+    await waitFor(() =>
+      expect(orderLoader).toHaveBeenLastCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ marketCode: "ETH-USD" }),
+      ),
+    );
+    expect(screen.getByLabelText("Market")).toHaveValue("ETH-USD");
+  });
+
   it("keeps the ticket unchanged and reuses its idempotency key after an ambiguous outcome", async () => {
     const orderPlacer = vi
       .fn<OrderPlacer>()

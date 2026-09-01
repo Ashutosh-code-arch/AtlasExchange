@@ -5485,3 +5485,376 @@ footer {
     display: none;
   }
 }
+
+/* ADR-079: account activity, portfolio, and funds workspaces */
+
+.trading-workspace--activity .trading-workspace__heading,
+.portfolio-workspace__heading,
+.financial-workspace__heading {
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.trading-workspace--activity .trading-workspace__heading h2,
+.portfolio-workspace__heading h2,
+.financial-workspace__heading h2 {
+  font-size: 22px;
+  font-weight: 680;
+  letter-spacing: -0.025em;
+}
+
+.orders-ledger {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.orders-toolbar {
+  display: grid;
+  min-height: 72px;
+  padding: 12px 16px;
+  grid-template-columns: auto minmax(170px, 230px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  background: #fafbfc;
+}
+
+.orders-toolbar label,
+.orders-overview dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.orders-toolbar select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 36px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.orders-toolbar select:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid rgba(39, 91, 216, 0.14);
+  outline-offset: 1px;
+}
+
+.orders-toolbar select:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.orders-toolbar p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.orders-overview {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--line);
+}
+
+.orders-overview > div {
+  min-width: 0;
+  padding: 18px 20px;
+}
+
+.orders-overview > div + div {
+  border-left: 1px solid var(--line);
+}
+
+.orders-overview dt {
+  margin-bottom: 7px;
+}
+
+.orders-overview dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.trading-workspace--activity .trading-activity {
+  min-height: 360px;
+  background: var(--surface);
+}
+
+.trading-workspace--activity .trading-activity__heading {
+  background: #fafbfc;
+}
+
+.portfolio-workspace__body {
+  gap: 16px;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+.portfolio-summary {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: linear-gradient(112deg, rgba(39, 91, 216, 0.07), transparent 48%), var(--surface);
+}
+
+.portfolio-summary > div:first-child > strong {
+  color: var(--ink);
+  font-weight: 660;
+}
+
+.portfolio-summary__meta > span {
+  border-radius: 999px;
+  background: rgba(39, 91, 216, 0.055);
+}
+
+.portfolio-positions-panel {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.portfolio-positions-panel__heading {
+  display: flex;
+  min-height: 64px;
+  padding: 12px 16px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  background: #fafbfc;
+}
+
+.portfolio-positions-panel__heading .eyebrow {
+  margin: 0 0 4px;
+}
+
+.portfolio-positions-panel__heading h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 680;
+  letter-spacing: -0.015em;
+}
+
+.portfolio-positions-panel__heading > span {
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.portfolio-positions__scroll {
+  contain: inline-size;
+  max-width: 100%;
+}
+
+.portfolio-workspace__disclaimer {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  line-height: 1.55;
+}
+
+.financial-workspace__body {
+  gap: 16px;
+}
+
+.financial-workspace__asset {
+  min-height: 68px;
+  padding: 12px 16px;
+  grid-template-columns: auto minmax(220px, 360px) minmax(0, 1fr);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fafbfc;
+}
+
+.financial-workspace__asset select {
+  min-height: 42px;
+  border-radius: 7px;
+  background: var(--surface);
+  font-weight: 620;
+}
+
+.financial-balance-panel {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.financial-balance-panel__heading {
+  display: flex;
+  min-height: 64px;
+  padding: 12px 16px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  background: #fafbfc;
+}
+
+.financial-balance-panel__heading .eyebrow {
+  margin: 0 0 4px;
+}
+
+.financial-balance-panel__heading h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 680;
+  letter-spacing: -0.015em;
+}
+
+.financial-balance-panel__heading > span {
+  padding: 5px 9px;
+  border: 1px solid rgba(19, 118, 91, 0.28);
+  border-radius: 999px;
+  background: rgba(19, 118, 91, 0.055);
+  color: var(--buy);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.financial-balance-panel .financial-balances {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+}
+
+.financial-balances > div {
+  padding: 20px;
+}
+
+.financial-balances dd {
+  color: var(--ink);
+  font-size: clamp(22px, 2.6vw, 30px);
+  font-weight: 640;
+  letter-spacing: -0.025em;
+}
+
+.financial-actions {
+  gap: 16px;
+}
+
+.financial-actions form {
+  padding: 22px;
+  border-radius: 10px;
+  align-content: start;
+  background: var(--surface);
+}
+
+.financial-actions form h3 {
+  grid-column: 1 / -1;
+  margin: -2px 0 8px;
+  font-size: 17px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+}
+
+.financial-actions .primary-button {
+  border-radius: 7px;
+}
+
+.financial-feedback,
+.withdrawal-receipt,
+.financial-workspace__empty {
+  border-radius: 10px;
+}
+
+@media (max-width: 820px) {
+  .orders-toolbar {
+    grid-template-columns: auto minmax(170px, 1fr);
+  }
+
+  .orders-toolbar p {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .financial-workspace__asset {
+    grid-template-columns: auto minmax(180px, 1fr);
+  }
+
+  .financial-workspace__asset > span {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+}
+
+@media (max-width: 560px) {
+  .trading-workspace--activity .trading-workspace__heading,
+  .portfolio-workspace__heading,
+  .financial-workspace__heading {
+    padding-bottom: 16px;
+  }
+
+  .orders-toolbar,
+  .financial-workspace__asset {
+    grid-template-columns: 1fr;
+  }
+
+  .orders-toolbar p,
+  .financial-workspace__asset > span {
+    grid-column: auto;
+  }
+
+  .orders-overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .orders-overview > div {
+    padding: 15px 12px;
+  }
+
+  .orders-overview dt {
+    min-height: 32px;
+    line-height: 1.35;
+  }
+
+  .orders-overview dd {
+    font-size: 21px;
+  }
+
+  .portfolio-summary {
+    padding: 22px 18px;
+  }
+
+  .portfolio-positions-panel__heading,
+  .financial-balance-panel__heading {
+    padding: 12px 14px;
+  }
+
+  .portfolio-positions-panel .portfolio-positions__scroll {
+    overflow: visible;
+  }
+
+  .financial-balance-panel__heading {
+    gap: 12px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .financial-balances > div {
+    padding: 17px 18px;
+  }
+
+  .financial-actions form {
+    padding: 20px 18px;
+  }
+}

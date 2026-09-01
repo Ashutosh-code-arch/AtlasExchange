@@ -86,7 +86,7 @@ function PortfolioPositions({
     return (
       <div className="portfolio-workspace__empty">
         <p>No wallets are open yet. Create one in the Financial sandbox to begin your portfolio.</p>
-        <a className="text-button" href="#financial">
+        <a className="text-button" href="/app/funds">
           Open Funds
         </a>
       </div>
@@ -271,7 +271,18 @@ function AuthenticatedPortfolioWorkspace({
         </div>
       </div>
 
-      <PortfolioPositions snapshot={snapshot} />
+      <section className="portfolio-positions-panel" aria-labelledby="portfolio-positions-title">
+        <header className="portfolio-positions-panel__heading">
+          <div>
+            <p className="eyebrow">Server-owned balances</p>
+            <h3 id="portfolio-positions-title">Positions</h3>
+          </div>
+          <span>
+            {snapshot.positions.length} {snapshot.positions.length === 1 ? "asset" : "assets"}
+          </span>
+        </header>
+        <PortfolioPositions snapshot={snapshot} />
+      </section>
       <p className="portfolio-workspace__disclaimer">
         Indicative USD values use the last committed Atlas trade. They are not executable quotes,
         profit/loss, or an accounting statement.
@@ -292,10 +303,10 @@ export function PortfolioWorkspace({
     >
       <div className="portfolio-workspace__heading">
         <div>
-          <p className="eyebrow">Portfolio</p>
-          <h2 id="portfolio-workspace-title">Know what you hold</h2>
+          <p className="eyebrow">Holdings and valuation</p>
+          <h2 id="portfolio-workspace-title">Portfolio summary</h2>
         </div>
-        <p>Exact server-owned balances with transparent, committed-trade USD valuation.</p>
+        <p>Exact balances and transparent USD valuation from accepted Atlas reference prices.</p>
       </div>
 
       {state.status === "authenticated" ? (

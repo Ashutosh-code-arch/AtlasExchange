@@ -124,6 +124,8 @@ describe("PortfolioWorkspace", () => {
     expect(await screen.findByText("Estimated portfolio value")).toBeInTheDocument();
     expect(screen.getByLabelText("Portfolio USD value")).toHaveTextContent("60,000 USD");
     expect(screen.getByText("Complete valuation")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Positions" })).toBeInTheDocument();
+    expect(screen.getByText("2 assets")).toBeInTheDocument();
 
     const table = screen.getByRole("table", { name: "Portfolio positions" });
     const bitcoinRow = within(table).getByText("Bitcoin").closest("tr");

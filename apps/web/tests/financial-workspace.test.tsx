@@ -121,6 +121,9 @@ describe("FinancialWorkspace", () => {
 
     await user.click(await screen.findByRole("button", { name: "Open BTC wallet" }));
     await waitFor(() => expect(balanceValue("Available")).toHaveTextContent("0"));
+    expect(screen.getByRole("heading", { name: "BTC balance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Add funds" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Withdraw funds" })).toBeInTheDocument();
 
     await user.type(
       screen.getByLabelText("Amount in BTC", { selector: "#deposit-amount" }),

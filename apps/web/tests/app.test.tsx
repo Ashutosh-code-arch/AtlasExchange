@@ -62,7 +62,7 @@ describe("Atlas product shell", () => {
 
     expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: appUser.email })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Know what you hold" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Portfolio summary" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Portfolio" })[0]).toHaveAttribute(
       "href",
       "/app/portfolio",
