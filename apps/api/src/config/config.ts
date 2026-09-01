@@ -36,6 +36,11 @@ const cloudflareAccessAudience = z
   .min(32)
   .max(128)
   .regex(/^[A-Za-z0-9_-]+$/);
+const gatewaySharedSecret = z
+  .string()
+  .min(43)
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/);
 
 const apiEnvironmentSchema = z.object({
   PORT: integerString.transform(Number).pipe(z.number().int().min(1).max(65_535)).optional(),
@@ -79,6 +84,7 @@ const apiEnvironmentSchema = z.object({
   WEB_ORIGIN: z.string().url().default("http://localhost:5173"),
   CLOUDFLARE_ACCESS_TEAM_DOMAIN: cloudflareAccessTeamDomain.optional(),
   CLOUDFLARE_ACCESS_AUDIENCE: cloudflareAccessAudience.optional(),
+  ATLAS_GATEWAY_SHARED_SECRET: gatewaySharedSecret.optional(),
   HTTP_TRUST_PROXY_HOPS: integerString
     .default("0")
     .transform(Number)
@@ -125,7 +131,7 @@ const apiEnvironmentSchema = z.object({
   ATLAS_APPLICATION_VERSION: z
     .string()
     .regex(/^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/)
-    .default("0.2.0"),
+    .default("0.2.1"),
   METRICS_ENABLED: booleanString.default(false),
   METRICS_BEARER_TOKEN: z.string().min(32).max(256).optional(),
   EXPECTED_SCHEMA_VERSION: integerString.default("15"),
@@ -234,6 +240,12 @@ export interface ApiConfig {
           enabled: true;
           teamDomain: string;
           audience: string;
+        }>;
+    demoGateway:
+      | Readonly<{ enabled: false }>
+      | Readonly<{
+          enabled: true;
+          sharedSecret: string;
         }>;
     serverLimits: Readonly<{
       requestTimeoutMs: number;
@@ -427,11 +439,28 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     throw new ConfigurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]);
   }
   if (
-    (values.ATLAS_ENV === "demo" || values.ATLAS_ENV === "staging") &&
+    values.ATLAS_ENV === "staging" &&
     (values.CLOUDFLARE_ACCESS_TEAM_DOMAIN === undefined ||
       values.CLOUDFLARE_ACCESS_AUDIENCE === undefined)
   ) {
     throw new ConfigurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]);
+  }
+  if (values.ATLAS_ENV === "demo" && values.ATLAS_GATEWAY_SHARED_SECRET === undefined) {
+    throw new ConfigurationError(["ATLAS_GATEWAY_SHARED_SECRET"]);
+  }
+  if (values.ATLAS_ENV !== "demo" && values.ATLAS_GATEWAY_SHARED_SECRET !== undefined) {
+    throw new ConfigurationError(["ATLAS_GATEWAY_SHARED_SECRET", "ATLAS_ENV"]);
+  }
+  if (
+    values.ATLAS_ENV === "demo" &&
+    (values.CLOUDFLARE_ACCESS_TEAM_DOMAIN !== undefined ||
+      values.CLOUDFLARE_ACCESS_AUDIENCE !== undefined)
+  ) {
+    throw new ConfigurationError([
+      "ATLAS_GATEWAY_SHARED_SECRET",
+      "CLOUDFLARE_ACCESS_TEAM_DOMAIN",
+      "CLOUDFLARE_ACCESS_AUDIENCE",
+    ]);
   }
   if (values.ATLAS_ENV === "demo" && !values.REFERENCE_MARKET_DATA_ENABLED) {
     throw new ConfigurationError(["REFERENCE_MARKET_DATA_ENABLED"]);
@@ -453,6 +482,13 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
               teamDomain: new URL(values.CLOUDFLARE_ACCESS_TEAM_DOMAIN).origin,
               audience: values.CLOUDFLARE_ACCESS_AUDIENCE,
             }),
+      demoGateway:
+        values.ATLAS_ENV === "demo" && values.ATLAS_GATEWAY_SHARED_SECRET !== undefined
+          ? Object.freeze({
+              enabled: true as const,
+              sharedSecret: values.ATLAS_GATEWAY_SHARED_SECRET,
+            })
+          : Object.freeze({ enabled: false as const }),
       serverLimits: Object.freeze({
         requestTimeoutMs: values.HTTP_REQUEST_TIMEOUT_MS,
         headersTimeoutMs: values.HTTP_HEADERS_TIMEOUT_MS,

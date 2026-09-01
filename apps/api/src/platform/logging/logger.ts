@@ -9,6 +9,7 @@ const REDACTED_PATHS = [
   "req.headers.authorization",
   "req.headers.cookie",
   'req.headers["cf-access-jwt-assertion"]',
+  'req.headers["x-atlas-gateway-secret"]',
   'req.headers["x-csrf-token"]',
   'req.headers["idempotency-key"]',
   "database.url",

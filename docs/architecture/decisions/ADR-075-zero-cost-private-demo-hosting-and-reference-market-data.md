@@ -2,13 +2,18 @@
 
 **Classification:** Canonical
 
-**Status:** Accepted
+**Status:** Accepted; access and origin-authentication sections amended by ADR-076
 
 **Date:** 2026-08-31
 
 **Last reviewed:** 2026-08-31
 
 **Canonical owner/source:** ADR-075
+
+> **Amendment:** Live provider setup showed that Cloudflare Zero Trust Free required payment-card
+> authorization for overage. ADR-076 therefore replaces this ADR's Cloudflare Access boundary with
+> Atlas invitation-only sessions plus a Worker-to-Render shared origin secret. The zero-cost
+> topology, Neon, Render, Coinbase reference-data, and simulation decisions remain in force.
 
 ## Context
 

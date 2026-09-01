@@ -4,7 +4,7 @@ import { createGateway, parseGatewayEnvironment, type GatewayEnvironment } from 
 
 const publicOrigin = "https://atlas-exchange-demo.owner.workers.dev";
 const apiOrigin = "https://atlas-api-demo.onrender.com";
-const accessToken = "signed-access-token";
+const gatewaySharedSecret = "a".repeat(64);
 
 function environment(
   assetFetch: (request: Request) => Promise<Response> = vi.fn((_request: Request) =>
@@ -16,26 +16,20 @@ function environment(
     ATLAS_ENV: "demo",
     ATLAS_API_ORIGIN: apiOrigin,
     ATLAS_PUBLIC_ORIGIN: publicOrigin,
-    CLOUDFLARE_ACCESS_TEAM_DOMAIN: "https://atlas-team.cloudflareaccess.com",
-    CLOUDFLARE_ACCESS_AUDIENCE: "a".repeat(64),
+    ATLAS_GATEWAY_SHARED_SECRET: gatewaySharedSecret,
     PUBLIC_REGISTRATION_ENABLED: "false",
     PUBLIC_PASSWORD_RECOVERY_ENABLED: "false",
   };
 }
 
 function request(path: string, init: RequestInit = {}): Request {
-  const headers = new Headers(init.headers);
-  headers.set("cf-access-jwt-assertion", accessToken);
-  return new Request(`${publicOrigin}${path}`, { ...init, headers });
+  return new Request(`${publicOrigin}${path}`, init);
 }
 
 function gateway(
   overrides: Parameters<typeof createGateway>[0] = {},
 ): ReturnType<typeof createGateway> {
-  return createGateway({
-    verifyAccessToken: vi.fn((token) => Promise.resolve(token === accessToken)),
-    ...overrides,
-  });
+  return createGateway(overrides);
 }
 
 describe("demo gateway", () => {
@@ -51,40 +45,23 @@ describe("demo gateway", () => {
       { ATLAS_API_ORIGIN: "https://atlas-api-demo.onrender.com:8443" },
       { ATLAS_API_ORIGIN: "https://api.example.com" },
       { ATLAS_PUBLIC_ORIGIN: "https://atlas.example.com" },
-      { CLOUDFLARE_ACCESS_TEAM_DOMAIN: "https://identity.example.com" },
-      { CLOUDFLARE_ACCESS_AUDIENCE: "short" },
+      { ATLAS_GATEWAY_SHARED_SECRET: "short" },
+      { ATLAS_GATEWAY_SHARED_SECRET: "!".repeat(64) },
     ]) {
       expect(() => parseGatewayEnvironment({ ...environment(), ...invalid })).toThrow();
     }
   });
 
-  it("fails closed for invalid configuration, aliases, and missing assertions", async () => {
+  it("fails closed for invalid configuration and aliases", async () => {
     const invalidEnvironment = { ...environment(), ATLAS_ENV: "production" };
     await expect(gateway().fetch(request("/"), invalidEnvironment)).resolves.toMatchObject({
       status: 503,
     });
 
-    const aliasRequest = new Request("https://alias.owner.workers.dev/", {
-      headers: { "cf-access-jwt-assertion": accessToken },
-    });
+    const aliasRequest = new Request("https://alias.owner.workers.dev/");
     await expect(gateway().fetch(aliasRequest, environment())).resolves.toMatchObject({
       status: 421,
     });
-
-    await expect(
-      gateway().fetch(new Request(`${publicOrigin}/`), environment()),
-    ).resolves.toMatchObject({ status: 403 });
-    await expect(
-      gateway({ verifyAccessToken: vi.fn(() => Promise.resolve(false)) }).fetch(
-        request("/"),
-        environment(),
-      ),
-    ).resolves.toMatchObject({ status: 403 });
-    await expect(
-      gateway({
-        verifyAccessToken: vi.fn(() => Promise.reject(new Error("JWK unavailable"))),
-      }).fetch(request("/"), environment()),
-    ).resolves.toMatchObject({ status: 403 });
   });
 
   it("serves a same-origin invitation-only runtime document", async () => {
@@ -105,7 +82,7 @@ describe("demo gateway", () => {
 
   it("serves secured SPA assets without forwarding credentials to the asset binding", async () => {
     const assetFetch = vi.fn((assetRequest: Request) => {
-      expect(assetRequest.headers.has("cf-access-jwt-assertion")).toBe(false);
+      expect(assetRequest.headers.has("x-atlas-gateway-secret")).toBe(false);
       expect(assetRequest.headers.has("cookie")).toBe(false);
       return Promise.resolve(
         new Response("<html>Atlas</html>", {
@@ -114,7 +91,7 @@ describe("demo gateway", () => {
       );
     });
     const response = await gateway().fetch(
-      request("/portfolio", { headers: { cookie: "CF_Authorization=secret" } }),
+      request("/portfolio", { headers: { cookie: "atlas_session=secret" } }),
       environment(assetFetch),
     );
     expect(response.status).toBe(200);
@@ -123,11 +100,11 @@ describe("demo gateway", () => {
     expect(await response.text()).toContain("Atlas");
   });
 
-  it("proxies approved API requests and replaces the assertion and forwarding headers", async () => {
+  it("proxies API requests and replaces the origin secret and forwarding headers", async () => {
     const fetchOrigin = vi.fn(async (upstreamRequest: Request) => {
       expect(upstreamRequest.url).toBe(`${apiOrigin}/api/v1/auth/login?return=summary`);
       expect(upstreamRequest.method).toBe("POST");
-      expect(upstreamRequest.headers.get("cf-access-jwt-assertion")).toBe(accessToken);
+      expect(upstreamRequest.headers.get("x-atlas-gateway-secret")).toBe(gatewaySharedSecret);
       expect(upstreamRequest.headers.get("x-forwarded-host")).toBe(
         "atlas-exchange-demo.owner.workers.dev",
       );
@@ -142,7 +119,10 @@ describe("demo gateway", () => {
       request("/api/v1/auth/login?return=summary", {
         method: "POST",
         body: '{"email":"reviewer@example.test"}',
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-atlas-gateway-secret": "browser-controlled-value",
+        },
       }),
       environment(),
     );

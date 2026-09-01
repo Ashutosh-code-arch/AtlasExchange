@@ -1,6 +1,6 @@
 {
   "name": "@atlas/gateway",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,9 +10,6 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint src tests vitest.config.ts --max-warnings 0"
-  },
-  "dependencies": {
-    "jose": "6.2.10"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260830.1",

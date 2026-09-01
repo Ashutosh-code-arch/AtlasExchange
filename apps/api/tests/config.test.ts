@@ -20,6 +20,7 @@ describe("API configuration", () => {
     expect(config.http.secureTransport).toBe(false);
     expect(config.http.trustedProxyHops).toBe(0);
     expect(config.http.stagingAccess).toEqual({ enabled: false });
+    expect(config.http.demoGateway).toEqual({ enabled: false });
     expect(config.http.serverLimits).toEqual({
       requestTimeoutMs: 30_000,
       headersTimeoutMs: 10_000,
@@ -414,9 +415,9 @@ describe("API configuration", () => {
   it("creates a secure invitation-only demo profile without requiring SMTP", () => {
     const demoEnvironment = {
       ...validEnvironment,
-      ...cloudflareAccessEnvironment,
       NODE_ENV: "production",
       ATLAS_ENV: "demo",
+      ATLAS_GATEWAY_SHARED_SECRET: "g".repeat(64),
       WEB_ORIGIN: "https://atlas-demo.example.workers.dev",
       HTTP_TRUST_PROXY_HOPS: "1",
       PASSWORD_BLOCKLIST_PATH: "/run/secrets/atlas-password-blocklist.sha256",
@@ -427,10 +428,10 @@ describe("API configuration", () => {
 
     expect(config.logging.environment).toBe("demo");
     expect(config.http.secureTransport).toBe(true);
-    expect(config.http.stagingAccess).toEqual({
+    expect(config.http.stagingAccess).toEqual({ enabled: false });
+    expect(config.http.demoGateway).toEqual({
       enabled: true,
-      teamDomain: "https://atlas-test.cloudflareaccess.com",
-      audience: "a".repeat(64),
+      sharedSecret: "g".repeat(64),
     });
     expect(config.identity.sessionSecurity.secureCookies).toBe(true);
     expect(config.identity.publicAccountFeatures).toEqual({
@@ -453,11 +454,20 @@ describe("API configuration", () => {
     expect(() =>
       parseApiConfig({
         ...demoEnvironment,
-        CLOUDFLARE_ACCESS_TEAM_DOMAIN: undefined,
-        CLOUDFLARE_ACCESS_AUDIENCE: undefined,
+        ATLAS_GATEWAY_SHARED_SECRET: undefined,
       }),
+    ).toThrowError(new ConfigurationError(["ATLAS_GATEWAY_SHARED_SECRET"]));
+    expect(() =>
+      parseApiConfig({ ...demoEnvironment, ATLAS_GATEWAY_SHARED_SECRET: "too-short" }),
+    ).toThrowError(new ConfigurationError(["ATLAS_GATEWAY_SHARED_SECRET"]));
+    expect(() =>
+      parseApiConfig({ ...demoEnvironment, ...cloudflareAccessEnvironment }),
     ).toThrowError(
-      new ConfigurationError(["CLOUDFLARE_ACCESS_TEAM_DOMAIN", "CLOUDFLARE_ACCESS_AUDIENCE"]),
+      new ConfigurationError([
+        "ATLAS_GATEWAY_SHARED_SECRET",
+        "CLOUDFLARE_ACCESS_TEAM_DOMAIN",
+        "CLOUDFLARE_ACCESS_AUDIENCE",
+      ]),
     );
   });
 

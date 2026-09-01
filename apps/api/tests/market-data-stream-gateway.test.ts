@@ -114,6 +114,7 @@ async function createHarness(
       | "maximumBufferedBytes"
       | "refreshIntervalMs"
       | "stagingAccessTokenVerifier"
+      | "demoGatewaySharedSecret"
     >
   > = {},
 ): Promise<GatewayHarness> {
@@ -177,6 +178,25 @@ async function connect(harness: GatewayHarness): Promise<ClientHarness> {
   activeClients.push(socket);
   await once(socket, "open");
   return { socket, messages };
+}
+
+async function connectionStatus(
+  harness: GatewayHarness,
+  headers: Record<string, string> = {},
+): Promise<number | "open" | undefined> {
+  const socket = new WebSocket(harness.url, marketDataStreamProtocol, {
+    origin: "http://localhost:5173",
+    headers,
+  });
+  socket.on("error", () => undefined);
+  activeClients.push(socket);
+  return new Promise((resolve) => {
+    socket.once("open", () => resolve("open"));
+    socket.once("unexpected-response", (_request, response) => {
+      response.resume();
+      resolve(response.statusCode);
+    });
+  });
 }
 
 async function takeMessage(
@@ -372,6 +392,20 @@ describe("MarketDataStreamGateway", () => {
     await once(valid, "open");
     expect(harness.gateway.activeConnectionCount).toBe(1);
     expect(verifier).toHaveBeenCalledWith("valid-access-token");
+  });
+
+  it("requires the private demo gateway on the WebSocket upgrade when configured", async () => {
+    const sharedSecret = "g".repeat(64);
+    const harness = await createHarness({ demoGatewaySharedSecret: sharedSecret });
+
+    await expect(connectionStatus(harness)).resolves.toBe(403);
+    await expect(
+      connectionStatus(harness, { "x-atlas-gateway-secret": "x".repeat(64) }),
+    ).resolves.toBe(403);
+    await expect(
+      connectionStatus(harness, { "x-atlas-gateway-secret": sharedSecret }),
+    ).resolves.toBe("open");
+    expect(harness.gateway.activeConnectionCount).toBe(1);
   });
 
   it("requires the versioned Atlas Market Data subprotocol", async () => {

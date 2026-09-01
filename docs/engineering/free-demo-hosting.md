@@ -6,23 +6,23 @@
 
 **Last reviewed:** 2026-09-01
 
-This runbook implements ADR-075. It does not claim production readiness and does not authorize a
+This runbook implements ADR-075 as amended by ADR-076. It does not claim production readiness and does not authorize a
 paid plan, paid overage, custom domain, public launch, real custody, or external order execution.
 
 ## Current state
 
 ```text
-Environment contract:          implemented; provider values pending
+Environment contract:          implemented; v0.2.1 release pending
 Recurring-cost ceiling:        $0
 Cloudflare gateway code:       implemented; deployment pending
-Cloudflare account/Worker:     no live evidence
-Cloudflare Access policy:      no evidence
-Render account/Free API:       no evidence
-Neon account/Free PostgreSQL:  no evidence
+Cloudflare Workers account:    Free/$0 confirmed; Worker pending
+Cloudflare Access policy:      rejected; overage authorization required
+Render account/Free API:       Free service form confirmed; creation pending
+Neon account/Free PostgreSQL:  project created; migration pending
 Demo identity path:            implemented; operator execution pending
 Coinbase reference adapter:    implemented; runtime activation pending
 Reference chart:               implemented; deployment activation pending
-Candidate API image:           v0.2.0 published; provenance verified
+Candidate API image:           v0.2.1 pending; v0.2.0 superseded for deployment
 Production approval:           no-go
 ```
 
@@ -31,13 +31,14 @@ Production approval:           no-go
 | Resource | Required plan | Purpose |
 | --- | --- | --- |
 | Cloudflare Worker + Static Assets | Free | React assets, runtime config, HTTP/WebSocket gateway |
-| Cloudflare Access | Free allowance | Exact invited-identity admission by Worker name |
+| Atlas Identity | Existing application | One operator-provisioned account and server sessions |
 | Render web service | Free | One digest-pinned Atlas API instance |
 | Neon project | Free | PostgreSQL 18 with scale to zero |
 | Coinbase Market Data WebSocket | Public unauthenticated | Read-only BTC-USD/ETH-USD reference feed |
 
 Do not attach a custom domain or enable a paid provider plan. Do not add a payment method merely to
-increase a limit. When an allowance is exhausted, accept suspension or revise ADR-075.
+increase a limit. Cloudflare Zero Trust is not activated because its setup required authorization
+to charge for overage. When an allowance is exhausted, accept suspension or revise ADR-076.
 
 ## Repository work before provider setup
 
@@ -67,10 +68,11 @@ digests preserve a complete release set but are not deployed in the ADR-075 topo
 
 ## External setup inputs
 
-- [ ] Cloudflare account and unique `workers.dev` subdomain.
-- [ ] Exact invited email allow-list and Access team administrator.
+- [x] Cloudflare account on the Workers Free plan with no Zero Trust activation.
+- [ ] Unique `workers.dev` subdomain and deployed Worker.
+- [x] Exact invited Atlas identity selected; credentials remain outside Git.
 - [ ] Render Hobby workspace with no paid service or overage authority.
-- [ ] Neon Free project in the nearest suitable region.
+- [x] Neon Free PostgreSQL 18 project created in Singapore.
 - [ ] Restricted storage for the Neon connection string, CSRF key, and demo-user bootstrap material.
 
 No secret or invited identity belongs in Git, generated manifests, shell history, screenshots, or
@@ -84,19 +86,20 @@ the Worker before every asset so the gateway can fail closed. The Worker:
 
 - accepts only `ATLAS_ENV=demo` with registration and recovery explicitly disabled;
 - requires the incoming origin to equal the configured `ATLAS_PUBLIC_ORIGIN`;
-- verifies the Cloudflare Access assertion's RS256 signature, issuer, audience, and lifetime before
-  serving assets or forwarding traffic;
+- serves the public login shell while Atlas sessions protect private product capabilities;
 - generates `/runtime-config.js` with the same Worker origin as `apiBaseUrl`;
 - proxies `/api/v1`, `/health/live`, and `/health/ready` to the exact configured Render origin;
 - permits WebSocket upgrade only at `/api/v1/market-data/stream` and returns the origin upgrade
   response unchanged;
-- replaces the forwarded assertion with the verified value and fixes forwarded host/protocol;
-- never forwards Access credentials to the static-asset binding;
+- deletes any caller-provided gateway-secret header, supplies the server-side Worker secret to the
+  API, and fixes forwarded host/protocol;
+- never forwards the gateway secret or browser cookies to the static-asset binding;
 - never proxies `/internal/metrics` or any other internal path; and
-- returns generic no-store errors without origin, assertion, or provider detail.
+- returns generic no-store errors without origin, secret, or provider detail.
 
-The Render API independently verifies the same signed assertion. Worker verification protects the
-edge; API verification prevents the public `onrender.com` hostname from becoming a bypass.
+The Render API requires the same shared secret for readiness, API, metrics, and WebSocket traffic.
+Only `/health/live` is exempt so Render can perform its provider health check. This prevents the
+public `onrender.com` hostname from becoming an application bypass.
 
 The provider-specific bindings are deliberately absent from Git and must be configured through
 restricted Cloudflare settings before activation:
@@ -104,19 +107,20 @@ restricted Cloudflare settings before activation:
 ```text
 ATLAS_API_ORIGIN
 ATLAS_PUBLIC_ORIGIN
-CLOUDFLARE_ACCESS_TEAM_DOMAIN
-CLOUDFLARE_ACCESS_AUDIENCE
+ATLAS_GATEWAY_SHARED_SECRET  # Wrangler secret, never a plain variable
 ```
 
 The non-secret, invariant bindings `ATLAS_ENV=demo`, `PUBLIC_REGISTRATION_ENABLED=false`, and
 `PUBLIC_PASSWORD_RECOVERY_ENABLED=false` are fixed in `apps/gateway/wrangler.jsonc`. A missing or
-invalid binding produces `503`; a missing or invalid Access assertion produces `403`.
+invalid binding produces `503`; a direct Render application request without the secret produces
+`403`.
 
 ## Generate the zero-cost deployment contract
 
 Copy the field shape from `infra/demo/deployment-input.schema.json` into an operator-controlled JSON
 file. Supply the stable release version, full 40-character source revision, immutable API image
-digest, actual Worker/Render origins, Access issuer/audience, and exact provider plan selections. Do
+digest, actual Worker/Render origins, Atlas browser-access classification, shared-secret origin
+authentication, and exact provider plan selections. Do
 not include database URLs, keys, invited identities, or bootstrap credentials.
 
 ```bash
@@ -126,7 +130,8 @@ pnpm demo:deployment:generate -- \
 ```
 
 The generator refuses paid plans/features, paid overage, a payment-method requirement, custom
-domains, preview URLs, non-exact-email Access, mutable image references, mismatched source revisions,
+domains, preview URLs, public browser-account provisioning, missing origin authentication, mutable
+image references, mismatched source revisions,
 unexpected origins, PostgreSQL versions other than 18, and Atlas schema versions other than 15. It
 creates a new mode-`0600` manifest without overwriting an existing file. The manifest records public
 provider configuration and required secret *names*, never secret values.
@@ -155,8 +160,8 @@ reference state; the browser never substitutes an Atlas simulated price.
 ## Demo runtime contract
 
 `ATLAS_ENV=demo` is a managed environment. API startup fails closed unless it has an HTTPS browser
-origin, at least one trusted proxy hop, an explicit password blocklist, a strong CSRF key, a paired
-Cloudflare Access team domain/audience, and the Coinbase reference feed enabled. Secure transport
+origin, at least one trusted proxy hop, an explicit password blocklist, a strong CSRF key, a strong
+gateway shared secret, and the Coinbase reference feed enabled. Secure transport
 and cookies are mandatory. Simulated funding and withdrawals default on; no real-asset capability
 is introduced.
 
@@ -210,21 +215,21 @@ identifier.
 5. Enter the Neon URL and application secrets through Render's secret UI.
 6. Require `/health/live`, `/health/ready`, and the exact application version.
 7. Generate and review the exact zero-cost deployment manifest.
-8. Deploy the gateway code initially without bindings; its configuration failure must expose only a
-   generic `503`, so there is no unprotected asset window.
-9. Configure the four provider-specific Worker bindings, then confirm requests still fail `403`
-   until Access supplies a valid assertion.
-10. Protect the Worker by name with one exact-email Cloudflare Access policy.
-11. Configure the Render API with the exact Access issuer and Worker application audience.
-12. Prove direct Render requests fail while Worker-proxied HTTP and WebSocket traffic pass.
-13. Prove public registration/recovery are disabled and the prepared demo identity can sign in.
+8. Generate one random 32-byte-or-stronger base64url gateway secret in restricted local storage.
+9. Configure the same value as a Cloudflare Worker secret and Render secret environment variable;
+   never place it in Wrangler variables or a deployment manifest.
+10. Deploy the gateway with its exact public and Render origins.
+11. Prove direct Render readiness, API, metrics, and WebSocket traffic fail while `/health/live`
+   and Worker-proxied traffic behave as designed.
+12. Prove public registration/recovery are disabled and the prepared demo identity can sign in.
+13. Prove private capabilities require the Atlas session.
 14. Prove Coinbase reference prices/candles are labeled, fresh, and unable to affect Atlas matching.
 15. Record provider allowance dashboards and confirm every selected resource displays `$0`.
 
 ## Stop conditions
 
 Stop when a provider requests a paid upgrade, a payment method is required for the selected path,
-direct Render access bypasses assertion validation, the Worker cannot proxy WebSockets, public
+direct Render application access bypasses gateway-secret validation, the Worker cannot proxy WebSockets, public
 registration remains open, a secret would enter source, external data affects simulated execution,
 or the UI fails to distinguish Coinbase reference data from Atlas simulated state.
 

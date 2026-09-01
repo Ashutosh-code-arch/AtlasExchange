@@ -32,10 +32,8 @@
         "workerSourceRevision",
         "previewUrls",
         "customDomains",
-        "accessApplicationTarget",
-        "exactEmailAllowPolicy",
-        "accessTeamDomain",
-        "accessAudience"
+        "browserAccessControl",
+        "originAuthentication"
       ],
       "properties": {
         "plan": { "const": "free" },
@@ -45,13 +43,8 @@
         "workerSourceRevision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
         "previewUrls": { "const": false },
         "customDomains": { "const": false },
-        "accessApplicationTarget": { "const": "worker-name" },
-        "exactEmailAllowPolicy": { "const": true },
-        "accessTeamDomain": {
-          "type": "string",
-          "pattern": "^https://[a-z0-9-]+\\.cloudflareaccess\\.com$"
-        },
-        "accessAudience": { "type": "string", "pattern": "^[A-Za-z0-9_-]{32,128}$" }
+        "browserAccessControl": { "const": "atlas-identity" },
+        "originAuthentication": { "const": "shared-secret" }
       }
     },
     "render": {

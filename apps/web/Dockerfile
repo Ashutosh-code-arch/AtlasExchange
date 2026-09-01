@@ -34,7 +34,7 @@ FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491
 
 RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0
 
-ARG ATLAS_IMAGE_VERSION=0.2.0-local
+ARG ATLAS_IMAGE_VERSION=0.2.1-local
 ARG ATLAS_IMAGE_REVISION=unknown
 ARG ATLAS_IMAGE_CREATED=1970-01-01T00:00:00.000Z
 ARG ATLAS_IMAGE_SOURCE=https://github.com/Ashutosh-code-arch/AtlasExchange

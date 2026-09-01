@@ -28,6 +28,7 @@ describe("structured logger redaction", () => {
           authorization: "Bearer fake-secret",
           cookie: "atlas_access=fake-secret",
           "cf-access-jwt-assertion": "fake-staging-assertion",
+          "x-atlas-gateway-secret": "fake-gateway-secret",
           "x-csrf-token": "fake-csrf-secret",
           "idempotency-key": "fake-idempotency-secret",
           accept: "application/json",
@@ -42,10 +43,11 @@ describe("structured logger redaction", () => {
       authorization: "[REDACTED]",
       cookie: "[REDACTED]",
       "cf-access-jwt-assertion": "[REDACTED]",
+      "x-atlas-gateway-secret": "[REDACTED]",
       "x-csrf-token": "[REDACTED]",
       "idempotency-key": "[REDACTED]",
       accept: "application/json",
     });
-    expect(chunks.join("")).not.toMatch(/fake-(?:secret|staging|csrf|idempotency)/);
+    expect(chunks.join("")).not.toMatch(/fake-(?:secret|staging|gateway|csrf|idempotency)/);
   });
 });

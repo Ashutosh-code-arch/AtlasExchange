@@ -257,6 +257,9 @@ async function start(): Promise<RunningServer> {
       webOrigin: config.http.webOrigin,
       secureTransport: config.http.secureTransport,
       trustedProxyHops: config.http.trustedProxyHops,
+      ...(config.http.demoGateway.enabled
+        ? { demoGatewaySharedSecret: config.http.demoGateway.sharedSecret }
+        : {}),
       ...(stagingAccessTokenVerifier === undefined ? {} : { stagingAccessTokenVerifier }),
       requestRateLimiters: {
         read: new InMemoryHttpRequestRateLimiter({
@@ -289,6 +292,9 @@ async function start(): Promise<RunningServer> {
           logger,
           webOrigin: config.http.webOrigin,
           stream: config.marketData.stream,
+          ...(config.http.demoGateway.enabled
+            ? { demoGatewaySharedSecret: config.http.demoGateway.sharedSecret }
+            : {}),
           ...(stagingAccessTokenVerifier === undefined ? {} : { stagingAccessTokenVerifier }),
         })
       : undefined;

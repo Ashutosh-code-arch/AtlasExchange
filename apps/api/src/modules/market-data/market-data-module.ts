@@ -83,6 +83,7 @@ export interface CreateMarketDataStreamGatewayOptions {
     >
   >;
   readonly stagingAccessTokenVerifier?: AccessTokenVerifier;
+  readonly demoGatewaySharedSecret?: string;
   readonly now?: () => Date;
 }
 
@@ -140,6 +141,9 @@ export function createMarketDataStreamGateway(
     ...(options.stagingAccessTokenVerifier === undefined
       ? {}
       : { stagingAccessTokenVerifier: options.stagingAccessTokenVerifier }),
+    ...(options.demoGatewaySharedSecret === undefined
+      ? {}
+      : { demoGatewaySharedSecret: options.demoGatewaySharedSecret }),
     ...(options.now === undefined ? {} : { now: options.now }),
   });
 }

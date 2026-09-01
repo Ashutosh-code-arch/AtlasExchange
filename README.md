@@ -32,15 +32,17 @@ production-readiness controls are defined and tested; it does **not** mean produ
 custody, external market execution, regulatory approval, or a production hosting environment has
 been approved.
 
-Phase 8 targets a zero-cost, invitation-only hosted demo. ADR-075 supersedes the earlier paid
-production-shaped Render plan: Cloudflare Worker Static Assets and Access provide one protected
-`workers.dev` browser origin, one Render Free service runs the API, and Neon Free supplies
+Phase 8 targets a zero-cost hosted demo with one operator-provisioned Atlas account. ADR-075,
+amended by ADR-076, supersedes the earlier paid production-shaped Render plan: Cloudflare Worker
+Static Assets provide one `workers.dev` browser origin and authenticate to one Render Free API by a
+server-side shared secret; Neon Free supplies
 PostgreSQL 18. Coinbase's public unauthenticated feed provides labeled BTC-USD and ETH-USD reference
 prices and candles; it can never match Atlas orders or affect simulated settlement. The demo
 runtime, preverified identity command, reference adapter/chart, Worker gateway, and zero-cost
-deployment contract are implemented. Release `v0.2.0` is published with verified provenance; live
-provider deployment evidence remains pending. No public launch, real custody, external execution,
-or production approval exists.
+deployment contract are implemented. Cloudflare Access is excluded because its Zero Trust setup
+required payment-card overage authorization. Release `v0.2.1` is the pending deployment candidate;
+live provider deployment evidence remains incomplete. No public launch, real custody, external
+execution, or production approval exists.
 
 ## Prerequisites
 

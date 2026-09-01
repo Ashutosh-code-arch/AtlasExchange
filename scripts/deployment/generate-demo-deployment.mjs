@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 const stableVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const revisionPattern = /^[a-f0-9]{40}$/;
 const digestPattern = /^sha256:[a-f0-9]{64}$/;
-const audiencePattern = /^[A-Za-z0-9_-]{32,128}$/;
 const resourceNamePattern = /^[a-z][a-z0-9-]{0,62}$/;
 
 function requireObject(value, field) {
@@ -68,11 +67,9 @@ function validateRelease(value) {
 
 function validateCloudflare(value, revision) {
   const cloudflare = requireExactKeys(value, "cloudflare", [
-    "accessApplicationTarget",
-    "accessAudience",
-    "accessTeamDomain",
+    "browserAccessControl",
     "customDomains",
-    "exactEmailAllowPolicy",
+    "originAuthentication",
     "paidOverage",
     "plan",
     "previewUrls",
@@ -85,8 +82,8 @@ function validateCloudflare(value, revision) {
     cloudflare.paidOverage !== false ||
     cloudflare.customDomains !== false ||
     cloudflare.previewUrls !== false ||
-    cloudflare.accessApplicationTarget !== "worker-name" ||
-    cloudflare.exactEmailAllowPolicy !== true
+    cloudflare.browserAccessControl !== "atlas-identity" ||
+    cloudflare.originAuthentication !== "shared-secret"
   ) {
     throw new Error("cloudflare must preserve the zero-cost private Worker boundary");
   }
@@ -112,16 +109,6 @@ function validateCloudflare(value, revision) {
     throw new Error("cloudflare.workerSourceRevision must equal release.revision");
   }
   return Object.freeze({
-    accessAudience: requireString(
-      cloudflare.accessAudience,
-      "cloudflare.accessAudience",
-      audiencePattern,
-    ),
-    accessTeamDomain: exactHttpsOrigin(
-      cloudflare.accessTeamDomain,
-      "cloudflare.accessTeamDomain",
-      ".cloudflareaccess.com",
-    ),
     publicOrigin,
     workerName,
     workerSourceRevision,
@@ -226,18 +213,12 @@ export function createDemoDeploymentManifest(configuration) {
       workersDev: true,
       previewUrls: false,
       customDomains: false,
-      access: Object.freeze({
-        applicationTarget: "worker-name",
-        exactEmailAllowPolicy: true,
-        teamDomain: configuration.cloudflare.accessTeamDomain,
-        audience: configuration.cloudflare.accessAudience,
-      }),
+      browserAccessControl: "atlas-identity",
+      originAuthentication: "shared-secret",
       bindings: Object.freeze({
         ATLAS_ENV: "demo",
         ATLAS_API_ORIGIN: configuration.render.apiOrigin,
         ATLAS_PUBLIC_ORIGIN: configuration.cloudflare.publicOrigin,
-        CLOUDFLARE_ACCESS_TEAM_DOMAIN: configuration.cloudflare.accessTeamDomain,
-        CLOUDFLARE_ACCESS_AUDIENCE: configuration.cloudflare.accessAudience,
         PUBLIC_REGISTRATION_ENABLED: "false",
         PUBLIC_PASSWORD_RECOVERY_ENABLED: "false",
       }),
@@ -249,14 +230,12 @@ export function createDemoDeploymentManifest(configuration) {
       region: configuration.render.region,
       instances: 1,
       image: `ghcr.io/ashutosh-code-arch/atlas-api@${configuration.release.apiImageDigest}`,
-      healthCheckPath: "/health/ready",
+      healthCheckPath: "/health/live",
       publicEnvironment: Object.freeze({
         NODE_ENV: "production",
         ATLAS_ENV: "demo",
         ATLAS_APPLICATION_VERSION: configuration.release.version,
         WEB_ORIGIN: configuration.cloudflare.publicOrigin,
-        CLOUDFLARE_ACCESS_TEAM_DOMAIN: configuration.cloudflare.accessTeamDomain,
-        CLOUDFLARE_ACCESS_AUDIENCE: configuration.cloudflare.accessAudience,
         HTTP_TRUST_PROXY_HOPS: "1",
         EXPECTED_SCHEMA_VERSION: String(configuration.neon.schemaVersion),
         DATABASE_POOL_MAX_CONNECTIONS: "5",
@@ -270,6 +249,7 @@ export function createDemoDeploymentManifest(configuration) {
       requiredSecretMaterial: Object.freeze([
         "DATABASE_URL",
         "CSRF_HMAC_KEY",
+        "ATLAS_GATEWAY_SHARED_SECRET",
         "METRICS_BEARER_TOKEN",
         "atlas-password-blocklist.sha256",
       ]),
@@ -282,9 +262,9 @@ export function createDemoDeploymentManifest(configuration) {
     }),
     stopConditions: Object.freeze([
       "provider requests payment or enables paid overage",
-      "Cloudflare Access is not bound to the exact Worker name",
-      "direct Render application traffic succeeds without a valid Access assertion",
-      "provider origin, audience, digest, or source revision differs from this manifest",
+      "public registration or recovery is enabled",
+      "direct Render application traffic succeeds without the gateway secret",
+      "provider origin, digest, or source revision differs from this manifest",
     ]),
   });
 }

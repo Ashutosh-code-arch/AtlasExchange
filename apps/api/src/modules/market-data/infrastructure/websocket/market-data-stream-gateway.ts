@@ -22,6 +22,10 @@ import type { GetLevelTwoOrderBook } from "../../application/get-level-two-order
 import type { GetPublicCandles } from "../../application/get-public-candles.js";
 import type { GetPublicTradeTicker } from "../../application/get-public-trade-ticker.js";
 import type { AccessTokenVerifier } from "../../../../platform/security/cloudflare-access-token-verifier.js";
+import {
+  demoGatewaySecretHeader,
+  matchesDemoGatewaySecret,
+} from "../../../../platform/security/demo-gateway-authentication.js";
 import { readCloudflareAccessAssertion } from "../../../../platform/security/staging-access.js";
 
 export interface MarketDataStreamQueries {
@@ -42,6 +46,7 @@ export interface MarketDataStreamGatewayOptions extends MarketDataStreamQueries 
   readonly maximumMessageBytes: number;
   readonly maximumBufferedBytes: number;
   readonly stagingAccessTokenVerifier?: AccessTokenVerifier;
+  readonly demoGatewaySharedSecret?: string;
   readonly now?: () => Date;
 }
 
@@ -248,6 +253,16 @@ export class MarketDataStreamGateway {
         rejectUpgrade(socket, 403, "Forbidden");
         return;
       }
+    }
+    if (
+      this.options.demoGatewaySharedSecret !== undefined &&
+      !matchesDemoGatewaySecret(
+        request.headers[demoGatewaySecretHeader],
+        this.options.demoGatewaySharedSecret,
+      )
+    ) {
+      rejectUpgrade(socket, 403, "Forbidden");
+      return;
     }
     let url: URL;
     try {

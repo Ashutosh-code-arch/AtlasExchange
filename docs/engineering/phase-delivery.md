@@ -696,8 +696,12 @@ delivery increments. A phase is complete only after its acceptance checks pass.
 
 - [ADR-075 — Zero-Cost Private Demo Hosting and Reference Market Data](../architecture/decisions/ADR-075-zero-cost-private-demo-hosting-and-reference-market-data.md)
   now governs the initial hosted environment. It sets a hard zero-dollar recurring-cost ceiling and
-  selects a Cloudflare Worker/Static Assets and Access gateway, one Render Free API service, Neon
+  selects a Cloudflare Worker/Static Assets gateway, one Render Free API service, Neon
   Free PostgreSQL 18, and Coinbase public BTC-USD/ETH-USD reference data.
+- [ADR-076 — Zero-Cost Demo Gateway and Origin Authentication](../architecture/decisions/ADR-076-zero-cost-demo-gateway-and-origin-authentication.md)
+  amends the access boundary after live Cloudflare setup required payment-card authorization for
+  overage. Atlas sessions protect private capabilities, while one provider secret authenticates
+  Worker-originated HTTP and WebSocket traffic to Render without entering browser code or Git.
 - The hosted environment is an invitation-only `demo`, not production-shaped staging. It carries no
   production availability, recovery, support, latency, capacity, regulatory, custody, or real-order
   claim. Provider allowance exhaustion suspends the demo rather than authorizing spend.
@@ -717,20 +721,20 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   It retains the last validated reference through refresh failure and never allows external data to
   price, match, route, or settle the separately labeled Atlas simulation.
 - `demo` is now a fail-closed managed runtime profile: HTTPS, proxy trust, CSRF, password blocklist,
-  Cloudflare Access, and Coinbase reference data are mandatory without weakening staging or
+  Worker-to-API origin authentication, and Coinbase reference data are mandatory without weakening staging or
   production. Its API and browser runtime remove public registration, verification, and password
   recovery while preserving login and visibly identifying the environment as a simulation.
 - An operator-only command now creates one pre-verified active `user` identity from a restricted
   environment file outside Git and shell history. It validates schema and password policy, creates
   no verification/reset token, records a security event, permits only an exact idempotent repeat,
   and never prints identity or credential values.
-- `@atlas/gateway` now implements the Cloudflare Worker/Static Assets edge. It validates the Access
-  JWT before every asset or proxy request, enforces the exact `workers.dev` origin, emits a no-store
+- `@atlas/gateway` now implements the Cloudflare Worker/Static Assets edge. It enforces the exact
+  `workers.dev` origin, overwrites caller-supplied origin credentials, emits a no-store
   same-origin demo runtime document, proxies only public API and health routes, preserves the single
   accepted Market Data WebSocket upgrade, strips credentials from asset requests, and keeps internal
   metrics unreachable. Invalid configuration, access, route, and upstream states fail closed.
 - A strict zero-cost deployment generator and JSON input schema now bind the Worker source revision,
-  immutable API digest, Access audience, provider hostnames, PostgreSQL 18/schema 15, free plans,
+  immutable API digest, Atlas identity/shared-secret boundaries, provider hostnames, PostgreSQL 18/schema 15, free plans,
   one Render instance, disabled paid features/overage, no custom domain, and a zero-cent recurring
   ceiling. Its mode-`0600` output lists secret names without accepting secret values.
 - Release `v0.2.0` now binds the demo candidate to source revision
@@ -738,8 +742,9 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   AMD64/ARM64 API, web, and metrics-collector indexes after repeating repository, build, dependency,
   secret, and image-vulnerability gates. GitHub provenance verification passed for all three
   immutable digests; the canonical zero-cost demo runbook records them.
-- Repository work is complete for the release candidate. Live free-provider resource, migration,
-  identity bootstrap, gateway, access-control, smoke, and cost evidence remain required.
+- The Neon Free PostgreSQL 18 project now exists in Singapore, Cloudflare Workers Free displays
+  `$0`, and the Render form exposes a Free service. Migration, identity bootstrap, Render/Worker
+  creation, shared-secret activation, smoke, and final cost evidence remain required.
 - ADRs 067–070 and their Render/domain/collector runbooks are superseded for initial hosting. The
   implementation evidence below remains historical work that can inform a future paid
   production-shaped environment, but it must not be applied to the zero-cost demo.

@@ -24,10 +24,8 @@ function input() {
       workerSourceRevision: "a".repeat(40),
       previewUrls: false,
       customDomains: false,
-      accessApplicationTarget: "worker-name",
-      exactEmailAllowPolicy: true,
-      accessTeamDomain: "https://atlas-team.cloudflareaccess.com",
-      accessAudience: "c".repeat(64),
+      browserAccessControl: "atlas-identity",
+      originAuthentication: "shared-secret",
     },
     render: {
       plan: "free",
@@ -67,7 +65,8 @@ describe("zero-cost demo deployment generation", () => {
       (value) => (value.cloudflare.paidOverage = true),
       (value) => (value.cloudflare.previewUrls = true),
       (value) => (value.cloudflare.customDomains = true),
-      (value) => (value.cloudflare.exactEmailAllowPolicy = false),
+      (value) => (value.cloudflare.browserAccessControl = "public"),
+      (value) => (value.cloudflare.originAuthentication = "none"),
       (value) => (value.cloudflare.workerSourceRevision = "d".repeat(40)),
       (value) => (value.cloudflare.publicOrigin = "https://other.owner.workers.dev"),
       (value) => (value.render.plan = "starter"),
@@ -107,12 +106,14 @@ describe("zero-cost demo deployment generation", () => {
       manifest.release.apiImage,
       `ghcr.io/ashutosh-code-arch/atlas-api@sha256:${"b".repeat(64)}`,
     );
-    assert.equal(manifest.cloudflare.access.applicationTarget, "worker-name");
+    assert.equal(manifest.cloudflare.browserAccessControl, "atlas-identity");
+    assert.equal(manifest.cloudflare.originAuthentication, "shared-secret");
     assert.equal(manifest.cloudflare.bindings.ATLAS_ENV, "demo");
     assert.equal(manifest.render.publicEnvironment.REFERENCE_MARKET_DATA_ENABLED, "true");
     assert.deepEqual(manifest.render.requiredSecretMaterial, [
       "DATABASE_URL",
       "CSRF_HMAC_KEY",
+      "ATLAS_GATEWAY_SHARED_SECRET",
       "METRICS_BEARER_TOKEN",
       "atlas-password-blocklist.sha256",
     ]);

@@ -24,6 +24,7 @@ import {
 import { InMemoryHttpRequestRateLimiter } from "./platform/security/http-request-rate-limiter.js";
 import { configureHttpSecurity } from "./platform/security/http-security.js";
 import type { AccessTokenVerifier } from "./platform/security/cloudflare-access-token-verifier.js";
+import { createDemoGatewayAuthenticationMiddleware } from "./platform/security/demo-gateway-authentication.js";
 import { createStagingAccessMiddleware } from "./platform/security/staging-access.js";
 
 export interface CreateAppOptions {
@@ -33,6 +34,7 @@ export interface CreateAppOptions {
   readonly secureTransport?: boolean;
   readonly trustedProxyHops?: number;
   readonly requestRateLimiters?: HttpAdmissionRateLimiters;
+  readonly demoGatewaySharedSecret?: string;
   readonly stagingAccessTokenVerifier?: AccessTokenVerifier;
   readonly metrics?: Readonly<{
     collector: ApplicationMetrics;
@@ -124,6 +126,9 @@ export function createApp(options: CreateAppOptions): Express {
   if (options.stagingAccessTokenVerifier !== undefined) {
     app.use(createStagingAccessMiddleware(options.stagingAccessTokenVerifier));
   }
+  if (options.demoGatewaySharedSecret !== undefined) {
+    app.use(createDemoGatewayAuthenticationMiddleware(options.demoGatewaySharedSecret));
+  }
   if (options.metrics !== undefined) {
     app.get(
       "/internal/metrics",
@@ -194,7 +199,7 @@ export function createApp(options: CreateAppOptions): Express {
       success: true,
       data: {
         name: "Atlas Exchange API",
-        version: options.applicationVersion ?? "0.2.0",
+        version: options.applicationVersion ?? "0.2.1",
       },
     };
     response.status(200).json(body);

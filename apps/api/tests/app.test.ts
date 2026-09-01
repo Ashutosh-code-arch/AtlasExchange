@@ -24,6 +24,7 @@ function createTestApp(
     readonly secureTransport?: boolean;
     readonly trustedProxyHops?: number;
     readonly requestRateLimiters?: HttpAdmissionRateLimiters;
+    readonly demoGatewaySharedSecret?: string;
     readonly stagingAccessTokenVerifier?: (token: string) => Promise<boolean>;
     readonly metrics?: Readonly<{
       collector: ApplicationMetrics;
@@ -46,6 +47,9 @@ function createTestApp(
     ...(options.requestRateLimiters === undefined
       ? {}
       : { requestRateLimiters: options.requestRateLimiters }),
+    ...(options.demoGatewaySharedSecret === undefined
+      ? {}
+      : { demoGatewaySharedSecret: options.demoGatewaySharedSecret }),
     ...(options.stagingAccessTokenVerifier === undefined
       ? {}
       : { stagingAccessTokenVerifier: options.stagingAccessTokenVerifier }),
@@ -213,6 +217,34 @@ describe("API application", () => {
     expect(preflight.status).toBe(204);
     expect((await request(app).get("/health/live")).status).toBe(200);
     expect(verifier).toHaveBeenCalledTimes(2);
+  });
+
+  it("requires the private demo gateway for every route except provider liveness", async () => {
+    const sharedSecret = "a".repeat(64);
+    const { app } = createTestApp({ demoGatewaySharedSecret: sharedSecret });
+
+    const missing = await request(app)
+      .get("/api/v1/status")
+      .set("x-request-id", "atlas-demo-missing");
+    const invalid = await request(app)
+      .get("/health/ready")
+      .set("x-atlas-gateway-secret", "b".repeat(64));
+    const valid = await request(app)
+      .get("/api/v1/status")
+      .set("x-atlas-gateway-secret", sharedSecret);
+
+    expect(missing.status).toBe(403);
+    expect(missing.body).toEqual({
+      success: false,
+      error: {
+        code: "DEMO_GATEWAY_REQUIRED",
+        message: "Demo gateway authentication is required.",
+        requestId: "atlas-demo-missing",
+      },
+    });
+    expect(invalid.status).toBe(403);
+    expect(valid.status).toBe(200);
+    expect((await request(app).get("/health/live")).status).toBe(200);
   });
 
   it("returns a safe retryable error when the API read admission budget is exhausted", async () => {

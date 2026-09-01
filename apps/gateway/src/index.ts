@@ -1,5 +1,3 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
-
 interface AssetBinding {
   fetch(request: Request): Promise<Response>;
 }
@@ -9,8 +7,7 @@ export interface GatewayEnvironment {
   readonly ATLAS_ENV: string;
   readonly ATLAS_API_ORIGIN: string;
   readonly ATLAS_PUBLIC_ORIGIN: string;
-  readonly CLOUDFLARE_ACCESS_TEAM_DOMAIN: string;
-  readonly CLOUDFLARE_ACCESS_AUDIENCE: string;
+  readonly ATLAS_GATEWAY_SHARED_SECRET: string;
   readonly PUBLIC_REGISTRATION_ENABLED: string;
   readonly PUBLIC_PASSWORD_RECOVERY_ENABLED: string;
 }
@@ -18,28 +15,18 @@ export interface GatewayEnvironment {
 interface GatewayConfiguration {
   readonly apiOrigin: string;
   readonly publicOrigin: string;
-  readonly access: Readonly<{
-    audience: string;
-    teamDomain: string;
-  }>;
+  readonly sharedSecret: string;
 }
-
-type AccessTokenVerifier = (
-  token: string,
-  access: GatewayConfiguration["access"],
-) => Promise<boolean>;
 
 type OriginFetcher = (request: Request) => Promise<Response>;
 
 export interface GatewayDependencies {
   readonly fetchOrigin?: OriginFetcher;
-  readonly verifyAccessToken?: AccessTokenVerifier;
 }
 
-const accessAssertionHeader = "cf-access-jwt-assertion";
+const gatewaySecretHeader = "x-atlas-gateway-secret";
 const marketDataStreamPath = "/api/v1/market-data/stream";
-const maximumAccessAssertionLength = 16_384;
-const audiencePattern = /^[A-Za-z0-9_-]{32,128}$/;
+const sharedSecretPattern = /^[A-Za-z0-9_-]{43,128}$/;
 
 function exactHttpsOrigin(value: string, field: string, hostnameSuffix: string): string {
   let url: URL;
@@ -72,8 +59,8 @@ export function parseGatewayEnvironment(environment: GatewayEnvironment): Gatewa
   ) {
     throw new Error("demo feature configuration is invalid");
   }
-  if (!audiencePattern.test(environment.CLOUDFLARE_ACCESS_AUDIENCE)) {
-    throw new Error("CLOUDFLARE_ACCESS_AUDIENCE is invalid");
+  if (!sharedSecretPattern.test(environment.ATLAS_GATEWAY_SHARED_SECRET)) {
+    throw new Error("ATLAS_GATEWAY_SHARED_SECRET is invalid");
   }
 
   return Object.freeze({
@@ -83,48 +70,8 @@ export function parseGatewayEnvironment(environment: GatewayEnvironment): Gatewa
       "ATLAS_PUBLIC_ORIGIN",
       ".workers.dev",
     ),
-    access: Object.freeze({
-      audience: environment.CLOUDFLARE_ACCESS_AUDIENCE,
-      teamDomain: exactHttpsOrigin(
-        environment.CLOUDFLARE_ACCESS_TEAM_DOMAIN,
-        "CLOUDFLARE_ACCESS_TEAM_DOMAIN",
-        ".cloudflareaccess.com",
-      ),
-    }),
+    sharedSecret: environment.ATLAS_GATEWAY_SHARED_SECRET,
   });
-}
-
-let cachedVerifier:
-  | Readonly<{
-      key: string;
-      verify: (token: string) => Promise<boolean>;
-    }>
-  | undefined;
-
-async function verifyCloudflareAccessToken(
-  token: string,
-  access: GatewayConfiguration["access"],
-): Promise<boolean> {
-  const key = `${access.teamDomain}\n${access.audience}`;
-  if (cachedVerifier?.key !== key) {
-    const keys = createRemoteJWKSet(new URL("/cdn-cgi/access/certs", access.teamDomain));
-    cachedVerifier = Object.freeze({
-      key,
-      verify: async (candidate: string): Promise<boolean> => {
-        try {
-          await jwtVerify(candidate, keys, {
-            algorithms: ["RS256"],
-            issuer: access.teamDomain,
-            audience: access.audience,
-          });
-          return true;
-        } catch {
-          return false;
-        }
-      },
-    });
-  }
-  return cachedVerifier.verify(token);
 }
 
 function securityHeaders(headers: Headers, publicOrigin: string): Headers {
@@ -203,12 +150,12 @@ function createUpstreamRequest(
   request: Request,
   requestUrl: URL,
   configuration: GatewayConfiguration,
-  accessToken: string,
 ): Request {
   const target = new URL(`${requestUrl.pathname}${requestUrl.search}`, configuration.apiOrigin);
   const headers = new Headers(request.headers);
   headers.delete("host");
-  headers.set(accessAssertionHeader, accessToken);
+  headers.delete(gatewaySecretHeader);
+  headers.set(gatewaySecretHeader, configuration.sharedSecret);
   headers.set("x-forwarded-host", new URL(configuration.publicOrigin).host);
   headers.set("x-forwarded-proto", "https");
   const initialization: RequestInit & { duplex?: "half" } = {
@@ -227,7 +174,6 @@ async function proxyToApi(
   request: Request,
   requestUrl: URL,
   configuration: GatewayConfiguration,
-  accessToken: string,
   fetchOrigin: OriginFetcher,
 ): Promise<Response> {
   const websocketUpgrade = request.headers.get("upgrade")?.toLowerCase() === "websocket";
@@ -244,9 +190,7 @@ async function proxyToApi(
   }
 
   try {
-    const upstream = await fetchOrigin(
-      createUpstreamRequest(request, requestUrl, configuration, accessToken),
-    );
+    const upstream = await fetchOrigin(createUpstreamRequest(request, requestUrl, configuration));
     if (websocketUpgrade) return upstream;
     const headers = securityHeaders(upstream.headers, configuration.publicOrigin);
     headers.delete("server");
@@ -269,7 +213,7 @@ async function serveAsset(
     return textResponse(405, "Method not allowed.\n", publicOrigin, { allow: "GET, HEAD" });
   }
   const headers = new Headers(request.headers);
-  headers.delete(accessAssertionHeader);
+  headers.delete(gatewaySecretHeader);
   headers.delete("cookie");
   let response: Response;
   try {
@@ -292,7 +236,6 @@ export function createGateway(dependencies: GatewayDependencies = {}): {
   fetch(request: Request, environment: GatewayEnvironment): Promise<Response>;
 } {
   const fetchOrigin = dependencies.fetchOrigin ?? ((request: Request) => fetch(request));
-  const verifyAccessToken = dependencies.verifyAccessToken ?? verifyCloudflareAccessToken;
   return Object.freeze({
     async fetch(request: Request, environment: GatewayEnvironment): Promise<Response> {
       let configuration: GatewayConfiguration;
@@ -306,20 +249,6 @@ export function createGateway(dependencies: GatewayDependencies = {}): {
       if (requestUrl.origin !== configuration.publicOrigin) {
         return textResponse(421, "Unsupported gateway origin.\n", configuration.publicOrigin);
       }
-      const header = request.headers.get(accessAssertionHeader);
-      const token = header !== null && header.length <= maximumAccessAssertionLength ? header : "";
-      let authorized = false;
-      if (token !== "") {
-        try {
-          authorized = await verifyAccessToken(token, configuration.access);
-        } catch {
-          authorized = false;
-        }
-      }
-      if (!authorized) {
-        return textResponse(403, "Demo access required.\n", configuration.publicOrigin);
-      }
-
       if (requestUrl.pathname === "/runtime-config.js") {
         if (request.method !== "GET" && request.method !== "HEAD") {
           return textResponse(405, "Method not allowed.\n", configuration.publicOrigin, {
@@ -329,7 +258,7 @@ export function createGateway(dependencies: GatewayDependencies = {}): {
         return runtimeConfigResponse(request, configuration.publicOrigin);
       }
       if (isApiPath(requestUrl.pathname) || isHealthPath(requestUrl.pathname)) {
-        return proxyToApi(request, requestUrl, configuration, token, fetchOrigin);
+        return proxyToApi(request, requestUrl, configuration, fetchOrigin);
       }
       if (requestUrl.pathname === "/internal" || requestUrl.pathname.startsWith("/internal/")) {
         return textResponse(404, "Route not found.\n", configuration.publicOrigin);
