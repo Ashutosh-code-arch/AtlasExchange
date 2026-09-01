@@ -90,9 +90,7 @@ describe("Atlas product shell", () => {
 
     expect(window.location.pathname).toBe("/app/trade/BTC-USD");
     expect(await screen.findByRole("heading", { name: "Trade" })).toBeInTheDocument();
-    expect(
-      await screen.findByRole("heading", { name: "Execute with precision" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Market terminal" })).toBeInTheDocument();
   });
 
   it("shows the Administration destination only to an administrator", async () => {

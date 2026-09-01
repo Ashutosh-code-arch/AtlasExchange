@@ -117,7 +117,7 @@ function displayTime(value: string): string {
   }).format(new Date(value));
 }
 
-function MarketRail({
+function MarketWatchlist({
   controller,
   selectedMarket,
   onSelect,
@@ -148,24 +148,40 @@ function MarketRail({
   }
 
   return (
-    <div className="trading-market-rail" aria-label="Trading markets">
-      {controller.markets.map((market) => (
-        <button
-          key={market.code}
-          className="trading-market-card"
-          data-selected={market.code === selectedMarket?.code}
-          type="button"
-          onClick={() => onSelect(market.code)}
-        >
-          <span className="trading-market-card__pair">{market.code.replace("-", " / ")}</span>
-          <span className={`trading-market-card__status trading-status--${market.status}`}>
-            {humanize(market.status)}
-          </span>
-          <span>Lot {market.baseLotSize}</span>
-          <span>Tick {market.priceTickSize}</span>
-        </button>
-      ))}
-    </div>
+    <aside className="trading-watchlist" aria-labelledby="trading-watchlist-title">
+      <header className="trading-watchlist__heading">
+        <div>
+          <p className="eyebrow">Markets</p>
+          <h3 id="trading-watchlist-title">Watchlist</h3>
+        </div>
+        <span>{controller.markets.length}</span>
+      </header>
+      <div className="trading-market-rail" aria-label="Trading markets">
+        {controller.markets.map((market) => (
+          <button
+            key={market.code}
+            className="trading-market-card"
+            data-selected={market.code === selectedMarket?.code}
+            type="button"
+            aria-label={`${market.baseAssetCode} / ${market.quoteAssetCode} · ${humanize(market.status)} · Lot ${market.baseLotSize} · Tick ${market.priceTickSize}`}
+            onClick={() => onSelect(market.code)}
+          >
+            <span className="trading-market-card__pair">
+              <strong>{market.baseAssetCode}</strong>
+              <small>/ {market.quoteAssetCode}</small>
+            </span>
+            <span className={`trading-market-card__status trading-status--${market.status}`}>
+              <i aria-hidden="true" />
+              {humanize(market.status)}
+            </span>
+            <span className="trading-market-card__rules">
+              <span>Lot {market.baseLotSize}</span>
+              <span>Tick {market.priceTickSize}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </aside>
   );
 }
 
@@ -688,93 +704,88 @@ export function TradingWorkspace({
     <section className="trading-workspace" id="trading" aria-labelledby="trading-workspace-title">
       <div className="trading-workspace__heading">
         <div>
-          <p className="eyebrow">{mode === "terminal" ? "Trading desk" : "Order activity"}</p>
+          <p className="eyebrow">
+            {mode === "terminal" ? "Simulated execution" : "Order activity"}
+          </p>
           <h2 id="trading-workspace-title">
-            {mode === "terminal" ? "Execute with precision" : "Orders and executions"}
+            {mode === "terminal" ? "Market terminal" : "Orders and executions"}
           </h2>
         </div>
         <div className="trading-workspace__truth">
-          <span>Simulated market</span>
+          <span>{mode === "terminal" ? "Reference data live" : "Private activity"}</span>
           <p>
             {mode === "terminal"
-              ? "Exact quantities · atomic settlement · server-confirmed state"
+              ? "Coinbase reference · Atlas simulation · no real asset transfer"
               : "Private activity · server-confirmed status · controlled cancellation"}
           </p>
         </div>
       </div>
 
+      {feedback === null ? null : (
+        <p
+          className={`trading-feedback trading-feedback--${feedback.tone}`}
+          role={feedback.tone === "error" ? "alert" : "status"}
+        >
+          {feedback.message}
+        </p>
+      )}
+
       {mode === "terminal" ? (
-        <>
-          <MarketRail
+        <div className="trading-workstation">
+          <MarketWatchlist
             controller={controller}
             selectedMarket={selectedMarket}
             onSelect={selectMarket}
           />
 
-          <div className="trading-terminal">
-            <div className="trading-terminal__main">
-              <header className="trading-market-header">
+          <section className="trading-workstation__market" aria-label="Selected market">
+            <header className="trading-market-header">
+              <div>
+                <span className="trading-market-header__asset">
+                  {selectedMarket?.baseAssetCode.slice(0, 1) ?? "—"}
+                </span>
                 <div>
-                  <span className="trading-market-header__asset">
-                    {selectedMarket?.baseAssetCode ?? "—"}
-                  </span>
-                  <div>
-                    <h3>{selectedMarket?.code.replace("-", " / ") ?? "Select a market"}</h3>
-                    <p>
-                      {selectedMarket === undefined
-                        ? "Market catalog"
-                        : `Quoted in ${selectedMarket.quoteAssetCode}`}
-                    </p>
-                  </div>
+                  <h3>{selectedMarket?.code.replace("-", " / ") ?? "Select a market"}</h3>
+                  <p>
+                    {selectedMarket === undefined
+                      ? "Market catalog"
+                      : `${selectedMarket.baseAssetCode} quoted in ${selectedMarket.quoteAssetCode}`}
+                  </p>
                 </div>
-                <dl>
-                  <div>
-                    <dt>Market state</dt>
-                    <dd>
-                      {selectedMarket === undefined
-                        ? "—"
-                        : `Simulation · ${humanize(selectedMarket.status)}`}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>External reference</dt>
-                    <dd className="trading-market-header__live">Coinbase · Read only</dd>
-                  </div>
-                </dl>
-              </header>
+              </div>
+              <dl>
+                <div>
+                  <dt>Market state</dt>
+                  <dd>
+                    {selectedMarket === undefined
+                      ? "—"
+                      : `Simulation · ${humanize(selectedMarket.status)}`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Reference feed</dt>
+                  <dd className="trading-market-header__live">Coinbase · Read only</dd>
+                </div>
+              </dl>
+            </header>
 
-              <ReferenceMarketOverview
-                client={referenceMarketHttpClient}
-                limit={candleHistoryLimit}
-                {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
-                {...(referenceMarketTickerLoader === undefined
-                  ? {}
-                  : { tickerLoader: referenceMarketTickerLoader })}
-                {...(referenceMarketCandlesLoader === undefined
-                  ? {}
-                  : { candlesLoader: referenceMarketCandlesLoader })}
-                {...(referenceMarketRefreshIntervalMs === undefined
-                  ? {}
-                  : { refreshIntervalMs: referenceMarketRefreshIntervalMs })}
-              />
+            <ReferenceMarketOverview
+              client={referenceMarketHttpClient}
+              limit={candleHistoryLimit}
+              {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
+              {...(referenceMarketTickerLoader === undefined
+                ? {}
+                : { tickerLoader: referenceMarketTickerLoader })}
+              {...(referenceMarketCandlesLoader === undefined
+                ? {}
+                : { candlesLoader: referenceMarketCandlesLoader })}
+              {...(referenceMarketRefreshIntervalMs === undefined
+                ? {}
+                : { refreshIntervalMs: referenceMarketRefreshIntervalMs })}
+            />
+          </section>
 
-              <LevelTwoOrderBook
-                stream={marketDataStream}
-                depth={orderBookDepth}
-                {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
-              />
-
-              <TradingActivity
-                controller={controller}
-                authenticated={authenticated}
-                view={activityView}
-                cancellingOrderId={cancellingOrderId}
-                onViewChange={setActivityView}
-                onCancel={cancelOrder}
-                onLoadMore={loadMore}
-              />
-            </div>
-
+          <div className="trading-workstation__execution">
             <OrderTicket
               controller={controller}
               selectedMarket={selectedMarket}
@@ -787,8 +798,26 @@ export function TradingWorkspace({
               onLimitPriceChange={setLimitPrice}
               onSubmit={submitOrder}
             />
+
+            <LevelTwoOrderBook
+              stream={marketDataStream}
+              depth={orderBookDepth}
+              {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
+            />
           </div>
-        </>
+
+          <div className="trading-workstation__activity">
+            <TradingActivity
+              controller={controller}
+              authenticated={authenticated}
+              view={activityView}
+              cancellingOrderId={cancellingOrderId}
+              onViewChange={setActivityView}
+              onCancel={cancelOrder}
+              onLoadMore={loadMore}
+            />
+          </div>
+        </div>
       ) : (
         <TradingActivity
           controller={controller}
@@ -799,15 +828,6 @@ export function TradingWorkspace({
           onCancel={cancelOrder}
           onLoadMore={loadMore}
         />
-      )}
-
-      {feedback === null ? null : (
-        <p
-          className={`trading-feedback trading-feedback--${feedback.tone}`}
-          role={feedback.tone === "error" ? "alert" : "status"}
-        >
-          {feedback.message}
-        </p>
       )}
     </section>
   );
