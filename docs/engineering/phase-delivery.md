@@ -737,8 +737,9 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   immutable API digest, Atlas identity/shared-secret boundaries, provider hostnames, PostgreSQL 18/schema 15, free plans,
   one Render instance, disabled paid features/overage, no custom domain, and a zero-cent recurring
   ceiling. Its mode-`0600` output lists secret names without accepting secret values.
-- Release `v0.2.0` now binds the demo candidate to source revision
-  `f7d3e3a3547da238cfdbe30f84139bf9efe5dc82`. The successful release workflow published and signed
+- Release `v0.2.1` now binds the demo candidate to source revision
+  `50189e68f0623a71fb153841ffb78a18b41d9a9e`. Quality Gate run `33474266520` and release run
+  `33474649737` succeeded. The release workflow published and signed
   AMD64/ARM64 API, web, and metrics-collector indexes after repeating repository, build, dependency,
   secret, and image-vulnerability gates. GitHub provenance verification passed for all three
   immutable digests; the canonical zero-cost demo runbook records them.

@@ -12,7 +12,7 @@ paid plan, paid overage, custom domain, public launch, real custody, or external
 ## Current state
 
 ```text
-Environment contract:          implemented; v0.2.1 release pending
+Environment contract:          implemented; v0.2.1 released and verified
 Recurring-cost ceiling:        $0
 Cloudflare gateway code:       implemented; deployment pending
 Cloudflare Workers account:    Free/$0 confirmed; Worker pending
@@ -22,7 +22,7 @@ Neon account/Free PostgreSQL:  project created; migration pending
 Demo identity path:            implemented; operator execution pending
 Coinbase reference adapter:    implemented; runtime activation pending
 Reference chart:               implemented; deployment activation pending
-Candidate API image:           v0.2.1 pending; v0.2.0 superseded for deployment
+Candidate API image:           v0.2.1 verified; Render deployment pending
 Production approval:           no-go
 ```
 
@@ -52,16 +52,18 @@ to charge for overage. When an allowance is exhausted, accept suspension or revi
 
 ## Release evidence
 
-Release `v0.2.0` binds the demo candidate to source revision
-`f7d3e3a3547da238cfdbe30f84139bf9efe5dc82`. The release workflow repeated repository verification,
+Release `v0.2.1` binds the demo candidate to source revision
+`50189e68f0623a71fb153841ffb78a18b41d9a9e`. The release workflow repeated repository verification,
 production builds, image builds, dependency and secret checks, and High/Critical image scanning
 before publishing signed AMD64/ARM64 OCI indexes. GitHub provenance verification passed for:
 
 ```text
-ghcr.io/ashutosh-code-arch/atlas-api@sha256:528d6b8dd12933d340bfcbac95f5a63e2350e802912f13f2a44092bf48fcf7ed
-ghcr.io/ashutosh-code-arch/atlas-web@sha256:b44ce6922918cfe799bb8f07b56399830ca4e71bd24be7529ba79d72ab268b84
-ghcr.io/ashutosh-code-arch/atlas-metrics-collector@sha256:f22f18b613c8ab3a3ab9823411e8fdff426de95b6e760a91d9f7a85e91895da9
+ghcr.io/ashutosh-code-arch/atlas-api@sha256:768f04035cb3645473e1ef31396b816ab404a9cbd9c5a61e84afe5e0dd215e9b
+ghcr.io/ashutosh-code-arch/atlas-web@sha256:fc2144ccbdafc11faefd252e89e4e6464a517b7e1278baa0e7727e5e9bcd8fd3
+ghcr.io/ashutosh-code-arch/atlas-metrics-collector@sha256:571d1825d79b409a58f48d35f8aff803fd1f1dce047c30850ebcb17d42d36752
 ```
+
+Quality Gate run `33474266520` and release run `33474649737` completed successfully.
 
 Only the API digest belongs in the zero-cost demo deployment manifest. The web and collector
 digests preserve a complete release set but are not deployed in the ADR-075 topology.
