@@ -12,17 +12,17 @@ paid plan, paid overage, custom domain, public launch, real custody, or external
 ## Current state
 
 ```text
-Environment contract:          implemented; v0.2.1 released and verified
+Environment contract:          deployed; v0.2.1 live and verified
 Recurring-cost ceiling:        $0
-Cloudflare gateway code:       implemented; deployment pending
-Cloudflare Workers account:    Free/$0 confirmed; Worker pending
+Cloudflare gateway code:       deployed; version 4f120d82-367f-4fc6-9206-8df9d9539ade
+Cloudflare Workers account:    Free/$0 confirmed; Worker live
 Cloudflare Access policy:      rejected; overage authorization required
-Render account/Free API:       Free service form confirmed; creation pending
-Neon account/Free PostgreSQL:  project created; migration pending
-Demo identity path:            implemented; operator execution pending
-Coinbase reference adapter:    implemented; runtime activation pending
-Reference chart:               implemented; deployment activation pending
-Candidate API image:           v0.2.1 verified; Render deployment pending
+Render account/Free API:       live in Singapore; direct origin protected
+Neon account/Free PostgreSQL:  PostgreSQL 18; schema 15 current
+Demo identity path:            one operator-provisioned identity active
+Coinbase reference adapter:    live through Render
+Reference chart:               live through Cloudflare
+Candidate API image:           v0.2.1 digest deployed and verified
 Production approval:           no-go
 ```
 
@@ -71,11 +71,39 @@ digests preserve a complete release set but are not deployed in the ADR-075 topo
 ## External setup inputs
 
 - [x] Cloudflare account on the Workers Free plan with no Zero Trust activation.
-- [ ] Unique `workers.dev` subdomain and deployed Worker.
+- [x] Unique `workers.dev` subdomain and deployed Worker.
 - [x] Exact invited Atlas identity selected; credentials remain outside Git.
-- [ ] Render Hobby workspace with no paid service or overage authority.
+- [x] Render workspace with one Free web service and no paid service or overage authority.
 - [x] Neon Free PostgreSQL 18 project created in Singapore.
-- [ ] Restricted storage for the Neon connection string, CSRF key, and demo-user bootstrap material.
+- [x] Restricted mode-`0600` storage outside Git for operator bootstrap material.
+
+## Live demo evidence
+
+The initial zero-cost demo was activated on 2026-09-01:
+
+```text
+Public Worker:    https://atlas-exchange.ashutoshk-connect.workers.dev
+Worker version:   4f120d82-367f-4fc6-9206-8df9d9539ade
+Render API:       https://atlas-exchange-api-demo.onrender.com
+Render service:   srv-dabecgajobas73c85a5g
+Neon project:     rough-cake-05796227
+Schema version:   15
+```
+
+Sanitized activation checks passed:
+
+- Worker root and runtime configuration returned `200` with `demo` and disabled public account
+  creation/recovery.
+- Worker-proxied liveness and readiness returned `200`.
+- Direct Render readiness and API traffic without the gateway secret returned
+  `403 DEMO_GATEWAY_REQUIRED`.
+- The operator-provisioned identity authenticated through the Worker and its server session
+  persisted after navigation.
+- Authenticated portfolio state loaded from Neon.
+- Coinbase reference price and five-minute candlesticks reported live while remaining labeled
+  read-only and separate from Atlas simulation.
+- The Market Data WebSocket established its initial sequence-zero order-book snapshot through the
+  Worker; no projected liquidity existed before simulated orders.
 
 No secret or invited identity belongs in Git, generated manifests, shell history, screenshots, or
 readiness records.
