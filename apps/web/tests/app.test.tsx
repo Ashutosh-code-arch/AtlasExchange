@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../src/app";
 import type { ApplicationRoute } from "../src/app/initial-route";
@@ -24,6 +24,7 @@ function renderApp(
     readonly emailVerifier?: NonNullable<AuthenticationProviderProps["emailVerifier"]>;
     readonly passwordResetter?: NonNullable<AuthenticationProviderProps["passwordResetter"]>;
     readonly currentUser?: CurrentUser;
+    readonly environment?: React.ComponentProps<typeof App>["environment"];
   } = {},
 ): void {
   const client: AuthenticationSessionClient = {
@@ -44,70 +45,65 @@ function renderApp(
       <App
         apiBaseUrl="http://api.test"
         readinessClient={readinessClient}
+        {...(options.environment === undefined ? {} : { environment: options.environment })}
         {...(options.initialRoute === undefined ? {} : { initialRoute: options.initialRoute })}
       />
     </AuthenticationProvider>,
   );
 }
 
-describe("Atlas overview", () => {
-  it("shows the current delivery phase", async () => {
+afterEach(() => {
+  window.history.replaceState(null, "", "/");
+});
+
+describe("Atlas product shell", () => {
+  it("shows a focused authenticated dashboard instead of the delivery roadmap", async () => {
     renderApp(() => Promise.resolve({ status: "ready" }));
 
-    expect(screen.getByRole("heading", { name: /build trust/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: appUser.email })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Know what you hold" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Portfolio" })).toHaveAttribute("href", "#portfolio");
-    expect(screen.getByText("Foundation")).toBeInTheDocument();
-    expect(screen.getByText("Financial core").closest("li")).toHaveTextContent(
-      /03\s*Financial core\s*Complete/i,
+    expect(screen.getAllByRole("link", { name: "Portfolio" })[0]).toHaveAttribute(
+      "href",
+      "/app/portfolio",
     );
-    expect(screen.getByText("Trading").closest("li")).toHaveTextContent(/04\s*Trading\s*Complete/i);
-    expect(screen.getByText("Product surfaces").closest("li")).toHaveTextContent(
-      /06\s*Product surfaces\s*Complete/i,
-    );
-    expect(screen.getByText("Production readiness").closest("li")).toHaveTextContent(
-      /07\s*Production readiness\s*Current/i,
-    );
-    expect(await screen.findByText("Operational")).toBeInTheDocument();
-    expect(await screen.findByText(appUser.email)).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Notifications" })).toBeInTheDocument();
+    expect(screen.queryByText("Delivery roadmap")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /repository/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the demo simulation boundary visible without dominating the workspace", async () => {
+    renderApp(() => Promise.resolve({ status: "ready" }), { environment: "demo" });
+
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByText("Demo")).toBeInTheDocument();
+    expect(screen.getByText("Simulation only")).toBeInTheDocument();
+  });
+
+  it("navigates between product pages with a real browser path", async () => {
+    const user = userEvent.setup();
+    renderApp(() => Promise.resolve({ status: "ready" }));
+
+    const tradeLinks = await screen.findAllByRole("link", { name: "Trade" });
+    await user.click(tradeLinks[0]!);
+
+    expect(window.location.pathname).toBe("/app/trade/BTC-USD");
+    expect(await screen.findByRole("heading", { name: "Trade" })).toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "Administration console" }),
-    ).not.toBeInTheDocument();
+      await screen.findByRole("heading", { name: "Execute with precision" }),
+    ).toBeInTheDocument();
   });
 
-  it("keeps the demo simulation boundary visible in the application header", () => {
-    const client: AuthenticationSessionClient = {
-      request: vi.fn(),
-      dispose: vi.fn(),
-      announceAuthenticationLost: vi.fn(),
-    };
-    render(
-      <AuthenticationProvider
-        apiBaseUrl="http://api.test"
-        clientFactory={() => client}
-        currentUserLoader={() => Promise.resolve(appUser)}
-      >
-        <App
-          apiBaseUrl="http://api.test"
-          environment="demo"
-          readinessClient={() => Promise.resolve({ status: "ready" })}
-        />
-      </AuthenticationProvider>,
-    );
-
-    expect(screen.getByText("Demo · Simulation")).toBeInTheDocument();
-  });
-
-  it("composes the Administration console only for an administrator", async () => {
+  it("shows the Administration destination only to an administrator", async () => {
     renderApp(() => Promise.resolve({ status: "ready" }), {
       currentUser: { ...appUser, roles: ["user", "admin"] },
+      initialRoute: { name: "admin" },
     });
 
     expect(await screen.findByRole("link", { name: "Admin" })).toHaveAttribute(
       "href",
-      "#administration",
+      "/app/admin",
     );
     expect(
       await screen.findByRole("heading", { name: "Administration console" }),
@@ -115,29 +111,33 @@ describe("Atlas overview", () => {
     expect(screen.getByText("No identity selected")).toBeInTheDocument();
   });
 
-  it("shows a safe offline state when readiness cannot be loaded", async () => {
-    renderApp(() => Promise.reject(new Error("network failure")));
+  it("falls back to the dashboard when a non-admin requests the admin route", async () => {
+    renderApp(() => Promise.resolve({ status: "ready" }), {
+      initialRoute: { name: "admin" },
+    });
 
-    expect(await screen.findByText("Offline")).toBeInTheDocument();
-    expect(screen.getByText(/cannot be reached/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Administration console" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("allows the operator to refresh readiness", async () => {
+  it("shows a safe offline state and allows a connection retry", async () => {
     const readinessClient = vi
       .fn()
-      .mockResolvedValueOnce({ status: "not_ready" as const })
+      .mockRejectedValueOnce(new Error("network failure"))
       .mockResolvedValueOnce({ status: "ready" as const });
     const user = userEvent.setup();
     renderApp(readinessClient);
 
-    expect(await screen.findByText("Starting")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /refresh status/i }));
+    expect(await screen.findByText("Atlas cannot be reached right now.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Retry connection" }));
 
     await waitFor(() => expect(readinessClient).toHaveBeenCalledTimes(2));
-    expect(await screen.findByText("Operational")).toBeInTheDocument();
+    expect(await screen.findByText("Atlas services are connected.")).toBeInTheDocument();
   });
 
-  it("composes email verification without loading overview readiness", async () => {
+  it("composes email verification without loading product readiness", async () => {
     const readinessClient = vi.fn();
     const emailVerifier = vi.fn().mockResolvedValue(undefined);
     renderApp(readinessClient, {
@@ -148,10 +148,10 @@ describe("Atlas overview", () => {
     expect(await screen.findByRole("heading", { name: "Email verified" })).toBeInTheDocument();
     expect(emailVerifier).toHaveBeenCalledWith(expect.anything(), "opaque.verification-token");
     expect(readinessClient).not.toHaveBeenCalled();
-    expect(screen.queryByRole("heading", { name: /build trust/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Dashboard" })).not.toBeInTheDocument();
   });
 
-  it("composes password reset without loading overview readiness", () => {
+  it("composes password reset without loading product readiness", () => {
     const readinessClient = vi.fn();
     const passwordResetter = vi.fn().mockResolvedValue(undefined);
     renderApp(readinessClient, {
@@ -162,6 +162,5 @@ describe("Atlas overview", () => {
     expect(screen.getByRole("heading", { name: "Choose a new password" })).toBeInTheDocument();
     expect(readinessClient).not.toHaveBeenCalled();
     expect(passwordResetter).not.toHaveBeenCalled();
-    expect(screen.queryByRole("heading", { name: /build trust/i })).not.toBeInTheDocument();
   });
 });

@@ -37,12 +37,15 @@ type TradingStateProps = Pick<
   | "tradeLoader"
   | "orderPlacer"
   | "orderCanceller"
+  | "initialMarketCode"
   | "pageSize"
   | "idempotencyKeyFactory"
 >;
 
 export interface TradingWorkspaceProps extends TradingStateProps {
   readonly apiBaseUrl: string;
+  readonly mode?: "terminal" | "activity";
+  readonly onMarketSelect?: (marketCode: string) => void;
   readonly candleHistoryLimit?: number;
   readonly orderBookDepth?: number;
   readonly marketDataStreamClient?: MarketDataSubscriptionClient;
@@ -530,6 +533,9 @@ function TradingActivity({
 
 export function TradingWorkspace({
   apiBaseUrl,
+  mode = "terminal",
+  onMarketSelect,
+  initialMarketCode,
   marketLoader = listTradingMarkets,
   orderLoader = listTradingOrders,
   tradeLoader = listTradingTrades,
@@ -564,6 +570,7 @@ export function TradingWorkspace({
     orderPlacer,
     orderCanceller,
     pageSize,
+    ...(initialMarketCode === undefined ? {} : { initialMarketCode }),
     ...(idempotencyKeyFactory === undefined ? {} : { idempotencyKeyFactory }),
   });
   const selectedMarket = useMemo(
@@ -600,6 +607,7 @@ export function TradingWorkspace({
 
   const selectMarket = (marketCode: string): void => {
     controller.selectMarket(marketCode);
+    onMarketSelect?.(marketCode);
     setQuantity("");
     setLimitPrice("");
     setFeedback(null);
@@ -680,94 +688,118 @@ export function TradingWorkspace({
     <section className="trading-workspace" id="trading" aria-labelledby="trading-workspace-title">
       <div className="trading-workspace__heading">
         <div>
-          <p className="eyebrow">Trading desk</p>
-          <h2 id="trading-workspace-title">Execute with precision</h2>
+          <p className="eyebrow">{mode === "terminal" ? "Trading desk" : "Order activity"}</p>
+          <h2 id="trading-workspace-title">
+            {mode === "terminal" ? "Execute with precision" : "Orders and executions"}
+          </h2>
         </div>
         <div className="trading-workspace__truth">
           <span>Simulated market</span>
-          <p>Exact quantities · atomic settlement · server-confirmed state</p>
+          <p>
+            {mode === "terminal"
+              ? "Exact quantities · atomic settlement · server-confirmed state"
+              : "Private activity · server-confirmed status · controlled cancellation"}
+          </p>
         </div>
       </div>
 
-      <MarketRail controller={controller} selectedMarket={selectedMarket} onSelect={selectMarket} />
-
-      <div className="trading-terminal">
-        <div className="trading-terminal__main">
-          <header className="trading-market-header">
-            <div>
-              <span className="trading-market-header__asset">
-                {selectedMarket?.baseAssetCode ?? "—"}
-              </span>
-              <div>
-                <h3>{selectedMarket?.code.replace("-", " / ") ?? "Select a market"}</h3>
-                <p>
-                  {selectedMarket === undefined
-                    ? "Market catalog"
-                    : `Quoted in ${selectedMarket.quoteAssetCode}`}
-                </p>
-              </div>
-            </div>
-            <dl>
-              <div>
-                <dt>Market state</dt>
-                <dd>
-                  {selectedMarket === undefined
-                    ? "—"
-                    : `Simulation · ${humanize(selectedMarket.status)}`}
-                </dd>
-              </div>
-              <div>
-                <dt>External reference</dt>
-                <dd className="trading-market-header__live">Coinbase · Read only</dd>
-              </div>
-            </dl>
-          </header>
-
-          <ReferenceMarketOverview
-            client={referenceMarketHttpClient}
-            limit={candleHistoryLimit}
-            {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
-            {...(referenceMarketTickerLoader === undefined
-              ? {}
-              : { tickerLoader: referenceMarketTickerLoader })}
-            {...(referenceMarketCandlesLoader === undefined
-              ? {}
-              : { candlesLoader: referenceMarketCandlesLoader })}
-            {...(referenceMarketRefreshIntervalMs === undefined
-              ? {}
-              : { refreshIntervalMs: referenceMarketRefreshIntervalMs })}
-          />
-
-          <LevelTwoOrderBook
-            stream={marketDataStream}
-            depth={orderBookDepth}
-            {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
-          />
-
-          <TradingActivity
+      {mode === "terminal" ? (
+        <>
+          <MarketRail
             controller={controller}
-            authenticated={authenticated}
-            view={activityView}
-            cancellingOrderId={cancellingOrderId}
-            onViewChange={setActivityView}
-            onCancel={cancelOrder}
-            onLoadMore={loadMore}
+            selectedMarket={selectedMarket}
+            onSelect={selectMarket}
           />
-        </div>
 
-        <OrderTicket
+          <div className="trading-terminal">
+            <div className="trading-terminal__main">
+              <header className="trading-market-header">
+                <div>
+                  <span className="trading-market-header__asset">
+                    {selectedMarket?.baseAssetCode ?? "—"}
+                  </span>
+                  <div>
+                    <h3>{selectedMarket?.code.replace("-", " / ") ?? "Select a market"}</h3>
+                    <p>
+                      {selectedMarket === undefined
+                        ? "Market catalog"
+                        : `Quoted in ${selectedMarket.quoteAssetCode}`}
+                    </p>
+                  </div>
+                </div>
+                <dl>
+                  <div>
+                    <dt>Market state</dt>
+                    <dd>
+                      {selectedMarket === undefined
+                        ? "—"
+                        : `Simulation · ${humanize(selectedMarket.status)}`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>External reference</dt>
+                    <dd className="trading-market-header__live">Coinbase · Read only</dd>
+                  </div>
+                </dl>
+              </header>
+
+              <ReferenceMarketOverview
+                client={referenceMarketHttpClient}
+                limit={candleHistoryLimit}
+                {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
+                {...(referenceMarketTickerLoader === undefined
+                  ? {}
+                  : { tickerLoader: referenceMarketTickerLoader })}
+                {...(referenceMarketCandlesLoader === undefined
+                  ? {}
+                  : { candlesLoader: referenceMarketCandlesLoader })}
+                {...(referenceMarketRefreshIntervalMs === undefined
+                  ? {}
+                  : { refreshIntervalMs: referenceMarketRefreshIntervalMs })}
+              />
+
+              <LevelTwoOrderBook
+                stream={marketDataStream}
+                depth={orderBookDepth}
+                {...(selectedMarket === undefined ? {} : { market: selectedMarket })}
+              />
+
+              <TradingActivity
+                controller={controller}
+                authenticated={authenticated}
+                view={activityView}
+                cancellingOrderId={cancellingOrderId}
+                onViewChange={setActivityView}
+                onCancel={cancelOrder}
+                onLoadMore={loadMore}
+              />
+            </div>
+
+            <OrderTicket
+              controller={controller}
+              selectedMarket={selectedMarket}
+              authenticated={authenticated}
+              side={side}
+              quantity={quantity}
+              limitPrice={limitPrice}
+              onSideChange={setSide}
+              onQuantityChange={setQuantity}
+              onLimitPriceChange={setLimitPrice}
+              onSubmit={submitOrder}
+            />
+          </div>
+        </>
+      ) : (
+        <TradingActivity
           controller={controller}
-          selectedMarket={selectedMarket}
           authenticated={authenticated}
-          side={side}
-          quantity={quantity}
-          limitPrice={limitPrice}
-          onSideChange={setSide}
-          onQuantityChange={setQuantity}
-          onLimitPriceChange={setLimitPrice}
-          onSubmit={submitOrder}
+          view={activityView}
+          cancellingOrderId={cancellingOrderId}
+          onViewChange={setActivityView}
+          onCancel={cancelOrder}
+          onLoadMore={loadMore}
         />
-      </div>
+      )}
 
       {feedback === null ? null : (
         <p

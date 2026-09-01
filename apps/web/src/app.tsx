@@ -1,9 +1,16 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 
-import type { ApplicationRoute } from "./app/initial-route";
-import { getReadiness, type ReadinessView } from "./features/system-status";
+import { ApplicationShell, PublicApplicationShell } from "./app/application-shell";
+import {
+  applicationRoutePath,
+  isProductRoute,
+  readApplicationRoute,
+  type ApplicationRoute,
+  type ProductRoute,
+} from "./app/initial-route";
 import { AuthenticationPanel, useAuthenticationSession } from "./features/authentication";
-import { OverviewPage } from "./pages/overview-page";
+import { getReadiness, type ReadinessView } from "./features/system-status";
+import { DashboardPage } from "./pages/dashboard-page";
 import { ResetPasswordPage } from "./pages/reset-password-page";
 import { VerifyEmailPage } from "./pages/verify-email-page";
 
@@ -32,29 +39,6 @@ const AdministrationWorkspace = lazy(async () => {
   return { default: administration.AdministrationWorkspace };
 });
 
-function AdministrationNavigationLink(): React.JSX.Element | null {
-  const { state } = useAuthenticationSession();
-  return state.status === "authenticated" && state.user.roles.includes("admin") ? (
-    <a href="#administration">Admin</a>
-  ) : null;
-}
-
-function AdministrationRoute(): React.JSX.Element | null {
-  const { state } = useAuthenticationSession();
-  if (state.status !== "authenticated" || !state.user.roles.includes("admin")) return null;
-  return (
-    <Suspense
-      fallback={
-        <section className="administration-workspace" aria-label="Administration console">
-          <p className="administration-workspace__gate">Loading the Administration console…</p>
-        </section>
-      }
-    >
-      <AdministrationWorkspace />
-    </Suspense>
-  );
-}
-
 interface AppProps {
   readonly apiBaseUrl: string;
   readonly environment?: "local" | "demo" | "staging" | "production";
@@ -66,77 +50,161 @@ interface AppProps {
   readonly initialRoute?: ApplicationRoute;
 }
 
-function OverviewRoute({
-  apiBaseUrl,
-  readinessClient,
-  publicAccountFeatures,
-}: Required<
-  Pick<AppProps, "apiBaseUrl" | "readinessClient" | "publicAccountFeatures">
->): React.JSX.Element {
+function LoadingSurface({ label }: { readonly label: string }): React.JSX.Element {
+  return (
+    <section className="product-loading" aria-label={label}>
+      <span aria-hidden="true" />
+      <p>Loading {label.toLowerCase()}…</p>
+    </section>
+  );
+}
+
+function useReadiness(
+  apiBaseUrl: string,
+  readinessClient: NonNullable<AppProps["readinessClient"]>,
+): { readonly readiness: ReadinessView; readonly refresh: () => void } {
   const [readiness, setReadiness] = useState<ReadinessView>("checking");
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback((): void => {
     setReadiness("checking");
-    try {
-      const result = await readinessClient(apiBaseUrl);
-      setReadiness(result.status);
-    } catch {
-      setReadiness("unreachable");
-    }
+    void readinessClient(apiBaseUrl)
+      .then((result) => setReadiness(result.status))
+      .catch(() => setReadiness("unreachable"));
   }, [apiBaseUrl, readinessClient]);
 
   useEffect(() => {
-    let isCurrent = true;
-    readinessClient(apiBaseUrl)
+    let current = true;
+    void readinessClient(apiBaseUrl)
       .then((result) => {
-        if (isCurrent) {
-          setReadiness(result.status);
-        }
+        if (current) setReadiness(result.status);
       })
       .catch(() => {
-        if (isCurrent) {
-          setReadiness("unreachable");
-        }
+        if (current) setReadiness("unreachable");
       });
-
     return () => {
-      isCurrent = false;
+      current = false;
     };
   }, [apiBaseUrl, readinessClient]);
 
+  return { readiness, refresh };
+}
+
+function RouteContent({
+  apiBaseUrl,
+  onNavigate,
+  onRefreshReadiness,
+  readiness,
+  route,
+  userEmail,
+}: {
+  readonly apiBaseUrl: string;
+  readonly onNavigate: (route: ProductRoute) => void;
+  readonly onRefreshReadiness: () => void;
+  readonly readiness: ReadinessView;
+  readonly route: ProductRoute;
+  readonly userEmail: string;
+}): React.JSX.Element {
+  switch (route.name) {
+    case "dashboard":
+      return (
+        <DashboardPage
+          onNavigate={onNavigate}
+          onRefreshReadiness={onRefreshReadiness}
+          readiness={readiness}
+          userEmail={userEmail}
+        >
+          <Suspense fallback={<LoadingSurface label="Portfolio" />}>
+            <PortfolioWorkspace />
+          </Suspense>
+        </DashboardPage>
+      );
+    case "trade":
+      return (
+        <Suspense fallback={<LoadingSurface label="Trading desk" />}>
+          <TradingWorkspace
+            key={route.marketCode ?? "default-market"}
+            apiBaseUrl={apiBaseUrl}
+            {...(route.marketCode === undefined ? {} : { initialMarketCode: route.marketCode })}
+            onMarketSelect={(marketCode) => onNavigate({ name: "trade", marketCode })}
+          />
+        </Suspense>
+      );
+    case "orders":
+      return (
+        <Suspense fallback={<LoadingSurface label="Orders" />}>
+          <TradingWorkspace apiBaseUrl={apiBaseUrl} mode="activity" />
+        </Suspense>
+      );
+    case "portfolio":
+      return (
+        <Suspense fallback={<LoadingSurface label="Portfolio" />}>
+          <PortfolioWorkspace />
+        </Suspense>
+      );
+    case "funds":
+      return (
+        <Suspense fallback={<LoadingSurface label="Funds" />}>
+          <FinancialWorkspace />
+        </Suspense>
+      );
+    case "profile":
+      return <AuthenticationPanel />;
+    case "admin":
+      return (
+        <Suspense fallback={<LoadingSurface label="Administration" />}>
+          <AdministrationWorkspace />
+        </Suspense>
+      );
+  }
+}
+
+function AuthenticatedApplication({
+  apiBaseUrl,
+  environment,
+  onNavigate,
+  readinessClient,
+  route,
+}: {
+  readonly apiBaseUrl: string;
+  readonly environment: NonNullable<AppProps["environment"]>;
+  readonly onNavigate: (route: ProductRoute) => void;
+  readonly readinessClient: NonNullable<AppProps["readinessClient"]>;
+  readonly route: ProductRoute;
+}): React.JSX.Element {
+  const { state } = useAuthenticationSession();
+  const { readiness, refresh } = useReadiness(apiBaseUrl, readinessClient);
+
+  if (state.status !== "authenticated") {
+    return <LoadingSurface label="Secure workspace" />;
+  }
+
+  const permittedRoute =
+    route.name === "admin" && !state.user.roles.includes("admin")
+      ? ({ name: "dashboard" } as const)
+      : route;
+
   return (
-    <>
-      <AuthenticationPanel publicAccountFeatures={publicAccountFeatures} />
-      <OverviewPage readiness={readiness} onRefresh={() => void refresh()} />
-      <Suspense
-        fallback={
-          <section className="portfolio-workspace" aria-label="Portfolio">
-            <p className="portfolio-workspace__gate">Loading the Portfolio workspace…</p>
-          </section>
-        }
-      >
-        <PortfolioWorkspace />
-      </Suspense>
-      <Suspense
-        fallback={
-          <section className="trading-workspace" aria-label="Trading desk">
-            <p className="trading-workspace__catalog-state">Loading the Trading desk…</p>
-          </section>
-        }
-      >
-        <TradingWorkspace apiBaseUrl={apiBaseUrl} />
-      </Suspense>
-      <Suspense
-        fallback={
-          <section className="financial-workspace" aria-label="Financial sandbox">
-            <p className="financial-workspace__gate">Loading the Financial sandbox…</p>
-          </section>
-        }
-      >
-        <FinancialWorkspace />
-      </Suspense>
-      <AdministrationRoute />
-    </>
+    <ApplicationShell
+      environment={environment}
+      onNavigate={onNavigate}
+      readiness={readiness}
+      route={permittedRoute}
+      user={state.user}
+      notifications={
+        <Suspense fallback={null}>
+          <NotificationCenter />
+        </Suspense>
+      }
+    >
+      <RouteContent
+        apiBaseUrl={apiBaseUrl}
+        onNavigate={onNavigate}
+        onRefreshReadiness={refresh}
+        readiness={readiness}
+        route={permittedRoute}
+        userEmail={state.user.email}
+      />
+    </ApplicationShell>
   );
 }
 
@@ -148,61 +216,57 @@ export function App({
     passwordRecoveryEnabled: true,
   },
   readinessClient = getReadiness,
-  initialRoute = { name: "overview" },
+  initialRoute = { name: "dashboard" },
 }: AppProps): React.JSX.Element {
+  const { state } = useAuthenticationSession();
+  const [route, setRoute] = useState<ApplicationRoute>(initialRoute);
+
+  const navigate = useCallback((nextRoute: ProductRoute): void => {
+    window.history.pushState(window.history.state, "", applicationRoutePath(nextRoute));
+    setRoute(nextRoute);
+  }, []);
+
+  useEffect(() => {
+    const onPopState = (): void => setRoute(readApplicationRoute(window.location));
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (state.status !== "authenticated" || route.name !== "login") return;
+    window.history.replaceState(
+      window.history.state,
+      "",
+      applicationRoutePath({ name: "dashboard" }),
+    );
+  }, [route.name, state.status]);
+
+  useEffect(() => {
+    const title = isProductRoute(route)
+      ? `${route.name.slice(0, 1).toUpperCase()}${route.name.slice(1)} · Atlas Exchange`
+      : "Atlas Exchange";
+    document.title = title;
+  }, [route]);
+
+  if (route.name === "verify-email") return <VerifyEmailPage token={route.token} />;
+  if (route.name === "reset-password") return <ResetPasswordPage token={route.token} />;
+
+  if (state.status !== "authenticated") {
+    return (
+      <PublicApplicationShell environment={environment}>
+        <AuthenticationPanel publicAccountFeatures={publicAccountFeatures} />
+      </PublicApplicationShell>
+    );
+  }
+
+  const productRoute = isProductRoute(route) ? route : ({ name: "dashboard" } as const);
   return (
-    <div className="app-shell">
-      <header className="site-header" data-environment={environment}>
-        <a className="brand" href="/" aria-label="Atlas Exchange home">
-          <span className="brand__symbol" aria-hidden="true">
-            A
-          </span>
-          <span>ATLAS / EXCHANGE</span>
-        </a>
-        {environment === "demo" ? (
-          <span className="site-header__environment">Demo · Simulation</span>
-        ) : null}
-        <div className="site-header__actions">
-          <nav aria-label="Primary navigation">
-            {initialRoute.name === "overview" ? (
-              <a href="#portfolio">Portfolio</a>
-            ) : (
-              <a href="/">Home</a>
-            )}
-            {initialRoute.name === "overview" ? <a href="#trading">Trade</a> : null}
-            {initialRoute.name === "overview" ? <a href="#financial">Funds</a> : null}
-            {initialRoute.name === "overview" ? <AdministrationNavigationLink /> : null}
-            {initialRoute.name === "overview" ? <a href="#roadmap">Roadmap</a> : null}
-            <a
-              href="https://github.com/Ashutosh-code-arch/AtlasExchange"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Repository <span aria-hidden="true">↗</span>
-            </a>
-          </nav>
-          {initialRoute.name === "overview" ? (
-            <Suspense fallback={null}>
-              <NotificationCenter />
-            </Suspense>
-          ) : null}
-        </div>
-      </header>
-      {initialRoute.name === "overview" ? (
-        <OverviewRoute
-          apiBaseUrl={apiBaseUrl}
-          readinessClient={readinessClient}
-          publicAccountFeatures={publicAccountFeatures}
-        />
-      ) : initialRoute.name === "verify-email" ? (
-        <VerifyEmailPage token={initialRoute.token} />
-      ) : (
-        <ResetPasswordPage token={initialRoute.token} />
-      )}
-      <footer>
-        <span>Atlas Labs · Engineering Academy</span>
-        <span>Precision before velocity.</span>
-      </footer>
-    </div>
+    <AuthenticatedApplication
+      apiBaseUrl={apiBaseUrl}
+      environment={environment}
+      onNavigate={navigate}
+      readinessClient={readinessClient}
+      route={productRoute}
+    />
   );
 }

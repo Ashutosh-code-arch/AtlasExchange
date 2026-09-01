@@ -261,6 +261,19 @@ describe("TradingWorkspace", () => {
     expect(within(ticket).getByLabelText("Limit price")).toHaveValue("50000");
   });
 
+  it("reports market selection so the application route can stay shareable", async () => {
+    const onMarketSelect = vi.fn();
+    const user = userEvent.setup();
+    renderWorkspace(standardProps({ onMarketSelect }));
+
+    await user.click(
+      await screen.findByRole("button", { name: /ETH \/ USD.*Lot 0\.001.*Tick 0\.01/i }),
+    );
+
+    expect(onMarketSelect).toHaveBeenCalledWith("ETH-USD");
+    expect(screen.getByRole("heading", { name: "ETH / USD" })).toBeInTheDocument();
+  });
+
   it("keeps the ticket unchanged and reuses its idempotency key after an ambiguous outcome", async () => {
     const orderPlacer = vi
       .fn<OrderPlacer>()

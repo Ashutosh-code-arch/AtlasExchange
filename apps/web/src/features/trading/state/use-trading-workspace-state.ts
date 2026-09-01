@@ -47,6 +47,7 @@ export interface TradingWorkspaceSnapshot {
 export interface UseTradingWorkspaceStateOptions {
   readonly request: AuthenticationHttpClient["request"];
   readonly authenticated: boolean;
+  readonly initialMarketCode?: string;
   readonly marketLoader?: MarketLoader;
   readonly orderLoader?: OrderLoader;
   readonly tradeLoader?: TradeLoader;
@@ -110,6 +111,7 @@ function mergeUnique<Resource extends { readonly id: string }>(
 export function useTradingWorkspaceState({
   request,
   authenticated,
+  initialMarketCode = "",
   marketLoader = listTradingMarkets,
   orderLoader = listTradingOrders,
   tradeLoader = listTradingTrades,
@@ -124,7 +126,7 @@ export function useTradingWorkspaceState({
     authenticated ? "loading" : "anonymous",
   );
   const [markets, setMarkets] = useState<readonly TradingMarket[]>([]);
-  const [selectedMarketCode, setSelectedMarketCode] = useState("");
+  const [selectedMarketCode, setSelectedMarketCode] = useState(initialMarketCode);
   const [orders, setOrders] = useState<readonly TradingOrder[]>([]);
   const [trades, setTrades] = useState<readonly TradingTrade[]>([]);
   const [nextOrderCursor, setNextOrderCursor] = useState<string | null>(null);
@@ -159,6 +161,7 @@ export function useTradingWorkspaceState({
       setMarkets(catalog);
       setSelectedMarketCode((current) => {
         if (catalog.some(({ code }) => code === current)) return current;
+        if (catalog.some(({ code }) => code === initialMarketCode)) return initialMarketCode;
         return catalog.find(({ status }) => status === "active")?.code ?? catalog[0]?.code ?? "";
       });
       setCatalogStatus("ready");
@@ -167,7 +170,7 @@ export function useTradingWorkspaceState({
         setCatalogStatus("error");
       }
     }
-  }, [client, marketLoader]);
+  }, [client, initialMarketCode, marketLoader]);
 
   const loadHistory = useCallback(
     async (marketCode: string): Promise<void> => {

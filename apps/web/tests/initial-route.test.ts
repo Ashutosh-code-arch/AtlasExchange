@@ -64,7 +64,7 @@ describe("readInitialApplicationRoute", () => {
     expect(replaceState).toHaveBeenCalledWith(null, "", "/reset-password");
   });
 
-  it("preserves ordinary overview fragments", () => {
+  it("resolves the root to the product dashboard without modifying ordinary fragments", () => {
     const replaceState = vi.fn();
 
     expect(
@@ -72,7 +72,34 @@ describe("readInitialApplicationRoute", () => {
         { pathname: "/", search: "", hash: "#roadmap" },
         { state: null, replaceState },
       ),
-    ).toEqual({ name: "overview" });
+    ).toEqual({ name: "dashboard" });
     expect(replaceState).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["/app/dashboard", { name: "dashboard" }],
+    ["/app/trade/BTC-USD", { name: "trade", marketCode: "BTC-USD" }],
+    ["/app/orders", { name: "orders" }],
+    ["/app/portfolio", { name: "portfolio" }],
+    ["/app/funds", { name: "funds" }],
+    ["/app/profile", { name: "profile" }],
+    ["/app/admin", { name: "admin" }],
+    ["/login", { name: "login" }],
+  ])("resolves %s to its application route", (pathname, expected) => {
+    expect(
+      readInitialApplicationRoute(
+        { pathname, search: "", hash: "" },
+        { state: null, replaceState: vi.fn() },
+      ),
+    ).toEqual(expected);
+  });
+
+  it("fails an unknown path safely to the dashboard", () => {
+    expect(
+      readInitialApplicationRoute(
+        { pathname: "/not-an-atlas-route", search: "", hash: "" },
+        { state: null, replaceState: vi.fn() },
+      ),
+    ).toEqual({ name: "dashboard" });
   });
 });

@@ -170,6 +170,27 @@ describe("useTradingWorkspaceState", () => {
     expect(result.current.nextTradeCursor).toBeNull();
   });
 
+  it("selects a valid market supplied by the application route", async () => {
+    const { marketLoader, orderLoader, tradeLoader } = successfulLoaders();
+    const { result } = renderHook(() =>
+      useTradingWorkspaceState({
+        request: requestStub(),
+        authenticated: true,
+        initialMarketCode: "ETH-USD",
+        marketLoader,
+        orderLoader,
+        tradeLoader,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.historyStatus).toBe("ready"));
+    expect(result.current.selectedMarketCode).toBe("ETH-USD");
+    expect(orderLoader).toHaveBeenCalledWith(expect.any(Object), {
+      marketCode: "ETH-USD",
+      limit: 50,
+    });
+  });
+
   it("keeps private Trading history anonymous until authentication and clears it on logout", async () => {
     const { marketLoader, orderLoader, tradeLoader } = successfulLoaders();
     const request = requestStub();
