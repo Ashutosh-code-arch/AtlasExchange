@@ -57,7 +57,7 @@ async function registerVerifyAndSignIn(page: Page, request: APIRequestContext): 
   await login.getByLabel("Email").fill(email);
   await login.getByLabel("Password").fill(password);
   await login.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByText("Authenticated as")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
 }
 
 test("shows a durable financial notification and preserves its read receipt", async ({
@@ -66,6 +66,11 @@ test("shows a durable financial notification and preserves its read receipt", as
 }) => {
   await registerVerifyAndSignIn(page, request);
 
+  await page
+    .getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("link", { name: "Funds", exact: true })
+    .click();
+  await expect(page.getByRole("heading", { name: "Simulated funds" })).toBeVisible();
   await page.locator("#financial-asset").selectOption("USD");
   await page.getByRole("button", { name: "Open USD wallet" }).click();
   await expect(page.getByLabel("USD balance")).toBeVisible();

@@ -66,13 +66,21 @@ async function signIn(page: Page, email: string): Promise<void> {
   await form.getByLabel("Email").fill(email);
   await form.getByLabel("Password").fill(password);
   await form.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByText("Authenticated as")).toBeVisible();
-  await expect(page.getByText(email)).toBeVisible();
+  await expect(page.getByRole("link", { name: `Open profile for ${email}` })).toBeVisible();
 }
 
 async function signOut(page: Page): Promise<void> {
+  await page.getByRole("link", { name: /^Open profile for / }).click();
+  await expect(page.getByRole("heading", { name: "Profile & security" })).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+}
+
+async function navigateFromPrimary(page: Page, label: string): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("link", { name: label, exact: true })
+    .click();
 }
 
 async function selectAsset(page: Page, assetCode: string): Promise<void> {
@@ -146,10 +154,13 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   const buyerEmail = "buyer-browser-journey@atlas.test";
 
   await registerVerifyAndSignIn(page, request, sellerEmail);
+  await navigateFromPrimary(page, "Funds");
   await openWallet(page, "BTC");
   await fundSelectedWallet(page, "BTC", "1");
   await openWallet(page, "USD");
 
+  await navigateFromPrimary(page, "Trade");
+  await expect(page.getByRole("heading", { name: "Market terminal" })).toBeVisible();
   await placeLimitOrder(page, { side: "Sell", quantity: "0.5", price: "50000" });
   await expect(page.locator(".trading-feedback")).toContainText(/Order .* is open on BTC-USD/);
   const sellerOrders = page.getByRole("table", { name: "Orders for the selected Trading market" });
@@ -192,10 +203,13 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   await signOut(page);
 
   await registerVerifyAndSignIn(page, request, buyerEmail);
+  await navigateFromPrimary(page, "Funds");
   await openWallet(page, "BTC");
   await openWallet(page, "USD");
   await fundSelectedWallet(page, "USD", "60000");
 
+  await navigateFromPrimary(page, "Trade");
+  await expect(page.getByRole("heading", { name: "Market terminal" })).toBeVisible();
   await placeLimitOrder(page, { side: "Buy", quantity: "0.5", price: "51000" });
   await expect(page.locator(".trading-feedback")).toContainText(/executed 1 fill/);
   await expect(page.getByText("No open liquidity is projected for BTC-USD.")).toBeVisible();
@@ -218,14 +232,16 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   await expect(page.getByText("No open liquidity is projected for BTC-USD.")).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText(buyerEmail)).toBeVisible();
+  await expect(page.getByRole("link", { name: `Open profile for ${buyerEmail}` })).toBeVisible();
+  await navigateFromPrimary(page, "Funds");
   await expectWalletBalance(page, "BTC", { available: "0.5", reserved: "0", total: "0.5" });
   await expectWalletBalance(page, "USD", {
     available: "35000",
     reserved: "0",
     total: "35000",
   });
-  const buyerPortfolio = page.getByRole("region", { name: "Know what you hold" });
+  await navigateFromPrimary(page, "Portfolio");
+  const buyerPortfolio = page.getByRole("region", { name: "Portfolio summary" });
   await buyerPortfolio.getByRole("button", { name: "Refresh portfolio" }).click();
   await expect(buyerPortfolio.getByLabel("Portfolio USD value")).toContainText("60,000 USD");
   await expect(buyerPortfolio.getByText("Complete valuation")).toBeVisible();
@@ -236,17 +252,21 @@ test("matches two users through the Trading desk, settles wallets, and cancels r
   await signOut(page);
 
   await signIn(page, sellerEmail);
+  await navigateFromPrimary(page, "Funds");
   await expectWalletBalance(page, "BTC", { available: "0.5", reserved: "0", total: "0.5" });
   await expectWalletBalance(page, "USD", {
     available: "25000",
     reserved: "0",
     total: "25000",
   });
-  const sellerPortfolio = page.getByRole("region", { name: "Know what you hold" });
+  await navigateFromPrimary(page, "Portfolio");
+  const sellerPortfolio = page.getByRole("region", { name: "Portfolio summary" });
   await sellerPortfolio.getByRole("button", { name: "Refresh portfolio" }).click();
   await expect(sellerPortfolio.getByLabel("Portfolio USD value")).toContainText("50,000 USD");
   await expect(sellerPortfolio.getByText("Complete valuation")).toBeVisible();
 
+  await navigateFromPrimary(page, "Orders");
+  await expect(page.getByRole("heading", { name: "Order history" })).toBeVisible();
   await page.getByRole("tab", { name: /Executions 1/ }).click();
   const sellerExecutions = page.getByRole("table", {
     name: "Executions for the selected Trading market",

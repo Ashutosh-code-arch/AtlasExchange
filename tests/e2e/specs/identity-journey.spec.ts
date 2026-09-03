@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 interface MailpitAddress {
   readonly Address: string;
@@ -66,6 +66,13 @@ async function latestVerificationMessage(
   return message.To.some((recipient) => recipient.Address === email) ? message : undefined;
 }
 
+async function navigateFromPrimary(page: Page, label: string): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("link", { name: label, exact: true })
+    .click();
+}
+
 test("registers, moves simulated funds, and manages an exact identity", async ({
   page,
   request,
@@ -121,11 +128,13 @@ test("registers, moves simulated funds, and manages an exact identity", async ({
   await signIn.getByLabel("Password").fill(password);
   await signIn.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page.getByText("Authenticated as")).toBeVisible();
-  await expect(page.getByText(email)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: email, level: 2 })).toBeVisible();
+  await expect(page.getByRole("link", { name: `Open profile for ${email}` })).toBeVisible();
 
-  await expect(page.getByRole("heading", { name: "Move simulated value" })).toBeVisible();
+  await navigateFromPrimary(page, "Funds");
+  await expect(page).toHaveURL(/\/app\/funds$/);
+  await expect(page.getByRole("heading", { name: "Simulated funds" })).toBeVisible();
   await page.getByRole("button", { name: "Open BTC wallet" }).click();
   await expect(
     page.getByLabel("BTC balance").getByText("0", { exact: true }).first(),
@@ -152,7 +161,9 @@ test("registers, moves simulated funds, and manages an exact identity", async ({
     page.getByText("No destination is collected because no external transfer occurs."),
   ).toBeVisible();
 
-  const portfolio = page.getByRole("region", { name: "Know what you hold" });
+  await navigateFromPrimary(page, "Portfolio");
+  await expect(page).toHaveURL(/\/app\/portfolio$/);
+  const portfolio = page.getByRole("region", { name: "Portfolio summary" });
   await portfolio.getByRole("button", { name: "Refresh portfolio" }).click();
   await expect(portfolio.getByText("Valued subtotal")).toBeVisible();
   await expect(portfolio.getByText("Incomplete valuation")).toBeVisible();
@@ -186,6 +197,8 @@ test("registers, moves simulated funds, and manages an exact identity", async ({
   await page.reload();
 
   await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
+  await navigateFromPrimary(page, "Admin");
+  await expect(page).toHaveURL(/\/app\/admin$/);
   const administration = page.getByRole("region", { name: "Administration console" });
   await administration.getByLabel("Exact user ID").fill(administrationTargetId);
   await administration.getByRole("button", { name: "Find user" }).click();
@@ -205,6 +218,29 @@ test("registers, moves simulated funds, and manages an exact identity", async ({
   await administration.getByRole("button", { name: "Confirm suspension" }).click();
   await expect(administration.getByText("suspended", { exact: true })).toBeVisible();
   await expect(administration.getByRole("status")).toContainText("active sessions revoked");
+
+  await page.getByRole("link", { name: `Open profile for ${email}` }).click();
+  await expect(page).toHaveURL(/\/app\/profile$/);
+  const profile = page.getByRole("region", { name: "Profile & security" });
+  await expect(profile.getByRole("heading", { name: "Session security" })).toBeVisible();
+  await expect(profile.getByText("No access token")).toBeVisible();
+  await profile.getByRole("button", { name: "View sessions" }).click();
+  await expect(profile.getByRole("heading", { name: "Active sessions" })).toBeVisible();
+  await expect(profile.getByText(/\d+ active sessions?/)).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("complementary", { name: "Atlas navigation" })).toBeHidden();
+  const mobileNavigation = page.getByRole("navigation", { name: "Mobile navigation" });
+  await expect(mobileNavigation).toBeVisible();
+  await expect(mobileNavigation.getByRole("link")).toHaveCount(5);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth === document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+  await mobileNavigation.getByRole("link", { name: "Funds", exact: true }).click();
+  await expect(page).toHaveURL(/\/app\/funds$/);
+  await expect(page.getByRole("heading", { name: "Simulated funds" })).toBeVisible();
 
   const auditActions = await runPostgres(`
     SELECT string_agg(action, ',' ORDER BY occurred_at)

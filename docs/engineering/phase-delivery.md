@@ -750,6 +750,24 @@ delivery increments. A phase is complete only after its acceptance checks pass.
   implementation evidence below remains historical work that can inform a future paid
   production-shaped environment, but it must not be applied to the zero-cost demo.
 
+## Post-deployment authenticated interface refinement
+
+- [ADR-077 — Authenticated Product Shell, Routing, and Interface Density](../architecture/decisions/ADR-077-authenticated-product-shell-routing-and-interface-density.md)
+  replaces the capability overview with distinct Dashboard, Trade, Orders, Portfolio, Funds,
+  Profile, and admin-only Administration routes inside a responsive brokerage shell.
+- [ADR-078 — Trading Workstation Information Architecture](../architecture/decisions/ADR-078-trading-workstation-information-architecture.md),
+  [ADR-079 — Account Activity, Portfolio, and Funds Information Architecture](../architecture/decisions/ADR-079-account-activity-portfolio-and-funds-information-architecture.md),
+  and
+  [ADR-080 — Profile, Session Security, and Administration Information Architecture](../architecture/decisions/ADR-080-profile-session-security-and-administration-information-architecture.md)
+  refine every authenticated workspace without inventing market, financial, identity, or audit
+  authority.
+- [ADR-081 — Authenticated Interface Release Acceptance](../architecture/decisions/ADR-081-authenticated-interface-release-acceptance.md)
+  updates the real-stack browser journeys to follow the routed product and adds explicit mobile
+  navigation and horizontal-overflow assertions.
+- The interface source is not the currently deployed `v0.2.1` candidate. A new immutable release,
+  successful local database/E2E gates, and explicitly authorized zero-cost demo promotion remain
+  required before these refinements appear in the hosted environment.
+
 ### Superseded paid-staging preparation retained as history
 
 - Phase 7 passed its deterministic, production-build, browser, performance, image, recovery, and

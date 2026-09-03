@@ -2,12 +2,17 @@
 
 **Classification:** Canonical  
 **Status:** Active  
-**Last reviewed:** 2026-09-01
+**Last reviewed:** 2026-09-03
 
 This runbook implements ADR-063 without assuming a production runtime vendor. ADR-075 and the
 [zero-cost demo runbook](free-demo-hosting.md) govern the initial hosted environment. Paid Render
 staging instructions below are retained for historical/future production-shaped use and must not be
 applied to the demo.
+
+Before selecting a new stable version for the routed brokerage interface, complete the
+[authenticated interface release acceptance](interface-release-acceptance.md). A successful local
+build or visual review alone does not authorize a tag, image publication, database migration, or
+provider change.
 
 ## Prepare a stable release
 
