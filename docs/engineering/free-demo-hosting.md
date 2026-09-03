@@ -11,6 +11,11 @@ paid plan, paid overage, custom domain, public launch, real custody, or external
 
 ## Current state
 
+The activation evidence below describes the original invitation-only deployment. The optional
+20-account beta is defined by [ADR-082](../architecture/decisions/ADR-082-capped-beta-registration.md)
+and the [capped-beta activation runbook](capped-beta.md). It does not become live merely by updating
+the source code; keep this deployment closed until that runbook's prerequisites are satisfied.
+
 ```text
 Environment contract:          deployed; v0.2.1 live and verified
 Recurring-cost ceiling:        $0
