@@ -5,6 +5,8 @@ import {
   createContainerBuildPlan,
   createDockerBuildArguments,
   resolveBuildMetadata,
+  parseImageSelection,
+  selectContainerImages,
 } from "./build-images.mjs";
 
 const metadata = Object.freeze({
@@ -15,6 +17,21 @@ const metadata = Object.freeze({
 });
 
 describe("container image build metadata", () => {
+  it("selects only an explicitly allowlisted application and defaults to all", () => {
+    assert.equal(parseImageSelection([]), "all");
+    assert.equal(parseImageSelection(["--", "api"]), "api");
+    for (const application of ["api", "web", "metrics-collector"]) {
+      assert.deepEqual(
+        selectContainerImages(application).map((image) => image.tag),
+        [`atlas-${application}:local`],
+      );
+      assert.equal(createContainerBuildPlan(metadata, application).length, 1);
+    }
+    for (const invalid of ["", "API", "unknown", "api\nweb", "--skip-scan"]) {
+      assert.throws(() => parseImageSelection([invalid]), /Unknown release application/);
+    }
+    assert.throws(() => parseImageSelection(["api", "web"]), /at most one/);
+  });
   it("validates explicit deterministic metadata", () => {
     assert.deepEqual(
       resolveBuildMetadata({

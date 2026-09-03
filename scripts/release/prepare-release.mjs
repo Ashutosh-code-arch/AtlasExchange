@@ -2,6 +2,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { appendFileSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { selectContainerImages } from "../containers/build-images.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryDirectory = resolve(scriptDirectory, "../..");
@@ -40,12 +41,23 @@ export function createReleaseMetadata({ created, owner, revision, tag }) {
   });
 }
 
-export function serializeGitHubOutputs(metadata) {
+export function createReleaseMatrix(application = "all") {
+  return {
+    include: selectContainerImages(application).map(({ dockerfile, tag }) => ({
+      application: tag.slice("atlas-".length, -":local".length),
+      image: tag.slice(0, -":local".length),
+      dockerfile,
+    })),
+  };
+}
+
+export function serializeGitHubOutputs(metadata, application = "all") {
   return [
     `created=${metadata.created}`,
     `registry_namespace=${metadata.registryNamespace}`,
     `revision=${metadata.revision}`,
     `version=${metadata.version}`,
+    `matrix=${JSON.stringify(createReleaseMatrix(application))}`,
     "",
   ].join("\n");
 }
@@ -66,7 +78,13 @@ export function prepareRelease(environment = process.env) {
     throw new Error("Release workflow environment is incomplete");
   }
 
+  parseReleaseTag(tag);
+  createReleaseMatrix(environment.ATLAS_RELEASE_APPLICATION);
+
   const revision = git(["rev-list", "-n", "1", tag]);
+  if (git(["rev-parse", "HEAD"]) !== revision) {
+    throw new Error("Checked-out source does not match the release tag");
+  }
   const ancestry = spawnSync("git", ["merge-base", "--is-ancestor", revision, "origin/main"], {
     cwd: repositoryDirectory,
     stdio: "inherit",
@@ -81,7 +99,11 @@ export function prepareRelease(environment = process.env) {
   });
   const manifest = JSON.parse(readFileSync(resolve(repositoryDirectory, "package.json"), "utf8"));
   validatePackageVersion(metadata.version, manifest.version);
-  appendFileSync(outputPath, serializeGitHubOutputs(metadata), "utf8");
+  appendFileSync(
+    outputPath,
+    serializeGitHubOutputs(metadata, environment.ATLAS_RELEASE_APPLICATION),
+    "utf8",
+  );
   process.stdout.write(
     `${JSON.stringify({ event: "release.validated", revision, version: metadata.version })}\n`,
   );

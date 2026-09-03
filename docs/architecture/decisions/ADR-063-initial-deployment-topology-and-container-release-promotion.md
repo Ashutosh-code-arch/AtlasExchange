@@ -1,5 +1,9 @@
 # ADR-063 — Initial Deployment Topology and Container Release Promotion
 
+> Publication update: [ADR-083](ADR-083-independent-artifact-publication-gates.md) supersedes the
+> coupled release trigger and all-artifact publication requirement below. Deployment and rollback
+> requirements remain unchanged.
+
 **Classification:** Canonical  
 **Status:** Accepted  
 **Date:** 2026-08-30  

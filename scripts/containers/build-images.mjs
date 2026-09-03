@@ -16,6 +16,21 @@ const images = Object.freeze([
   }),
 ]);
 
+export function selectContainerImages(application = "all") {
+  if (application === "all") return images;
+  const selected = images.filter((image) => image.tag === `atlas-${application}:local`);
+  if (selected.length !== 1) throw new Error("Unknown release application");
+  return selected;
+}
+
+export function parseImageSelection(arguments_) {
+  const values = arguments_[0] === "--" ? arguments_.slice(1) : arguments_;
+  if (values.length > 1) throw new Error("Expected at most one application argument");
+  const application = values[0] ?? "all";
+  selectContainerImages(application);
+  return application;
+}
+
 function gitValue(arguments_) {
   try {
     return execFileSync("git", arguments_, {
@@ -96,19 +111,24 @@ export function createDockerBuildArguments(image, metadata) {
   ];
 }
 
-export function createContainerBuildPlan(metadata = resolveBuildMetadata()) {
-  return images.map((image) => Object.freeze(createDockerBuildArguments(image, metadata)));
+export function createContainerBuildPlan(metadata = resolveBuildMetadata(), application = "all") {
+  return selectContainerImages(application).map((image) =>
+    Object.freeze(createDockerBuildArguments(image, metadata)),
+  );
 }
 
-export function buildContainerImages(environment = process.env) {
-  for (const arguments_ of createContainerBuildPlan(resolveBuildMetadata(environment))) {
+export function buildContainerImages(environment = process.env, application = "all") {
+  for (const arguments_ of createContainerBuildPlan(
+    resolveBuildMetadata(environment),
+    application,
+  )) {
     execFileSync("docker", arguments_, { cwd: repositoryDirectory, stdio: "inherit" });
   }
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    buildContainerImages();
+    buildContainerImages(process.env, parseImageSelection(process.argv.slice(2)));
   } catch (error) {
     process.stderr.write(
       `Atlas container build failed: ${error instanceof Error ? error.message : "unknown error"}\n`,

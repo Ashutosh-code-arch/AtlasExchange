@@ -1,19 +1,32 @@
 name: Publish release images
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing published stable release tag (vMAJOR.MINOR.PATCH)
+        required: true
+        type: string
+      application:
+        description: Artifact to publish; every selected image must pass its own security gate
+        required: true
+        default: all
+        type: choice
+        options:
+          - api
+          - web
+          - metrics-collector
+          - all
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-images-${{ github.event.release.tag_name }}
+  group: release-images-${{ inputs.release_tag }}
   cancel-in-progress: false
 
 jobs:
   prepare:
-    if: github.event.release.prerelease == false
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     services:
@@ -36,17 +49,19 @@ jobs:
       DATABASE_URL: postgresql://atlas_test:atlas_test_only@localhost:5432/atlas_test
       WEB_ORIGIN: http://localhost:5173
       VITE_API_BASE_URL: http://localhost:3000
-      ATLAS_RELEASE_TAG: ${{ github.event.release.tag_name }}
+      ATLAS_RELEASE_TAG: ${{ inputs.release_tag }}
+      ATLAS_RELEASE_APPLICATION: ${{ inputs.application }}
     outputs:
       created: ${{ steps.release.outputs.created }}
       registry_namespace: ${{ steps.release.outputs.registry_namespace }}
       revision: ${{ steps.release.outputs.revision }}
       version: ${{ steps.release.outputs.version }}
+      matrix: ${{ steps.release.outputs.matrix }}
     steps:
       - name: Check out release source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.release_tag }}
           fetch-depth: 0
 
       - name: Set up pnpm
@@ -56,6 +71,16 @@ jobs:
           runtime: node@24.19.0
           cache: true
           install: false
+
+      - name: Validate release identity
+        id: release
+        run: node scripts/release/prepare-release.mjs
+
+      - name: Require a published stable GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh release view "$ATLAS_RELEASE_TAG" --json isDraft,isPrerelease --jq '(.isDraft == false) and (.isPrerelease == false)')" = true
 
       - name: Scan source for tracked secrets
         run: pnpm security:secrets
@@ -75,49 +100,56 @@ jobs:
       - name: Build production artifacts
         run: pnpm build
 
-      - name: Build production container images
-        run: pnpm containers:build
-
-      - name: Scan production container images
-        run: pnpm security:containers
-
-      - name: Validate release identity
-        id: release
-        run: node scripts/release/prepare-release.mjs
-
   publish:
     needs: prepare
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: write
       id-token: write
       attestations: write
     strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - application: api
-            image: atlas-api
-            dockerfile: apps/api/Dockerfile
-          - application: web
-            image: atlas-web
-            dockerfile: apps/web/Dockerfile
-          - application: metrics-collector
-            image: atlas-metrics-collector
-            dockerfile: infra/observability/alloy/Dockerfile
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     steps:
       - name: Check out release source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ needs.prepare.outputs.revision }}
+
+      - name: Set up pnpm
+        uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2
+        with:
+          version: 11.20.0
+          runtime: node@24.19.0
+          install: false
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+
+      - name: Build and scan both runtime architectures before registry login
+        env:
+          APPLICATION: ${{ matrix.application }}
+          IMAGE: ${{ matrix.image }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          ATLAS_IMAGE_VERSION: ${{ needs.prepare.outputs.version }}
+          ATLAS_IMAGE_REVISION: ${{ needs.prepare.outputs.revision }}
+          ATLAS_IMAGE_CREATED: ${{ needs.prepare.outputs.created }}
+          ATLAS_IMAGE_SOURCE: https://github.com/${{ github.repository }}
+        run: |
+          for platform in linux/amd64 linux/arm64; do
+            docker buildx build --platform "$platform" --load \
+              --file "$DOCKERFILE" --tag "$IMAGE:local" \
+              --build-arg "ATLAS_IMAGE_VERSION=$ATLAS_IMAGE_VERSION" \
+              --build-arg "ATLAS_IMAGE_REVISION=$ATLAS_IMAGE_REVISION" \
+              --build-arg "ATLAS_IMAGE_CREATED=$ATLAS_IMAGE_CREATED" \
+              --build-arg "ATLAS_IMAGE_SOURCE=$ATLAS_IMAGE_SOURCE" .
+            node scripts/security/scan-container-images.mjs "$APPLICATION"
+          done
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
@@ -154,3 +186,9 @@ jobs:
           subject-digest: ${{ steps.publish.outputs.digest }}
           push-to-registry: true
           create-storage-record: false
+
+      - name: Record published artifact
+        env:
+          IMAGE: ghcr.io/${{ needs.prepare.outputs.registry_namespace }}/${{ matrix.image }}
+          DIGEST: ${{ steps.publish.outputs.digest }}
+        run: printf '%s\n' "Published and attested $IMAGE@$DIGEST" >> "$GITHUB_STEP_SUMMARY"

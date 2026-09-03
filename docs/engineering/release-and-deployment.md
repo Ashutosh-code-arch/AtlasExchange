@@ -2,9 +2,9 @@
 
 **Classification:** Canonical  
 **Status:** Active  
-**Last reviewed:** 2026-09-03
+**Last reviewed:** 2026-09-04
 
-This runbook implements ADR-063 without assuming a production runtime vendor. ADR-075 and the
+This runbook implements ADR-063 and ADR-083 without assuming a production runtime vendor. ADR-075 and the
 [zero-cost demo runbook](free-demo-hosting.md) govern the initial hosted environment. Paid Render
 staging instructions below are retained for historical/future production-shaped use and must not be
 applied to the demo.
@@ -32,12 +32,37 @@ provider change.
 
 4. Create and push an annotated `vMAJOR.MINOR.PATCH` tag at that commit.
 5. Publish a non-prerelease GitHub Release for the existing tag.
+6. Explicitly dispatch image publication, selecting the intended artifact:
 
-Publishing the GitHub Release starts `.github/workflows/publish-release-images.yml`. The workflow
+   ```bash
+   gh workflow run publish-release-images.yml --ref main \
+     -f release_tag=v1.2.3 -f application=api
+   ```
+
+   Supported selections are `api`, `web`, `metrics-collector`, and `all`. Record the selected scope
+   and any omitted/blocked artifacts in the release notes. Do not dispatch again to overwrite an
+   already published version; investigate a partial failure and preserve existing digest evidence.
+
+Publishing the GitHub Release alone does not publish images. The explicit workflow
 fails if the tag format is unstable, the root package version differs, or the tagged commit is not
-reachable from `origin/main`. Before either publish job receives registry write authority, release
-preparation repeats tracked-secret scanning, the live workspace dependency audit, local production
-image builds, and High/Critical image scanning.
+reachable from `origin/main`. It also verifies the exact checkout and a published stable release.
+Shared preparation repeats tracked-secret scanning, the live workspace dependency audit, migrations,
+verification, and production builds. Each selected image then builds and scans both runtime
+architectures before registry login or push. Failures block that image without cancelling sibling
+image jobs; SBOM/provenance and signed attestations remain required.
+
+For a deliberately scoped release, replace the final two all-image commands above with:
+
+```bash
+pnpm security:secrets
+pnpm security:dependencies
+pnpm containers:build -- api
+pnpm security:containers -- api
+```
+
+This is artifact-scoped evidence, not a waiver of failures elsewhere. The no-argument commands and
+repository-wide quality workflow still scan all images. ADR-083 amends the coupled publication gate;
+it does not authorize deployment of a failing artifact or relax the High/Critical threshold.
 
 The security checks require live advisory evidence. Do not bypass a failed lookup or a finding to
 make a release proceed. For a confirmed credential, revoke or rotate it before removing it from
@@ -47,7 +72,8 @@ for response and exception rules.
 
 ## Published artifacts
 
-For release `1.2.3`, the workflow publishes discoverable version and source tags:
+For release `1.2.3`, selecting `all` can publish these version and source tags. A narrower selection
+publishes only its chosen image, and a failed image job publishes nothing:
 
 ```text
 ghcr.io/ashutosh-code-arch/atlas-api:1.2.3
@@ -68,7 +94,7 @@ gh attestation verify \
   --repo Ashutosh-code-arch/AtlasExchange
 ```
 
-Repeat verification for the web and metrics-collector images. Inspect OCI metadata and the attached
+Repeat verification for every other published image. Inspect OCI metadata and the attached
 SBOM/provenance before promotion.
 
 ## Deployment configuration

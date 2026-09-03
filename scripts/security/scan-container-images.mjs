@@ -3,6 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseImageSelection, selectContainerImages } from "../containers/build-images.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryDirectory = resolve(scriptDirectory, "../..");
@@ -15,11 +16,7 @@ const maximumExceptionDurationMilliseconds = 30 * 24 * 60 * 60 * 1000;
 export const scannerImage =
   "anchore/grype:v0.116.1@sha256:1e71065c0a4cff3e6bd3b8add525ffac4343eb4971694eb90a31cf6d4d3e85db";
 
-export const runtimeImages = Object.freeze([
-  "atlas-api:local",
-  "atlas-web:local",
-  "atlas-metrics-collector:local",
-]);
+export const runtimeImages = Object.freeze(selectContainerImages().map((image) => image.tag));
 
 function commonRuntimeArguments(user, cacheMount) {
   return [
@@ -185,7 +182,8 @@ function executeDocker(arguments_) {
   });
 }
 
-export function scanContainerImages() {
+export function scanContainerImages(application = "all") {
+  const selectedImages = selectContainerImages(application).map((image) => image.tag);
   const vulnerabilityExceptions = loadVulnerabilityExceptions();
   const temporaryDirectory = mkdtempSync(resolve(tmpdir(), "atlas-container-scan-"));
   const cacheDirectory = resolve(temporaryDirectory, "cache");
@@ -197,7 +195,7 @@ export function scanContainerImages() {
     process.stdout.write("Updating the pinned vulnerability database...\n");
     executeDocker(createDatabaseUpdateArguments(cacheDirectory, user));
 
-    for (const [index, image] of runtimeImages.entries()) {
+    for (const [index, image] of selectedImages.entries()) {
       const archivePath = resolve(temporaryDirectory, `image-${index}.tar`);
       const imageExceptions = vulnerabilityExceptions.filter(
         (exception) => exception.image === image,
@@ -228,7 +226,7 @@ export function scanContainerImages() {
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    scanContainerImages();
+    scanContainerImages(parseImageSelection(process.argv.slice(2)));
   } catch (error) {
     process.stderr.write(
       `Atlas container vulnerability scan failed: ${
