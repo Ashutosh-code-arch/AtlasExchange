@@ -13,7 +13,7 @@ RUN ATLAS_METRICS_TARGET=atlas-api-staging:10000 \
 
 FROM config-validation AS runtime
 
-ARG ATLAS_IMAGE_VERSION=0.2.1-local
+ARG ATLAS_IMAGE_VERSION=0.2.2-local
 ARG ATLAS_IMAGE_REVISION=unknown
 ARG ATLAS_IMAGE_CREATED=1970-01-01T00:00:00.000Z
 ARG ATLAS_IMAGE_SOURCE=https://github.com/Ashutosh-code-arch/AtlasExchange
