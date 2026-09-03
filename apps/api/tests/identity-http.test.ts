@@ -3,6 +3,7 @@ import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../src/app.js";
+import { RegistrationCapacityError } from "../src/modules/identity/domain/registration-capacity-error.js";
 import type { AuthenticateAccess } from "../src/modules/identity/application/authenticate-access.js";
 import type { LoginUser } from "../src/modules/identity/application/login-user.js";
 import type { ListSessions } from "../src/modules/identity/application/list-sessions.js";
@@ -973,6 +974,17 @@ describe("Identity logout-all HTTP API", () => {
 });
 
 describe("Identity registration HTTP API", () => {
+  it("returns a safe beta-full error without creating an account", async () => {
+    const execute = vi
+      .fn<RegisterUser["execute"]>()
+      .mockRejectedValue(new RegistrationCapacityError());
+    const { app } = createTestApp({ execute });
+    const response = await postRegistration(app).send(validRegistration);
+    expect(response.status).toBe(409);
+    expect(response.body).toMatchObject({ error: { code: "BETA_CAPACITY_REACHED" } });
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(JSON.stringify(response.body)).not.toContain(validRegistration.email);
+  });
   it.each([
     ["created", undefined],
     ["existing", { status: "email_exists" as const }],

@@ -1,3 +1,4 @@
+import { RegistrationCapacityError } from "../domain/registration-capacity-error.js";
 import {
   loginRequestSchema,
   loginSuccessResponseSchema,
@@ -479,6 +480,16 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
         });
         response.status(202).json(body);
       } catch (error) {
+        if (error instanceof RegistrationCapacityError) {
+          next(
+            new AppError(
+              409,
+              "BETA_CAPACITY_REACHED",
+              "The beta is full. Existing users can still sign in.",
+            ),
+          );
+          return;
+        }
         if (error instanceof IdentityInputValidationError) {
           next(new AppError(400, "VALIDATION_FAILED", "Registration request is invalid."));
           return;

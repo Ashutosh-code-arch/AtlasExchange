@@ -43,6 +43,8 @@ const gatewaySharedSecret = z
   .regex(/^[A-Za-z0-9_-]+$/);
 
 const apiEnvironmentSchema = z.object({
+  PUBLIC_REGISTRATION_ENABLED: booleanString.optional(),
+  PUBLIC_PASSWORD_RECOVERY_ENABLED: booleanString.optional(),
   PORT: integerString.transform(Number).pipe(z.number().int().min(1).max(65_535)).optional(),
   API_PORT: integerString
     .default("3000")
@@ -289,6 +291,7 @@ export interface ApiConfig {
         }>;
   }>;
   readonly identity: Readonly<{
+    registrationMaximumUsers: number | undefined;
     passwordBlocklistPath: string;
     publicAccountFeatures: Readonly<{
       registrationEnabled: boolean;
@@ -365,6 +368,30 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     values.ATLAS_ENV === "demo" ||
     values.ATLAS_ENV === "staging" ||
     values.ATLAS_ENV === "production";
+
+  const registrationEnabled = values.PUBLIC_REGISTRATION_ENABLED ?? values.ATLAS_ENV !== "demo";
+  const passwordRecoveryEnabled =
+    values.PUBLIC_PASSWORD_RECOVERY_ENABLED ?? values.ATLAS_ENV !== "demo";
+  const demoEmailRequired =
+    values.ATLAS_ENV === "demo" && (registrationEnabled || passwordRecoveryEnabled);
+
+  if (demoEmailRequired) {
+    if (
+      values.SMTP_HOST === undefined ||
+      values.SMTP_FROM === undefined ||
+      values.SMTP_USERNAME === undefined ||
+      values.SMTP_PASSWORD === undefined
+    ) {
+      throw new ConfigurationError(["SMTP_HOST", "SMTP_FROM", "SMTP_USERNAME", "SMTP_PASSWORD"]);
+    }
+    // The free Render demo cannot use standard SMTP ports or a local development inbox.
+    if (
+      [25, 465, 587, 1025].includes(values.SMTP_PORT) ||
+      ["localhost", "127.0.0.1", "::1"].includes(values.SMTP_HOST.toLowerCase())
+    ) {
+      throw new ConfigurationError(["SMTP_HOST", "SMTP_PORT"]);
+    }
+  }
 
   if (values.NODE_ENV === "production" && values.ATLAS_ENV === "local") {
     throw new ConfigurationError(["NODE_ENV", "ATLAS_ENV"]);
@@ -529,16 +556,17 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
           : Object.freeze({ enabled: false as const }),
     }),
     identity: Object.freeze({
+      registrationMaximumUsers: values.ATLAS_ENV === "demo" ? 20 : undefined,
       passwordBlocklistPath: values.PASSWORD_BLOCKLIST_PATH ?? developmentPasswordBlocklistPath,
       publicAccountFeatures: Object.freeze({
-        registrationEnabled: values.ATLAS_ENV !== "demo",
-        passwordRecoveryEnabled: values.ATLAS_ENV !== "demo",
+        registrationEnabled,
+        passwordRecoveryEnabled,
       }),
       emailDelivery: Object.freeze({
         host: values.SMTP_HOST ?? "127.0.0.1",
         port: values.SMTP_PORT,
         secure: values.SMTP_SECURE,
-        requireTls: values.ATLAS_ENV === "staging" || values.ATLAS_ENV === "production",
+        requireTls: managedEnvironment,
         from: values.SMTP_FROM ?? "Atlas Exchange <no-reply@atlas.local>",
         ...(values.SMTP_USERNAME === undefined || values.SMTP_PASSWORD === undefined
           ? {}

@@ -169,6 +169,9 @@ async function start(): Promise<RunningServer> {
       webOrigin: config.http.webOrigin,
       sessionSecurity: config.identity.sessionSecurity,
       publicAccountFeatures: config.identity.publicAccountFeatures,
+      ...(config.identity.registrationMaximumUsers === undefined
+        ? {}
+        : { registrationMaximumUsers: config.identity.registrationMaximumUsers }),
       authenticateAccess,
       sessionCsrfTokenService,
     });

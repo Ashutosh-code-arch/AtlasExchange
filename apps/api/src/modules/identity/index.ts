@@ -82,6 +82,7 @@ export { Argon2PasswordHasher } from "./infrastructure/security/argon2-password-
 export { LocalCompromisedPasswordChecker } from "./infrastructure/security/local-compromised-password-checker.js";
 
 export interface CreateIdentityModuleRouterOptions {
+  readonly registrationMaximumUsers?: number;
   readonly database: Kysely<IdentityDatabaseSchema>;
   readonly passwordBlocklistPath: string;
   readonly verificationEmailDelivery: VerificationEmailDelivery;
@@ -164,7 +165,10 @@ export async function createIdentityModuleRouter(
   const registerUser = new RegisterUser({
     compromisedPasswordChecker,
     passwordHasher,
-    registrationTransactionRunner: new PostgresRegistrationTransactionRunner(options.database),
+    registrationTransactionRunner: new PostgresRegistrationTransactionRunner(
+      options.database,
+      options.registrationMaximumUsers,
+    ),
     verificationEmailDelivery: options.verificationEmailDelivery,
     verificationSecretGenerator: new CryptoVerificationSecretGenerator(),
   });

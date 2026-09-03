@@ -7,13 +7,25 @@ import type {
   RegistrationTransactionRunner,
 } from "../../application/registration-transaction.js";
 import type { IdentityDatabaseSchema } from "./identity-database-schema.js";
+import {
+  lockRegistrationCapacity,
+  requireRegistrationCapacity,
+  validateRegistrationMaximum,
+} from "./registration-capacity.js";
 
 class PostgresRegistrationTransaction implements RegistrationTransaction {
-  public constructor(private readonly database: Transaction<IdentityDatabaseSchema>) {}
+  public constructor(
+    private readonly database: Transaction<IdentityDatabaseSchema>,
+    private readonly maximumUsers?: number,
+  ) {}
 
   public async createPasswordRegistration(
     input: CreatePasswordRegistrationInput,
   ): Promise<CreatePasswordRegistrationResult> {
+    if (this.maximumUsers !== undefined) {
+      // Check before email lookup so a full beta responds identically for every address.
+      await requireRegistrationCapacity(this.database, this.maximumUsers);
+    }
     const user = await this.database
       .insertInto("identity.users")
       .values({
@@ -74,13 +86,22 @@ class PostgresRegistrationTransaction implements RegistrationTransaction {
 }
 
 export class PostgresRegistrationTransactionRunner implements RegistrationTransactionRunner {
-  public constructor(private readonly database: Kysely<IdentityDatabaseSchema>) {}
+  public constructor(
+    private readonly database: Kysely<IdentityDatabaseSchema>,
+    private readonly maximumUsers?: number,
+  ) {
+    if (maximumUsers !== undefined) validateRegistrationMaximum(maximumUsers);
+  }
 
   public execute<Result>(
     operation: (transaction: RegistrationTransaction) => Promise<Result>,
   ): Promise<Result> {
     return this.database
       .transaction()
-      .execute((database) => operation(new PostgresRegistrationTransaction(database)));
+      .setIsolationLevel("read committed")
+      .execute(async (database) => {
+        if (this.maximumUsers !== undefined) await lockRegistrationCapacity(database);
+        return operation(new PostgresRegistrationTransaction(database, this.maximumUsers));
+      });
   }
 }

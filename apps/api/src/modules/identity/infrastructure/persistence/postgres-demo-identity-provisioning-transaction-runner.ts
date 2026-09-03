@@ -8,6 +8,7 @@ import type {
 } from "../../application/demo-identity-provisioning-transaction.js";
 import type { NormalizedEmail } from "../../domain/email-address.js";
 import type { IdentityDatabaseSchema } from "./identity-database-schema.js";
+import { lockRegistrationCapacity, requireRegistrationCapacity } from "./registration-capacity.js";
 
 class PostgresDemoIdentityProvisioningTransaction implements DemoIdentityProvisioningTransaction {
   public constructor(private readonly database: Transaction<IdentityDatabaseSchema>) {}
@@ -48,6 +49,7 @@ class PostgresDemoIdentityProvisioningTransaction implements DemoIdentityProvisi
   public async createActiveIdentity(
     input: CreateActiveDemoIdentityInput,
   ): Promise<{ readonly userId: string }> {
+    await requireRegistrationCapacity(this.database, 20);
     const user = await this.database
       .insertInto("identity.users")
       .values({
@@ -103,6 +105,10 @@ export class PostgresDemoIdentityProvisioningTransactionRunner implements DemoId
   ): Promise<Result> {
     return this.database
       .transaction()
-      .execute((database) => operation(new PostgresDemoIdentityProvisioningTransaction(database)));
+      .setIsolationLevel("read committed")
+      .execute(async (database) => {
+        await lockRegistrationCapacity(database);
+        return operation(new PostgresDemoIdentityProvisioningTransaction(database));
+      });
   }
 }

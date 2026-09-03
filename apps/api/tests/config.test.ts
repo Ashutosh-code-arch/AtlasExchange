@@ -440,7 +440,7 @@ describe("API configuration", () => {
     });
     expect(config.identity.emailDelivery).toMatchObject({
       host: "127.0.0.1",
-      requireTls: false,
+      requireTls: true,
     });
     expect(config.financial).toEqual({
       simulatedFundingEnabled: true,
