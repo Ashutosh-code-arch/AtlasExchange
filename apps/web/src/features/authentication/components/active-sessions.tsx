@@ -132,9 +132,17 @@ export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Elem
           <p className="eyebrow">Session security</p>
           <h3 id="active-sessions-title">Active sessions</h3>
         </div>
-        <button className="text-button" type="button" onClick={onClose}>
-          Close
-        </button>
+        <div className="active-sessions__heading-actions">
+          {inventory.status === "ready" ? (
+            <span className="active-sessions__count">
+              {inventory.sessions.length} active{" "}
+              {inventory.sessions.length === 1 ? "session" : "sessions"}
+            </span>
+          ) : null}
+          <button className="text-button" type="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
       </div>
       {inventory.status === "loading" ? (
         <p className="active-sessions__status" role="status">
@@ -158,7 +166,11 @@ export function ActiveSessions({ onClose }: ActiveSessionsProps): React.JSX.Elem
         <>
           <ol className="active-session-list">
             {inventory.sessions.map((session) => (
-              <li key={session.id}>
+              <li
+                key={session.id}
+                aria-label={session.current ? "Current Atlas session" : "Other Atlas session"}
+                data-current={session.current}
+              >
                 <div className="active-session-list__identity">
                   <strong>{session.current ? "This session" : "Other active session"}</strong>
                   {session.current ? <span>Current</span> : null}

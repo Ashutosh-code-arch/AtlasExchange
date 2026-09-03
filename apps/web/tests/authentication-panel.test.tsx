@@ -118,7 +118,11 @@ describe("AuthenticationPanel", () => {
       password: "safe login passphrase",
     });
     expect(await screen.findByText(currentUser.email)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Profile & security" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Session security" })).toBeInTheDocument();
+    expect(screen.getByText(currentUser.id)).toBeInTheDocument();
     expect(screen.getByText("admin · user")).toBeInTheDocument();
+    expect(screen.getByText("No access token")).toBeInTheDocument();
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
   });
 

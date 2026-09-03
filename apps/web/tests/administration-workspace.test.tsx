@@ -69,6 +69,10 @@ describe("AdministrationWorkspace", () => {
     expect(
       await screen.findByRole("heading", { name: "Administration console" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Exact target")).toBeInTheDocument();
+    expect(screen.getByText("Actor-attributed")).toBeInTheDocument();
+    expect(screen.getByText("Session revocation")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Select target" })).toBeInTheDocument();
     expect(screen.getByText("No identity selected")).toBeInTheDocument();
     expect(userLoader).not.toHaveBeenCalled();
   });

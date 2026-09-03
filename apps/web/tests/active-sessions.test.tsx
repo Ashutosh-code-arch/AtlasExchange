@@ -74,6 +74,9 @@ describe("ActiveSessions", () => {
     expect(await screen.findByText("This session")).toBeInTheDocument();
     expect(screen.getByText("Other active session")).toBeInTheDocument();
     expect(screen.getByText("Current")).toBeInTheDocument();
+    expect(screen.getByText("2 active sessions")).toBeInTheDocument();
+    expect(screen.getByLabelText("Current Atlas session")).toBeInTheDocument();
+    expect(screen.getByLabelText("Other Atlas session")).toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByText(/23 Aug 2026/)).toHaveAttribute("datetime", "2026-08-23T10:00:00.000Z");
     expect(screen.queryByText(/22222222|33333333/)).not.toBeInTheDocument();

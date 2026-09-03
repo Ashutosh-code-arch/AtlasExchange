@@ -60,12 +60,21 @@ export function AuthenticationPanel({
       });
   };
 
+  const authenticated = state.status === "authenticated";
+
   return (
-    <section className="authentication-panel" aria-labelledby="authentication-title">
+    <section
+      className={`authentication-panel${authenticated ? " authentication-panel--authenticated" : ""}`}
+      aria-labelledby="authentication-title"
+    >
       <div className="authentication-panel__intro">
-        <p className="eyebrow">Identity boundary</p>
-        <h2 id="authentication-title">Access Atlas</h2>
-        <p>Server-confirmed sessions. Rotating credentials. No browser token storage.</p>
+        <p className="eyebrow">{authenticated ? "Account and security" : "Identity boundary"}</p>
+        <h2 id="authentication-title">{authenticated ? "Profile & security" : "Access Atlas"}</h2>
+        <p>
+          {authenticated
+            ? "Review your server-confirmed identity and control active Atlas sessions."
+            : "Server-confirmed sessions. Rotating credentials. No browser token storage."}
+        </p>
       </div>
       <div className="authentication-panel__content" aria-live="polite">
         {state.status === "checking" ? (
@@ -122,31 +131,86 @@ export function AuthenticationPanel({
         ) : null}
         {state.status === "authenticated" ? (
           <div className="authentication-panel__authenticated">
-            <div className="authentication-panel__identity">
-              <span>Authenticated as</span>
-              <strong>{state.user.email}</strong>
-              <span className="authentication-panel__roles">{state.user.roles.join(" · ")}</span>
-              <button
-                className="text-button"
-                type="button"
-                disabled={signingOut}
-                onClick={() => setShowSessions(true)}
-              >
-                View sessions
-              </button>
-              <button
-                className="text-button"
-                type="button"
-                disabled={signingOut}
-                onClick={handleSignOut}
-              >
-                {signingOut ? "Signing out…" : "Sign out"}
-              </button>
-              {signOutError === null ? null : (
-                <p className="authentication-panel__sign-out-error" role="alert">
-                  {signOutError}
+            <div className="profile-security-grid">
+              <article className="profile-identity-card" aria-labelledby="profile-identity-title">
+                <div className="profile-identity-card__primary">
+                  <span className="profile-identity-card__avatar" aria-hidden="true">
+                    {state.user.email.slice(0, 1).toUpperCase()}
+                  </span>
+                  <div>
+                    <p className="eyebrow">Signed-in identity</p>
+                    <h3 id="profile-identity-title">{state.user.email}</h3>
+                    <span className="profile-status-chip">Server confirmed</span>
+                  </div>
+                </div>
+                <dl className="profile-identity-card__details">
+                  <div>
+                    <dt>User ID</dt>
+                    <dd>
+                      <code>{state.user.id}</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Roles</dt>
+                    <dd>{state.user.roles.join(" · ")}</dd>
+                  </div>
+                  <div>
+                    <dt>Credential model</dt>
+                    <dd>Server session</dd>
+                  </div>
+                </dl>
+              </article>
+
+              <section className="profile-session-security" aria-labelledby="profile-session-title">
+                <div className="profile-session-security__heading">
+                  <div>
+                    <p className="eyebrow">Security controls</p>
+                    <h3 id="profile-session-title">Session security</h3>
+                  </div>
+                  <span className="profile-status-chip">Protected</span>
+                </div>
+                <p className="profile-session-security__description">
+                  Atlas keeps credentials out of browser storage and validates access with the
+                  server on every protected request.
                 </p>
-              )}
+                <dl className="profile-session-security__facts">
+                  <div>
+                    <dt>Browser storage</dt>
+                    <dd>No access token</dd>
+                  </div>
+                  <div>
+                    <dt>Session state</dt>
+                    <dd>Server confirmed</dd>
+                  </div>
+                  <div>
+                    <dt>Credential rotation</dt>
+                    <dd>Automatic</dd>
+                  </div>
+                </dl>
+                <div className="profile-session-security__actions">
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    disabled={signingOut}
+                    onClick={() => setShowSessions(true)}
+                  >
+                    View sessions
+                  </button>
+                  <button
+                    className="text-button text-button--danger"
+                    type="button"
+                    disabled={signingOut}
+                    onClick={handleSignOut}
+                  >
+                    {signingOut ? "Signing out…" : "Sign out"}
+                  </button>
+                </div>
+                {signOutError === null ? null : (
+                  <p className="authentication-panel__sign-out-error" role="alert">
+                    {signOutError}
+                  </p>
+                )}
+              </section>
             </div>
             {showSessions ? <ActiveSessions onClose={() => setShowSessions(false)} /> : null}
           </div>

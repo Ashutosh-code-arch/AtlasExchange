@@ -228,35 +228,65 @@ function AuthenticatedAdministrationWorkspace({
           <p className="eyebrow">Restricted operations</p>
           <h2 id="administration-title">Administration console</h2>
         </div>
-        <p>
-          Inspect one exact Atlas identity. Every accepted change revokes target sessions and writes
-          immutable actor-attributed evidence.
-        </p>
+        <div className="administration-workspace__scope">
+          <span>Admin only</span>
+          <p>
+            Inspect one exact Atlas identity. Every accepted change revokes target sessions and
+            writes immutable actor-attributed evidence.
+          </p>
+        </div>
       </div>
 
-      <form className="administration-lookup" onSubmit={loadUser} aria-label="Find Atlas user">
-        <label htmlFor="administration-user-id">Exact user ID</label>
-        <input
-          id="administration-user-id"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="00000000-0000-4000-8000-000000000000"
-          autoComplete="off"
-          spellCheck={false}
-          disabled={lookupPending || pendingMutation !== null}
-        />
-        <button
-          className="primary-button"
-          type="submit"
-          disabled={lookupPending || pendingMutation !== null}
-        >
-          {lookupPending
-            ? "Loading user…"
-            : target !== null && loadedQuery === query.trim()
-              ? "Reload user"
-              : "Find user"}
-        </button>
-      </form>
+      <dl className="administration-safeguards" aria-label="Administration safeguards">
+        <div>
+          <dt>Exact target</dt>
+          <dd>No user discovery</dd>
+        </div>
+        <div>
+          <dt>Audit evidence</dt>
+          <dd>Actor-attributed</dd>
+        </div>
+        <div>
+          <dt>Access changes</dt>
+          <dd>Session revocation</dd>
+        </div>
+      </dl>
+
+      <section
+        className="administration-lookup-panel"
+        aria-labelledby="administration-lookup-title"
+      >
+        <div className="administration-lookup-panel__heading">
+          <div>
+            <p className="eyebrow">Exact identity lookup</p>
+            <h3 id="administration-lookup-title">Select target</h3>
+          </div>
+          <p>Paste the immutable user identifier supplied by Atlas.</p>
+        </div>
+        <form className="administration-lookup" onSubmit={loadUser} aria-label="Find Atlas user">
+          <label htmlFor="administration-user-id">Exact user ID</label>
+          <input
+            id="administration-user-id"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="00000000-0000-4000-8000-000000000000"
+            autoComplete="off"
+            spellCheck={false}
+            disabled={lookupPending || pendingMutation !== null}
+          />
+          <button
+            className="primary-button"
+            type="submit"
+            disabled={lookupPending || pendingMutation !== null}
+          >
+            {lookupPending
+              ? "Loading user…"
+              : target !== null && loadedQuery === query.trim()
+                ? "Reload user"
+                : "Find user"}
+          </button>
+        </form>
+      </section>
 
       {lookupError !== null ? (
         <p className="administration-workspace__notice" role="alert" data-stale={stale}>
@@ -276,6 +306,7 @@ function AuthenticatedAdministrationWorkspace({
             aria-label={`Administration record for ${target.email}`}
           >
             <div className="administration-user-card__identity">
+              <p className="eyebrow">Target identity</p>
               <span data-state={target.state}>{target.state.replace("_", " ")}</span>
               <h3>{target.email}</h3>
               <code>{target.id}</code>
