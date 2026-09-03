@@ -252,7 +252,7 @@ export function PublicApplicationShell({
       <section className="public-application__introduction">
         <Brand />
         {environment === "demo" ? (
-          <span className="simulation-label">Private demo · Simulation</span>
+          <span className="simulation-label">Demo · Simulation</span>
         ) : null}
         <div>
           <p className="public-application__eyebrow">Secure trading workspace</p>

@@ -462,28 +462,36 @@ describe("AuthenticationPanel", () => {
     expect(accountRegistration).not.toHaveBeenCalled();
   });
 
-  it("maps registration failures without exposing backend details", async () => {
-    const accountRegistration = vi
-      .fn<AccountRegistration>()
-      .mockRejectedValue(
-        new ApiHttpError(429, "RATE_LIMITED", "sensitive-request-id", "internal backend detail"),
-      );
-    const user = userEvent.setup();
-    renderPanel({
-      currentUserLoader: () => Promise.reject(anonymousSession()),
-      accountRegistration,
-    });
+  it.each([
+    [429, "RATE_LIMITED", "Too many registration attempts. Try again later."],
+    [
+      409,
+      "BETA_CAPACITY_REACHED",
+      "The beta is full. All 20 account places are taken. Existing users can still sign in.",
+    ],
+  ])(
+    "maps registration failure %s without exposing backend details",
+    async (status, code, message) => {
+      const accountRegistration = vi
+        .fn<AccountRegistration>()
+        .mockRejectedValue(
+          new ApiHttpError(status, code, "sensitive-request-id", "internal backend detail"),
+        );
+      const user = userEvent.setup();
+      renderPanel({
+        currentUserLoader: () => Promise.reject(anonymousSession()),
+        accountRegistration,
+      });
 
-    await user.click(await screen.findByRole("button", { name: "Create account" }));
-    await user.type(screen.getByRole("textbox", { name: "Email" }), "new@example.com");
-    await user.type(screen.getByLabelText("Password"), "safe registration passphrase");
-    await user.type(screen.getByLabelText("Confirm password"), "safe registration passphrase");
-    await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(await screen.findByRole("button", { name: "Create account" }));
+      await user.type(screen.getByRole("textbox", { name: "Email" }), "new@example.com");
+      await user.type(screen.getByLabelText("Password"), "safe registration passphrase");
+      await user.type(screen.getByLabelText("Confirm password"), "safe registration passphrase");
+      await user.click(screen.getByRole("button", { name: "Create account" }));
 
-    expect(
-      await screen.findByText("Too many registration attempts. Try again later."),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("internal backend detail")).not.toBeInTheDocument();
-    expect(screen.queryByText("sensitive-request-id")).not.toBeInTheDocument();
-  });
+      expect(await screen.findByText(message)).toBeInTheDocument();
+      expect(screen.queryByText("internal backend detail")).not.toBeInTheDocument();
+      expect(screen.queryByText("sensitive-request-id")).not.toBeInTheDocument();
+    },
+  );
 });

@@ -13,6 +13,8 @@ export interface GatewayEnvironment {
 }
 
 interface GatewayConfiguration {
+  readonly registrationEnabled: boolean;
+  readonly passwordRecoveryEnabled: boolean;
   readonly apiOrigin: string;
   readonly publicOrigin: string;
   readonly sharedSecret: string;
@@ -54,8 +56,8 @@ function exactHttpsOrigin(value: string, field: string, hostnameSuffix: string):
 export function parseGatewayEnvironment(environment: GatewayEnvironment): GatewayConfiguration {
   if (
     environment.ATLAS_ENV !== "demo" ||
-    environment.PUBLIC_REGISTRATION_ENABLED !== "false" ||
-    environment.PUBLIC_PASSWORD_RECOVERY_ENABLED !== "false"
+    !["true", "false"].includes(environment.PUBLIC_REGISTRATION_ENABLED) ||
+    !["true", "false"].includes(environment.PUBLIC_PASSWORD_RECOVERY_ENABLED)
   ) {
     throw new Error("demo feature configuration is invalid");
   }
@@ -64,6 +66,8 @@ export function parseGatewayEnvironment(environment: GatewayEnvironment): Gatewa
   }
 
   return Object.freeze({
+    registrationEnabled: environment.PUBLIC_REGISTRATION_ENABLED === "true",
+    passwordRecoveryEnabled: environment.PUBLIC_PASSWORD_RECOVERY_ENABLED === "true",
     apiOrigin: exactHttpsOrigin(environment.ATLAS_API_ORIGIN, "ATLAS_API_ORIGIN", ".onrender.com"),
     publicOrigin: exactHttpsOrigin(
       environment.ATLAS_PUBLIC_ORIGIN,
@@ -115,13 +119,14 @@ function textResponse(
   });
 }
 
-function runtimeConfigResponse(request: Request, publicOrigin: string): Response {
+function runtimeConfigResponse(request: Request, configuration: GatewayConfiguration): Response {
+  const { publicOrigin } = configuration;
   const serialized = JSON.stringify({
     apiBaseUrl: publicOrigin,
     environment: "demo",
     publicAccountFeatures: {
-      registrationEnabled: false,
-      passwordRecoveryEnabled: false,
+      registrationEnabled: configuration.registrationEnabled,
+      passwordRecoveryEnabled: configuration.passwordRecoveryEnabled,
     },
   }).replaceAll("<", "\\u003c");
   const body =
@@ -255,7 +260,7 @@ export function createGateway(dependencies: GatewayDependencies = {}): {
             allow: "GET, HEAD",
           });
         }
-        return runtimeConfigResponse(request, configuration.publicOrigin);
+        return runtimeConfigResponse(request, configuration);
       }
       if (isApiPath(requestUrl.pathname) || isHealthPath(requestUrl.pathname)) {
         return proxyToApi(request, requestUrl, configuration, fetchOrigin);

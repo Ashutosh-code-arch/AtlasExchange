@@ -33,14 +33,26 @@ function gateway(
 }
 
 describe("demo gateway", () => {
+  it("publishes explicit beta feature flags without exposing secrets", async () => {
+    const response = await gateway().fetch(request("/runtime-config.js"), {
+      ...environment(),
+      PUBLIC_REGISTRATION_ENABLED: "true",
+      PUBLIC_PASSWORD_RECOVERY_ENABLED: "true",
+    });
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toContain('"registrationEnabled":true');
+    expect(body).toContain('"passwordRecoveryEnabled":true');
+    expect(body).not.toContain(gatewaySharedSecret);
+  });
   it("accepts only the exact fail-closed demo environment", () => {
     const parsed = parseGatewayEnvironment(environment());
     expect(parsed).toMatchObject({ apiOrigin, publicOrigin });
 
     for (const invalid of [
       { ATLAS_ENV: "staging" },
-      { PUBLIC_REGISTRATION_ENABLED: "true" },
-      { PUBLIC_PASSWORD_RECOVERY_ENABLED: "true" },
+      { PUBLIC_REGISTRATION_ENABLED: "yes" },
+      { PUBLIC_PASSWORD_RECOVERY_ENABLED: "" },
       { ATLAS_API_ORIGIN: "http://atlas-api-demo.onrender.com" },
       { ATLAS_API_ORIGIN: "https://atlas-api-demo.onrender.com:8443" },
       { ATLAS_API_ORIGIN: "https://api.example.com" },

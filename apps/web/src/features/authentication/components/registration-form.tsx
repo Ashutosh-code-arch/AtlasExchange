@@ -16,6 +16,8 @@ function registrationErrorMessage(error: unknown): string {
       return "Use a valid email and a password that meets the requirements.";
     case "RATE_LIMITED":
       return "Too many registration attempts. Try again later.";
+    case "BETA_CAPACITY_REACHED":
+      return "The beta is full. All 20 account places are taken. Existing users can still sign in.";
     default:
       return "Account creation is unavailable. Try again.";
   }
