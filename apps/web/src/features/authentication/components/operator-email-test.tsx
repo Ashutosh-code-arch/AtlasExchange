@@ -72,20 +72,28 @@ export function OperatorEmailTest(): React.JSX.Element | null {
   if (userId === undefined || authorizedUserId !== userId) return null;
   return (
     <section className="profile-session-security" aria-labelledby="operator-email-test-title">
-      <h3 id="operator-email-test-title">Operator email test</h3>
+      <div className="profile-session-security__heading">
+        <h3 id="operator-email-test-title">Operator email test</h3>
+      </div>
       <p className="profile-session-security__description">
         Send a test only to your server-confirmed account email. This does not enable signup or
         change your account. Maximum three attempts per 15 minutes.
       </p>
-      <button
-        className="secondary-button"
-        type="button"
-        disabled={pending}
-        onClick={() => void send()}
-      >
-        {pending ? "Sending test email…" : "Send test email"}
-      </button>
-      {message === null ? null : <p role="status">{message}</p>}
+      <div className="profile-session-security__actions">
+        <button
+          className="secondary-button"
+          type="button"
+          disabled={pending}
+          onClick={() => void send()}
+        >
+          {pending ? "Sending test email…" : "Send test email"}
+        </button>
+      </div>
+      {message === null ? null : (
+        <p className="profile-session-security__description" role="status">
+          {message}
+        </p>
+      )}
     </section>
   );
 }
