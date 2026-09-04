@@ -15,6 +15,7 @@ import {
   CryptoSessionCsrfTokenService,
   SmtpVerificationEmailDelivery,
   SmtpPasswordResetEmailDelivery,
+  SmtpOperatorTestEmailDelivery,
   type IdentityDatabaseSchema,
 } from "./modules/identity/index.js";
 import {
@@ -169,6 +170,14 @@ async function start(): Promise<RunningServer> {
       webOrigin: config.http.webOrigin,
       sessionSecurity: config.identity.sessionSecurity,
       publicAccountFeatures: config.identity.publicAccountFeatures,
+      ...(config.identity.operatorEmailTest.enabled
+        ? {
+            operatorEmailTest: {
+              operatorUserId: config.identity.operatorEmailTest.operatorUserId,
+              delivery: new SmtpOperatorTestEmailDelivery(config.identity.emailDelivery),
+            },
+          }
+        : {}),
       ...(config.identity.registrationMaximumUsers === undefined
         ? {}
         : { registrationMaximumUsers: config.identity.registrationMaximumUsers }),

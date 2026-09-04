@@ -18,6 +18,11 @@ import { RevokeSession } from "./application/revoke-session.js";
 import type { VerificationEmailDelivery } from "./application/verification-email-delivery.js";
 import { VerifyEmail } from "./application/verify-email.js";
 import { createIdentityRouter } from "./http/identity-router.js";
+import { createOperatorEmailTestRouter } from "./http/operator-email-test-router.js";
+import {
+  SendOperatorTestEmail,
+  type OperatorTestEmailDelivery,
+} from "./application/send-operator-test-email.js";
 import type { IdentityDatabaseSchema } from "./infrastructure/persistence/identity-database-schema.js";
 import { PostgresEmailVerificationTransactionRunner } from "./infrastructure/persistence/postgres-email-verification-transaction-runner.js";
 import { PostgresAccessSessionAuthenticator } from "./infrastructure/persistence/postgres-access-session-authenticator.js";
@@ -43,6 +48,7 @@ import { InMemoryRegistrationRateLimiter } from "./infrastructure/security/in-me
 import { LocalCompromisedPasswordChecker } from "./infrastructure/security/local-compromised-password-checker.js";
 
 export type { IdentityDatabaseSchema } from "./infrastructure/persistence/identity-database-schema.js";
+export { SmtpOperatorTestEmailDelivery } from "./infrastructure/delivery/smtp-operator-test-email-delivery.js";
 export { createIdentityRouter, type IdentityRouterOptions } from "./http/identity-router.js";
 export {
   SmtpPasswordResetEmailDelivery,
@@ -82,6 +88,10 @@ export { Argon2PasswordHasher } from "./infrastructure/security/argon2-password-
 export { LocalCompromisedPasswordChecker } from "./infrastructure/security/local-compromised-password-checker.js";
 
 export interface CreateIdentityModuleRouterOptions {
+  readonly operatorEmailTest?: Readonly<{
+    operatorUserId: string;
+    delivery: OperatorTestEmailDelivery;
+  }>;
   readonly registrationMaximumUsers?: number;
   readonly database: Kysely<IdentityDatabaseSchema>;
   readonly passwordBlocklistPath: string;
@@ -181,7 +191,7 @@ export async function createIdentityModuleRouter(
     transactionRunner: new PostgresEmailVerificationTransactionRunner(options.database),
   });
 
-  return createIdentityRouter({
+  const router = createIdentityRouter({
     authenticateAccess,
     listSessions,
     requestPasswordReset,
@@ -208,4 +218,24 @@ export async function createIdentityModuleRouter(
       ? {}
       : { publicAccountFeatures: options.publicAccountFeatures }),
   });
+  router.use(
+    createOperatorEmailTestRouter({
+      authenticateAccess,
+      sessionCsrfTokenService,
+      secureCookies: options.sessionSecurity.secureCookies,
+      webOrigin: options.webOrigin,
+      ...(options.operatorEmailTest === undefined
+        ? {}
+        : {
+            sendTestEmail: new SendOperatorTestEmail({
+              ...options.operatorEmailTest,
+              rateLimiter: new InMemoryRegistrationRateLimiter({
+                maximumAttempts: 3,
+                windowMilliseconds: 15 * 60 * 1_000,
+              }),
+            }),
+          }),
+    }),
+  );
+  return router;
 }

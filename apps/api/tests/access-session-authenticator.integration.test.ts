@@ -1,8 +1,17 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import pino from "pino";
+import request from "supertest";
+import { createApp } from "../src/app.js";
+import { LifecycleState } from "../src/platform/lifecycle/lifecycle-state.js";
+import { AuthenticateAccess } from "../src/modules/identity/application/authenticate-access.js";
+import { SendOperatorTestEmail } from "../src/modules/identity/application/send-operator-test-email.js";
+import { createOperatorEmailTestRouter } from "../src/modules/identity/http/operator-email-test-router.js";
+import { CryptoSessionCsrfTokenService } from "../src/modules/identity/infrastructure/security/crypto-session-csrf-token-service.js";
+import { InMemoryRegistrationRateLimiter } from "../src/modules/identity/infrastructure/security/in-memory-registration-rate-limiter.js";
 
 import type { IdentityAccountState } from "../src/modules/identity/domain/account-state.js";
 import type { IdentityDatabaseSchema } from "../src/modules/identity/infrastructure/persistence/identity-database-schema.js";
@@ -173,6 +182,8 @@ describe("PostgreSQL access-session authentication", () => {
       createAccessFixture(7, { lastActivityAt: new Date("2026-08-16T10:00:00.000Z") }),
       createAccessFixture(8, { accountState: "suspended" }),
       createAccessFixture(9, { includeRole: false }),
+      createAccessFixture(11, { accountState: "pending_verification" }),
+      createAccessFixture(12, { accountState: "disabled" }),
     ]);
 
     for (const fixture of fixtures) {
@@ -218,5 +229,66 @@ describe("PostgreSQL access-session authentication", () => {
     expect(sessions.map(({ id }) => id)).toEqual(
       expect.arrayContaining([fixture.sessionId, activeSession.id]),
     );
+  });
+
+  it("sends the operator test to the persisted active account and rechecks account/session access", async () => {
+    const fixture = await createAccessFixture(13);
+    const secret = randomBytes(32).toString("base64url");
+    await database
+      .updateTable("identity.access_tokens")
+      .set({ secret_digest: createHash("sha256").update(secret).digest() })
+      .where("id", "=", fixture.tokenId)
+      .execute();
+    const csrf = new CryptoSessionCsrfTokenService("c".repeat(43));
+    const token = csrf.issue(fixture.sessionId);
+    const deliver = vi.fn<() => Promise<"accepted">>().mockResolvedValue("accepted");
+    const app = createApp({
+      logger: pino({ enabled: false }),
+      webOrigin: "http://localhost:5173",
+      lifecycle: new LifecycleState({ checkReadiness: () => Promise.resolve(true) }),
+      identityRouter: createOperatorEmailTestRouter({
+        authenticateAccess: new AuthenticateAccess({
+          accessSessionAuthenticator: authenticator,
+          now: () => authenticatedAt,
+        }),
+        sessionCsrfTokenService: csrf,
+        secureCookies: false,
+        webOrigin: "http://localhost:5173",
+        sendTestEmail: new SendOperatorTestEmail({
+          operatorUserId: fixture.userId,
+          delivery: { deliver },
+          rateLimiter: new InMemoryRegistrationRateLimiter({ maximumAttempts: 3 }),
+        }),
+      }),
+    });
+    const send = (): request.Test =>
+      request(app)
+        .post("/api/v1/auth/operator-email-test")
+        .set("Origin", "http://localhost:5173")
+        .set("Cookie", `atlas_access=${fixture.tokenId}.${secret}; atlas_csrf=${token}`)
+        .set("x-csrf-token", token)
+        .send({});
+    expect((await send()).status).toBe(202);
+    expect(deliver).toHaveBeenCalledWith("Access-13@Example.com");
+    for (const state of ["suspended", "pending_verification", "disabled"] as const) {
+      await database
+        .updateTable("identity.users")
+        .set({ state })
+        .where("id", "=", fixture.userId)
+        .execute();
+      expect((await send()).status).toBe(401);
+    }
+    await database
+      .updateTable("identity.users")
+      .set({ state: "active" })
+      .where("id", "=", fixture.userId)
+      .execute();
+    await database
+      .updateTable("identity.sessions")
+      .set({ revoked_at: authenticatedAt, revocation_reason: "operator-test" })
+      .where("id", "=", fixture.sessionId)
+      .execute();
+    expect((await send()).status).toBe(401);
+    expect(deliver).toHaveBeenCalledOnce();
   });
 });

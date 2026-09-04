@@ -43,6 +43,8 @@ const gatewaySharedSecret = z
   .regex(/^[A-Za-z0-9_-]+$/);
 
 const apiEnvironmentSchema = z.object({
+  OPERATOR_EMAIL_TEST_ENABLED: booleanString.default(false),
+  OPERATOR_EMAIL_TEST_USER_ID: z.uuid().optional(),
   PUBLIC_REGISTRATION_ENABLED: booleanString.optional(),
   PUBLIC_PASSWORD_RECOVERY_ENABLED: booleanString.optional(),
   PORT: integerString.transform(Number).pipe(z.number().int().min(1).max(65_535)).optional(),
@@ -133,7 +135,7 @@ const apiEnvironmentSchema = z.object({
   ATLAS_APPLICATION_VERSION: z
     .string()
     .regex(/^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/)
-    .default("0.2.2"),
+    .default("0.2.3"),
   METRICS_ENABLED: booleanString.default(false),
   METRICS_BEARER_TOKEN: z.string().min(32).max(256).optional(),
   EXPECTED_SCHEMA_VERSION: integerString.default("15"),
@@ -291,6 +293,8 @@ export interface ApiConfig {
         }>;
   }>;
   readonly identity: Readonly<{
+    operatorEmailTest:
+      Readonly<{ enabled: false }> | Readonly<{ enabled: true; operatorUserId: string }>;
     registrationMaximumUsers: number | undefined;
     passwordBlocklistPath: string;
     publicAccountFeatures: Readonly<{
@@ -373,7 +377,24 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   const passwordRecoveryEnabled =
     values.PUBLIC_PASSWORD_RECOVERY_ENABLED ?? values.ATLAS_ENV !== "demo";
   const demoEmailRequired =
-    values.ATLAS_ENV === "demo" && (registrationEnabled || passwordRecoveryEnabled);
+    values.ATLAS_ENV === "demo" &&
+    (registrationEnabled || passwordRecoveryEnabled || values.OPERATOR_EMAIL_TEST_ENABLED);
+
+  if (
+    values.OPERATOR_EMAIL_TEST_ENABLED &&
+    (values.ATLAS_ENV !== "demo" ||
+      registrationEnabled ||
+      passwordRecoveryEnabled ||
+      values.OPERATOR_EMAIL_TEST_USER_ID === undefined)
+  ) {
+    throw new ConfigurationError([
+      "OPERATOR_EMAIL_TEST_ENABLED",
+      "OPERATOR_EMAIL_TEST_USER_ID",
+      "ATLAS_ENV",
+      "PUBLIC_REGISTRATION_ENABLED",
+      "PUBLIC_PASSWORD_RECOVERY_ENABLED",
+    ]);
+  }
 
   if (demoEmailRequired) {
     if (
@@ -556,6 +577,13 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
           : Object.freeze({ enabled: false as const }),
     }),
     identity: Object.freeze({
+      operatorEmailTest:
+        values.OPERATOR_EMAIL_TEST_ENABLED && values.OPERATOR_EMAIL_TEST_USER_ID !== undefined
+          ? Object.freeze({
+              enabled: true as const,
+              operatorUserId: values.OPERATOR_EMAIL_TEST_USER_ID,
+            })
+          : Object.freeze({ enabled: false as const }),
       registrationMaximumUsers: values.ATLAS_ENV === "demo" ? 20 : undefined,
       passwordBlocklistPath: values.PASSWORD_BLOCKLIST_PATH ?? developmentPasswordBlocklistPath,
       publicAccountFeatures: Object.freeze({

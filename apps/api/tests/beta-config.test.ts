@@ -22,6 +22,44 @@ const email = {
 };
 
 describe("capped beta configuration", () => {
+  it("keeps operator email testing off by default and binds explicit enablement to one identity", () => {
+    expect(parseApiConfig(demo).identity.operatorEmailTest).toEqual({ enabled: false });
+    const operatorUserId = "11111111-1111-4111-8111-111111111111";
+    const config = parseApiConfig({
+      ...demo,
+      ...email,
+      OPERATOR_EMAIL_TEST_ENABLED: "true",
+      OPERATOR_EMAIL_TEST_USER_ID: operatorUserId,
+    });
+    expect(config.identity.operatorEmailTest).toEqual({ enabled: true, operatorUserId });
+    expect(config.identity.emailDelivery.requireTls).toBe(true);
+    expect(config.identity.publicAccountFeatures).toEqual({
+      registrationEnabled: false,
+      passwordRecoveryEnabled: false,
+    });
+  });
+  it("refuses operator testing without an identity, SMTP, or closed demo account flows", () => {
+    const enabled = {
+      ...demo,
+      ...email,
+      OPERATOR_EMAIL_TEST_ENABLED: "true",
+      OPERATOR_EMAIL_TEST_USER_ID: "11111111-1111-4111-8111-111111111111",
+    };
+    for (const override of [
+      { OPERATOR_EMAIL_TEST_USER_ID: undefined },
+      { OPERATOR_EMAIL_TEST_USER_ID: "admin" },
+      { OPERATOR_EMAIL_TEST_ENABLED: "yes" },
+      { SMTP_PASSWORD: undefined },
+      { SMTP_HOST: undefined },
+      { SMTP_PORT: "587" },
+      { SMTP_PORT: "465" },
+      { SMTP_HOST: "localhost" },
+      { PUBLIC_REGISTRATION_ENABLED: "true" },
+      { PUBLIC_PASSWORD_RECOVERY_ENABLED: "true" },
+      { ATLAS_ENV: "test" },
+    ])
+      expect(() => parseApiConfig({ ...enabled, ...override })).toThrow();
+  });
   it("caps demo accounts at 20 even while signup is closed", () => {
     const identity = parseApiConfig(demo).identity;
     expect(identity.registrationMaximumUsers).toBe(20);

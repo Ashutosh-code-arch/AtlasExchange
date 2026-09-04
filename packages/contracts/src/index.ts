@@ -329,3 +329,8 @@ export {
   type HealthLiveResponse,
   type HealthReadyResponse,
 } from "./system.js";
+export {
+  operatorEmailTestRequestSchema,
+  operatorEmailTestAvailabilitySchema,
+  operatorEmailTestResponseSchema,
+} from "./operator-email-test.js";

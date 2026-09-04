@@ -33,6 +33,11 @@ available and uncapped, using Mailpit.
 
 ## Before enabling hosted signup
 
+For the restricted Render-to-SMTP delivery check while both public flags remain false, follow
+the [operator email test runbook](operator-email-test.md). This requires the ADR-084 implementation
+to be released/deployed; v0.2.2 does not contain it. Disable the diagnostic before opening public
+flows. Successful test-email receipt does not replace testing verification, resend, and recovery.
+
 1. Select and configure an email provider within the zero-cost policy. Do not add paid overage
    or transmit new credentials without operator authorization. Render Free blocks outbound SMTP
    ports 25, 465, and 587 ([Render documentation](https://render.com/docs/free)). The current

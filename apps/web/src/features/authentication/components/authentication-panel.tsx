@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { LoginForm } from "./login-form";
 import { ActiveSessions } from "./active-sessions";
+import { OperatorEmailTest } from "./operator-email-test";
 import { PasswordRecoveryForm } from "./password-recovery-form";
 import { RegistrationForm } from "./registration-form";
 import { useAuthenticationSession } from "../session/use-authentication-session";
@@ -213,6 +214,7 @@ export function AuthenticationPanel({
               </section>
             </div>
             {showSessions ? <ActiveSessions onClose={() => setShowSessions(false)} /> : null}
+            <OperatorEmailTest key={state.user.id} />
           </div>
         ) : null}
       </div>
