@@ -11,6 +11,7 @@ describe("web configuration", () => {
         registrationEnabled: true,
         passwordRecoveryEnabled: true,
       },
+      humanVerification: { enabled: false },
     });
   });
 
@@ -30,7 +31,39 @@ describe("web configuration", () => {
         registrationEnabled: false,
         passwordRecoveryEnabled: false,
       },
+      humanVerification: { enabled: false },
     });
+  });
+
+  it("accepts a bounded public Turnstile site key without treating it as a secret", () => {
+    expect(
+      parseWebConfig({
+        apiBaseUrl: "https://atlas-demo.example.workers.dev",
+        environment: "demo",
+        humanVerification: {
+          enabled: true,
+          provider: "turnstile",
+          siteKey: "0x4AAAA-test-atlas-turnstile-site-key",
+        },
+      }).humanVerification,
+    ).toEqual({
+      enabled: true,
+      provider: "turnstile",
+      siteKey: "0x4AAAA-test-atlas-turnstile-site-key",
+    });
+  });
+
+  it("fails closed when a demo exposes account actions without human verification", () => {
+    expect(() =>
+      parseWebConfig({
+        apiBaseUrl: "https://atlas-demo.example.workers.dev",
+        environment: "demo",
+        publicAccountFeatures: {
+          registrationEnabled: true,
+          passwordRecoveryEnabled: false,
+        },
+      }),
+    ).toThrow(/humanVerification/);
   });
 
   it("fails when the public API URL is invalid", () => {

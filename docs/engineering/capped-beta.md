@@ -8,6 +8,9 @@
 
 **Canonical owner/source:** [ADR-082](../architecture/decisions/ADR-082-capped-beta-registration.md)
 
+Human-verification policy is defined by
+[ADR-085](../architecture/decisions/ADR-085-public-account-human-verification.md).
+
 ## Scope and current state
 
 The code supports a maximum of **20 total demo identities**, including the existing operator
@@ -46,9 +49,13 @@ flows. Successful test-email receipt does not replace testing verification, rese
 2. Verify the sender/provider requirements and test verification, resend, and password-reset
    delivery to real external inboxes. Test failure/retry behavior and links at the actual Worker
    origin. Do not use Mailpit, localhost SMTP, or shared demo credentials for public users.
-3. Complete bot protection and abuse controls before publishing the link broadly. A 20-account
-   ceiling limits growth but cannot stop bots taking all places. Review simulated-funding/order
-   limits and provide privacy/support information appropriate for real account data.
+3. Create a Cloudflare Turnstile Managed widget restricted to the exact Worker hostname. Store
+   `TURNSTILE_SECRET_KEY` only on the API and set the public `TURNSTILE_SITE_KEY` only on the
+   Worker. Confirm the runtime document contains the site key but never the secret, CSP permits only
+   the required Cloudflare challenge script/frame origin, fabricated/replayed/wrong-action tokens
+   fail, and provider outages fail closed. A 20-account ceiling still cannot prevent one person from
+   creating multiple accounts. Review simulated-funding/order limits and provide privacy/support
+   information, including the human-verification provider, appropriate for real account data.
 4. Build/release and deploy the updated API, Worker, and web assets with flags still closed.
    No migration is needed. Do not serve new UI flags against an old API image. The existing
    `demo:deployment:generate` manifest remains an invitation-only deployment profile; it is not
@@ -65,10 +72,11 @@ flows. Successful test-email receipt does not replace testing verification, rese
    For an authenticated STARTTLS submission service, use its documented port and
    `SMTP_SECURE=false`; Atlas still requires TLS before delivery. Keep passwords out of Git,
    shell command arguments, logs, and screenshots.
-7. Once prerequisites pass, set `PUBLIC_REGISTRATION_ENABLED=true` and
-   `PUBLIC_PASSWORD_RECOVERY_ENABLED=true` on the API, then restart/check readiness. Apply matching
-   flags on the intended Worker only after the API is healthy. Gateway flags are not authorization.
-   Preserve existing origin variables and shared secrets; do not deploy to an accidental Worker name.
+7. Deploy both human-verification keys while flags remain false. Once prerequisites pass, set
+   `PUBLIC_REGISTRATION_ENABLED=true` and `PUBLIC_PASSWORD_RECOVERY_ENABLED=true` on the API, then
+   restart/check readiness. Apply matching flags on the intended Worker only after the API is
+   healthy. Missing keys fail closed; gateway flags are not authorization. Preserve existing origin
+   variables and shared secrets; do not deploy to an accidental Worker name.
 8. Confirm a new user can sign up, verify, sign in, fund simulated wallets, and trade against a
    different account. Confirm that all new accounts have only the ordinary user role. Exercise the
    20th/21st and concurrent-request boundary in an isolated database, not by filling the live beta.
@@ -92,5 +100,7 @@ for abusive accounts. Do not weaken self-trade prevention, email verification, o
   concurrent signup/operator creation, and rejection beyond 20.
 - `beta-config.test.ts`: fixed demo ceiling, safe defaults, independent switches, email prerequisites.
 - Identity HTTP, authentication UI, and gateway tests: safe full response and explicit feature flags.
+- Turnstile adapter/UI tests: exact hostname/action binding, bounded token, provider failure,
+  fail-closed gateway configuration, and token transport.
 - Run `pnpm verify` and the relevant browser journeys before release. Local test success is not
   evidence that the selected hosted email provider works.

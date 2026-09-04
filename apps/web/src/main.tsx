@@ -21,6 +21,7 @@ createRoot(rootElement).render(
         apiBaseUrl={webConfig.apiBaseUrl}
         environment={webConfig.environment}
         publicAccountFeatures={webConfig.publicAccountFeatures}
+        humanVerification={webConfig.humanVerification}
         initialRoute={initialRoute}
       />
     </AuthenticationProvider>

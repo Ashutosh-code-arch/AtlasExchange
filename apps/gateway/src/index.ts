@@ -10,6 +10,7 @@ export interface GatewayEnvironment {
   readonly ATLAS_GATEWAY_SHARED_SECRET: string;
   readonly PUBLIC_REGISTRATION_ENABLED: string;
   readonly PUBLIC_PASSWORD_RECOVERY_ENABLED: string;
+  readonly TURNSTILE_SITE_KEY?: string;
 }
 
 interface GatewayConfiguration {
@@ -18,6 +19,7 @@ interface GatewayConfiguration {
   readonly apiOrigin: string;
   readonly publicOrigin: string;
   readonly sharedSecret: string;
+  readonly turnstileSiteKey?: string;
 }
 
 type OriginFetcher = (request: Request) => Promise<Response>;
@@ -64,6 +66,16 @@ export function parseGatewayEnvironment(environment: GatewayEnvironment): Gatewa
   if (!sharedSecretPattern.test(environment.ATLAS_GATEWAY_SHARED_SECRET)) {
     throw new Error("ATLAS_GATEWAY_SHARED_SECRET is invalid");
   }
+  const publicAccountFlowEnabled =
+    environment.PUBLIC_REGISTRATION_ENABLED === "true" ||
+    environment.PUBLIC_PASSWORD_RECOVERY_ENABLED === "true";
+  if (
+    (environment.TURNSTILE_SITE_KEY !== undefined &&
+      !/^[A-Za-z0-9_-]{20,128}$/.test(environment.TURNSTILE_SITE_KEY)) ||
+    (publicAccountFlowEnabled && environment.TURNSTILE_SITE_KEY === undefined)
+  ) {
+    throw new Error("TURNSTILE_SITE_KEY is invalid");
+  }
 
   return Object.freeze({
     registrationEnabled: environment.PUBLIC_REGISTRATION_ENABLED === "true",
@@ -75,10 +87,17 @@ export function parseGatewayEnvironment(environment: GatewayEnvironment): Gatewa
       ".workers.dev",
     ),
     sharedSecret: environment.ATLAS_GATEWAY_SHARED_SECRET,
+    ...(environment.TURNSTILE_SITE_KEY === undefined
+      ? {}
+      : { turnstileSiteKey: environment.TURNSTILE_SITE_KEY }),
   });
 }
 
-function securityHeaders(headers: Headers, publicOrigin: string): Headers {
+function securityHeaders(
+  headers: Headers,
+  publicOrigin: string,
+  turnstileEnabled = false,
+): Headers {
   const secured = new Headers(headers);
   const websocketOrigin = publicOrigin.replace(/^https:/, "wss:");
   secured.set(
@@ -92,7 +111,8 @@ function securityHeaders(headers: Headers, publicOrigin: string): Headers {
       "frame-ancestors 'none'",
       "img-src 'self' data:",
       "object-src 'none'",
-      "script-src 'self'",
+      `script-src 'self'${turnstileEnabled ? " https://challenges.cloudflare.com" : ""}`,
+      ...(turnstileEnabled ? ["frame-src https://challenges.cloudflare.com"] : []),
       "style-src 'self'",
     ].join("; "),
   );
@@ -128,6 +148,14 @@ function runtimeConfigResponse(request: Request, configuration: GatewayConfigura
       registrationEnabled: configuration.registrationEnabled,
       passwordRecoveryEnabled: configuration.passwordRecoveryEnabled,
     },
+    humanVerification:
+      configuration.turnstileSiteKey === undefined
+        ? { enabled: false }
+        : {
+            enabled: true,
+            provider: "turnstile",
+            siteKey: configuration.turnstileSiteKey,
+          },
   }).replaceAll("<", "\\u003c");
   const body =
     request.method === "HEAD"
@@ -139,6 +167,7 @@ function runtimeConfigResponse(request: Request, configuration: GatewayConfigura
       "content-type": "text/javascript; charset=utf-8",
     }),
     publicOrigin,
+    configuration.turnstileSiteKey !== undefined,
   );
   return new Response(body, { status: 200, headers });
 }
@@ -197,7 +226,11 @@ async function proxyToApi(
   try {
     const upstream = await fetchOrigin(createUpstreamRequest(request, requestUrl, configuration));
     if (websocketUpgrade) return upstream;
-    const headers = securityHeaders(upstream.headers, configuration.publicOrigin);
+    const headers = securityHeaders(
+      upstream.headers,
+      configuration.publicOrigin,
+      configuration.turnstileSiteKey !== undefined,
+    );
     headers.delete("server");
     return new Response(upstream.body, {
       status: upstream.status,
@@ -212,8 +245,9 @@ async function proxyToApi(
 async function serveAsset(
   request: Request,
   environment: GatewayEnvironment,
-  publicOrigin: string,
+  configuration: GatewayConfiguration,
 ): Promise<Response> {
+  const { publicOrigin } = configuration;
   if (request.method !== "GET" && request.method !== "HEAD") {
     return textResponse(405, "Method not allowed.\n", publicOrigin, { allow: "GET, HEAD" });
   }
@@ -226,7 +260,11 @@ async function serveAsset(
   } catch {
     return textResponse(503, "Application assets are temporarily unavailable.\n", publicOrigin);
   }
-  const securedHeaders = securityHeaders(response.headers, publicOrigin);
+  const securedHeaders = securityHeaders(
+    response.headers,
+    publicOrigin,
+    configuration.turnstileSiteKey !== undefined,
+  );
   if (response.headers.get("content-type")?.startsWith("text/html") === true) {
     securedHeaders.set("cache-control", "no-store");
   }
@@ -268,7 +306,7 @@ export function createGateway(dependencies: GatewayDependencies = {}): {
       if (requestUrl.pathname === "/internal" || requestUrl.pathname.startsWith("/internal/")) {
         return textResponse(404, "Route not found.\n", configuration.publicOrigin);
       }
-      return serveAsset(request, environment, configuration.publicOrigin);
+      return serveAsset(request, environment, configuration);
     },
   });
 }

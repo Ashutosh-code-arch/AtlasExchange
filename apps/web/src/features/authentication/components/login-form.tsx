@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { ApiHttpError } from "../../../shared/api/http-client";
 import { useAuthenticationSession } from "../session/use-authentication-session";
+import { HumanVerificationWidget } from "./human-verification-widget";
 
 function loginErrorMessage(error: unknown): string {
   if (!(error instanceof ApiHttpError)) {
@@ -22,12 +23,28 @@ function loginErrorMessage(error: unknown): string {
 }
 
 function resendErrorMessage(error: unknown): string {
-  return error instanceof ApiHttpError && error.code === "RATE_LIMITED"
-    ? "Too many verification requests. Try again later."
-    : "Verification email cannot be requested right now. Try again.";
+  if (!(error instanceof ApiHttpError)) {
+    return "Verification email cannot be requested right now. Try again.";
+  }
+  if (error.code === "RATE_LIMITED") return "Too many verification requests. Try again later.";
+  if (error.code === "HUMAN_VERIFICATION_FAILED") {
+    return "Complete the human verification again.";
+  }
+  if (error.code === "HUMAN_VERIFICATION_UNAVAILABLE") {
+    return "Human verification is temporarily unavailable. Try again.";
+  }
+  return "Verification email cannot be requested right now. Try again.";
 }
 
-export function LoginForm(): React.JSX.Element {
+export interface LoginFormProps {
+  readonly humanVerification?:
+    | Readonly<{ enabled: false }>
+    | Readonly<{ enabled: true; provider: "turnstile"; siteKey: string }>;
+}
+
+export function LoginForm({
+  humanVerification = { enabled: false },
+}: LoginFormProps): React.JSX.Element {
   const { resendVerification, signIn } = useAuthenticationSession();
   const mountedRef = useRef(true);
   const [email, setEmail] = useState("");
@@ -38,6 +55,8 @@ export function LoginForm(): React.JSX.Element {
   const [resending, setResending] = useState(false);
   const [resendAccepted, setResendAccepted] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
+  const [humanVerificationToken, setHumanVerificationToken] = useState<string | null>(null);
+  const [humanVerificationResetKey, setHumanVerificationResetKey] = useState(0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -56,6 +75,7 @@ export function LoginForm(): React.JSX.Element {
     setVerificationEmail(null);
     setResendAccepted(false);
     setResendError(null);
+    setHumanVerificationToken(null);
     void signIn({ email, password })
       .catch((error: unknown) => {
         if (mountedRef.current) {
@@ -82,12 +102,20 @@ export function LoginForm(): React.JSX.Element {
   };
 
   const handleResend = (): void => {
-    if (verificationEmail === null || resending || resendAccepted) {
+    if (
+      verificationEmail === null ||
+      resending ||
+      resendAccepted ||
+      (humanVerification.enabled && humanVerificationToken === null)
+    ) {
       return;
     }
     setResending(true);
     setResendError(null);
-    void resendVerification({ email: verificationEmail })
+    void resendVerification({
+      email: verificationEmail,
+      ...(humanVerificationToken === null ? {} : { humanVerificationToken }),
+    })
       .then(() => {
         if (mountedRef.current) {
           setResendAccepted(true);
@@ -101,6 +129,10 @@ export function LoginForm(): React.JSX.Element {
       .finally(() => {
         if (mountedRef.current) {
           setResending(false);
+          if (humanVerification.enabled) {
+            setHumanVerificationToken(null);
+            setHumanVerificationResetKey((value) => value + 1);
+          }
         }
       });
   };
@@ -149,14 +181,26 @@ export function LoginForm(): React.JSX.Element {
               If this address is eligible, Atlas will send new verification instructions shortly.
             </p>
           ) : (
-            <button
-              className="text-button"
-              type="button"
-              disabled={resending}
-              onClick={handleResend}
-            >
-              {resending ? "Requesting verification…" : "Resend verification email"}
-            </button>
+            <>
+              {humanVerification.enabled ? (
+                <HumanVerificationWidget
+                  action="resend_verification"
+                  siteKey={humanVerification.siteKey}
+                  resetKey={humanVerificationResetKey}
+                  onTokenChange={setHumanVerificationToken}
+                />
+              ) : null}
+              <button
+                className="text-button"
+                type="button"
+                disabled={
+                  resending || (humanVerification.enabled && humanVerificationToken === null)
+                }
+                onClick={handleResend}
+              >
+                {resending ? "Requesting verification…" : "Resend verification email"}
+              </button>
+            </>
           )}
           {resendError === null ? null : (
             <p className="login-form__resend-error" role="alert">

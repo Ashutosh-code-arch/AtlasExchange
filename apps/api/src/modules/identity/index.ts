@@ -14,6 +14,7 @@ import { RequestPasswordReset } from "./application/request-password-reset.js";
 import { ResetPassword } from "./application/reset-password.js";
 import type { PasswordResetEmailDelivery } from "./application/password-reset-email-delivery.js";
 import type { SessionCsrfTokenService } from "./application/session-csrf-token-service.js";
+import type { HumanVerification } from "./application/human-verification.js";
 import { RevokeSession } from "./application/revoke-session.js";
 import type { VerificationEmailDelivery } from "./application/verification-email-delivery.js";
 import { VerifyEmail } from "./application/verify-email.js";
@@ -85,6 +86,15 @@ export {
   type SmtpVerificationEmailDeliveryOptions,
 } from "./infrastructure/delivery/smtp-verification-email-delivery.js";
 export { Argon2PasswordHasher } from "./infrastructure/security/argon2-password-hasher.js";
+export type {
+  HumanVerification,
+  HumanVerificationAction,
+  HumanVerificationResult,
+} from "./application/human-verification.js";
+export {
+  CloudflareTurnstileHumanVerification,
+  type CloudflareTurnstileHumanVerificationOptions,
+} from "./infrastructure/security/cloudflare-turnstile-human-verification.js";
 export { LocalCompromisedPasswordChecker } from "./infrastructure/security/local-compromised-password-checker.js";
 
 export interface CreateIdentityModuleRouterOptions {
@@ -97,6 +107,7 @@ export interface CreateIdentityModuleRouterOptions {
   readonly passwordBlocklistPath: string;
   readonly verificationEmailDelivery: VerificationEmailDelivery;
   readonly passwordResetEmailDelivery: PasswordResetEmailDelivery;
+  readonly humanVerification?: HumanVerification;
   readonly webOrigin: string;
   readonly sessionSecurity: Readonly<{
     readonly secureCookies: boolean;
@@ -147,6 +158,9 @@ export async function createIdentityModuleRouter(
     new CryptoSessionCsrfTokenService(options.sessionSecurity.csrfHmacKey);
   const revokeSession = new RevokeSession({
     sessionCsrfTokenService,
+    ...(options.humanVerification === undefined
+      ? {}
+      : { humanVerification: options.humanVerification }),
     transactionRunner: new PostgresRevokeSessionTransactionRunner(options.database),
   });
   const requestPasswordReset = new RequestPasswordReset({

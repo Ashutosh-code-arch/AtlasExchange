@@ -16,6 +16,7 @@ const developmentConfig = {
     registrationEnabled: true,
     passwordRecoveryEnabled: true,
   },
+  humanVerification: { enabled: false },
 };
 
 export const webConfig = parseWebConfig(

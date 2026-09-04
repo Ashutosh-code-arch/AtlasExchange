@@ -12,6 +12,9 @@ export interface AuthenticationPanelProps {
     registrationEnabled: boolean;
     passwordRecoveryEnabled: boolean;
   }>;
+  readonly humanVerification?:
+    | Readonly<{ enabled: false }>
+    | Readonly<{ enabled: true; provider: "turnstile"; siteKey: string }>;
 }
 
 const defaultPublicAccountFeatures = Object.freeze({
@@ -21,6 +24,7 @@ const defaultPublicAccountFeatures = Object.freeze({
 
 export function AuthenticationPanel({
   publicAccountFeatures = defaultPublicAccountFeatures,
+  humanVerification = { enabled: false },
 }: AuthenticationPanelProps = {}): React.JSX.Element {
   const { state, recheck, signOut } = useAuthenticationSession();
   const mountedRef = useRef(true);
@@ -84,7 +88,7 @@ export function AuthenticationPanel({
         {state.status === "unauthenticated" ? (
           anonymousMode === "sign-in" ? (
             <div className="authentication-anonymous-flow">
-              <LoginForm />
+              <LoginForm humanVerification={humanVerification} />
               {publicAccountFeatures.registrationEnabled ||
               publicAccountFeatures.passwordRecoveryEnabled ? (
                 <div className="authentication-mode-switch">
@@ -117,9 +121,15 @@ export function AuthenticationPanel({
               )}
             </div>
           ) : anonymousMode === "register" ? (
-            <RegistrationForm onReturnToSignIn={() => setAnonymousMode("sign-in")} />
+            <RegistrationForm
+              humanVerification={humanVerification}
+              onReturnToSignIn={() => setAnonymousMode("sign-in")}
+            />
           ) : (
-            <PasswordRecoveryForm onReturnToSignIn={() => setAnonymousMode("sign-in")} />
+            <PasswordRecoveryForm
+              humanVerification={humanVerification}
+              onReturnToSignIn={() => setAnonymousMode("sign-in")}
+            />
           )
         ) : null}
         {state.status === "unavailable" ? (

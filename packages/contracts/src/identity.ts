@@ -1,8 +1,11 @@
 import { z } from "zod";
 
+const optionalHumanVerificationTokenSchema = z.string().min(1).max(2_048).optional();
+
 export const registerRequestSchema = z.strictObject({
   email: z.string().trim().pipe(z.email().max(254)),
   password: z.string().min(1),
+  humanVerificationToken: optionalHumanVerificationTokenSchema,
 });
 
 export const loginRequestSchema = z.strictObject({
@@ -63,12 +66,14 @@ export const verifyEmailRequestSchema = z.strictObject({
 
 export const resendVerificationRequestSchema = z.strictObject({
   email: z.string().trim().pipe(z.email().max(254)),
+  humanVerificationToken: optionalHumanVerificationTokenSchema,
 });
 
 export const resendVerificationAcceptedResponseSchema = registerAcceptedResponseSchema;
 
 export const forgotPasswordRequestSchema = z.strictObject({
   email: z.string().trim().pipe(z.email().max(254)),
+  humanVerificationToken: optionalHumanVerificationTokenSchema,
 });
 
 export const forgotPasswordAcceptedResponseSchema = registerAcceptedResponseSchema;

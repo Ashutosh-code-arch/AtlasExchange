@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -39,6 +39,9 @@ function renderPanel(options: {
     registrationEnabled: boolean;
     passwordRecoveryEnabled: boolean;
   }>;
+  readonly humanVerification?:
+    | Readonly<{ enabled: false }>
+    | Readonly<{ enabled: true; provider: "turnstile"; siteKey: string }>;
 }): void {
   const client: AuthenticationSessionClient = {
     request: vi.fn(),
@@ -70,6 +73,9 @@ function renderPanel(options: {
         {...(options.publicAccountFeatures === undefined
           ? {}
           : { publicAccountFeatures: options.publicAccountFeatures })}
+        {...(options.humanVerification === undefined
+          ? {}
+          : { humanVerification: options.humanVerification })}
       />
     </AuthenticationProvider>,
   );
@@ -444,6 +450,52 @@ describe("AuthenticationPanel", () => {
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
   });
 
+  it("waits for Turnstile and sends its token with account registration", async () => {
+    let completeChallenge: ((token: string) => void) | undefined;
+    const renderWidget = vi.fn(
+      (
+        _container: HTMLElement,
+        options: { readonly action: string; readonly callback: (token: string) => void },
+      ) => {
+        completeChallenge = options.callback;
+        return "turnstile-widget";
+      },
+    );
+    Object.defineProperty(window, "turnstile", {
+      configurable: true,
+      value: { render: renderWidget, remove: vi.fn() },
+    });
+    const accountRegistration = vi.fn<AccountRegistration>().mockResolvedValue();
+    const user = userEvent.setup();
+    renderPanel({
+      currentUserLoader: () => Promise.reject(anonymousSession()),
+      accountRegistration,
+      humanVerification: {
+        enabled: true,
+        provider: "turnstile",
+        siteKey: "0x4AAAA-test-atlas-turnstile-site-key",
+      },
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Create account" }));
+    await waitFor(() => expect(renderWidget).toHaveBeenCalledOnce());
+    expect(renderWidget.mock.calls[0]?.[1].action).toBe("register");
+    expect(screen.getByRole("button", { name: "Create account" })).toBeDisabled();
+    act(() => completeChallenge?.("single-use-human-token"));
+
+    await user.type(screen.getByRole("textbox", { name: "Email" }), "new@example.com");
+    await user.type(screen.getByLabelText("Password"), "safe registration passphrase");
+    await user.type(screen.getByLabelText("Confirm password"), "safe registration passphrase");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(accountRegistration).toHaveBeenCalledWith(expect.anything(), {
+      email: "new@example.com",
+      password: "safe registration passphrase",
+      humanVerificationToken: "single-use-human-token",
+    });
+    delete window.turnstile;
+  });
+
   it("rejects mismatched registration passwords before transport", async () => {
     const accountRegistration = vi.fn<AccountRegistration>();
     const user = userEvent.setup();
@@ -464,6 +516,12 @@ describe("AuthenticationPanel", () => {
 
   it.each([
     [429, "RATE_LIMITED", "Too many registration attempts. Try again later."],
+    [400, "HUMAN_VERIFICATION_FAILED", "Complete the human verification again."],
+    [
+      503,
+      "HUMAN_VERIFICATION_UNAVAILABLE",
+      "Human verification is temporarily unavailable. Try again.",
+    ],
     [
       409,
       "BETA_CAPACITY_REACHED",

@@ -16,6 +16,7 @@ import {
   SmtpVerificationEmailDelivery,
   SmtpPasswordResetEmailDelivery,
   SmtpOperatorTestEmailDelivery,
+  CloudflareTurnstileHumanVerification,
   type IdentityDatabaseSchema,
 } from "./modules/identity/index.js";
 import {
@@ -170,6 +171,13 @@ async function start(): Promise<RunningServer> {
       webOrigin: config.http.webOrigin,
       sessionSecurity: config.identity.sessionSecurity,
       publicAccountFeatures: config.identity.publicAccountFeatures,
+      ...(config.identity.humanVerification.enabled
+        ? {
+            humanVerification: new CloudflareTurnstileHumanVerification(
+              config.identity.humanVerification,
+            ),
+          }
+        : {}),
       ...(config.identity.operatorEmailTest.enabled
         ? {
             operatorEmailTest: {

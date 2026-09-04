@@ -25,6 +25,20 @@ const publicRuntimeConfigSchema = z.object({
       passwordRecoveryEnabled: z.boolean(),
     })
     .default({ registrationEnabled: true, passwordRecoveryEnabled: true }),
+  humanVerification: z
+    .discriminatedUnion("enabled", [
+      z.strictObject({ enabled: z.literal(false) }),
+      z.strictObject({
+        enabled: z.literal(true),
+        provider: z.literal("turnstile"),
+        siteKey: z
+          .string()
+          .min(20)
+          .max(128)
+          .regex(/^[A-Za-z0-9_-]+$/),
+      }),
+    ])
+    .default({ enabled: false }),
 });
 
 export interface WebConfig {
@@ -34,6 +48,9 @@ export interface WebConfig {
     registrationEnabled: boolean;
     passwordRecoveryEnabled: boolean;
   }>;
+  readonly humanVerification:
+    | Readonly<{ enabled: false }>
+    | Readonly<{ enabled: true; provider: "turnstile"; siteKey: string }>;
 }
 
 export function parseWebConfig(runtimeConfig: unknown): WebConfig {
@@ -45,10 +62,19 @@ export function parseWebConfig(runtimeConfig: unknown): WebConfig {
     ];
     throw new Error(`Invalid web configuration: ${variableNames.join(", ")}`);
   }
+  if (
+    result.data.environment === "demo" &&
+    (result.data.publicAccountFeatures.registrationEnabled ||
+      result.data.publicAccountFeatures.passwordRecoveryEnabled) &&
+    !result.data.humanVerification.enabled
+  ) {
+    throw new Error("Invalid web configuration: humanVerification");
+  }
 
   return Object.freeze({
     apiBaseUrl: result.data.apiBaseUrl.replace(/\/$/, ""),
     environment: result.data.environment,
     publicAccountFeatures: Object.freeze(result.data.publicAccountFeatures),
+    humanVerification: Object.freeze(result.data.humanVerification),
   });
 }

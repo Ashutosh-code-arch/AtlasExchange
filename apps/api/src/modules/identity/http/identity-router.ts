@@ -27,6 +27,10 @@ import { Router, type RequestHandler } from "express";
 
 import { AppError } from "../../../http/errors/app-error.js";
 import type { LoginUser } from "../application/login-user.js";
+import type {
+  HumanVerification,
+  HumanVerificationAction,
+} from "../application/human-verification.js";
 import type { AuthenticateAccess } from "../application/authenticate-access.js";
 import type { ListSessions } from "../application/list-sessions.js";
 import type { RequestPasswordReset } from "../application/request-password-reset.js";
@@ -72,6 +76,7 @@ export interface IdentityRouterOptions {
   readonly passwordRecoveryRateLimiter: RegistrationRateLimiter;
   readonly passwordResetRateLimiter: RegistrationRateLimiter;
   readonly sessionCsrfTokenService: SessionCsrfTokenService;
+  readonly humanVerification?: HumanVerification;
   readonly secureCookies: boolean;
   readonly webOrigin: string;
   readonly publicAccountFeatures?: Readonly<{
@@ -133,6 +138,30 @@ function requirePublicAccountFeature(enabled: boolean): RequestHandler {
     }
     next();
   };
+}
+
+async function requireHumanVerification(
+  humanVerification: HumanVerification | undefined,
+  input: Readonly<{
+    token: string | undefined;
+    remoteIp: string;
+    action: HumanVerificationAction;
+  }>,
+): Promise<void> {
+  if (humanVerification === undefined) {
+    return;
+  }
+  const result = await humanVerification.verify(input);
+  if (result === "rejected") {
+    throw new AppError(400, "HUMAN_VERIFICATION_FAILED", "Human verification failed.");
+  }
+  if (result === "unavailable") {
+    throw new AppError(
+      503,
+      "HUMAN_VERIFICATION_UNAVAILABLE",
+      "Human verification is temporarily unavailable.",
+    );
+  }
 }
 
 export function createIdentityRouter(options: IdentityRouterOptions): Router {
@@ -287,6 +316,11 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
       }
 
       try {
+        await requireHumanVerification(options.humanVerification, {
+          token: parsedRequest.data.humanVerificationToken,
+          remoteIp: request.ip ?? "unknown",
+          action: "forgot_password",
+        });
         const requestIdHeader = response.getHeader("x-request-id");
         await options.requestPasswordReset.execute({
           email: parsedRequest.data.email,
@@ -473,7 +507,15 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
       }
 
       try {
-        await options.registerUser.execute(parsedRequest.data);
+        await requireHumanVerification(options.humanVerification, {
+          token: parsedRequest.data.humanVerificationToken,
+          remoteIp: request.ip ?? "unknown",
+          action: "register",
+        });
+        await options.registerUser.execute({
+          email: parsedRequest.data.email,
+          password: parsedRequest.data.password,
+        });
         const body: RegisterAcceptedResponse = registerAcceptedResponseSchema.parse({
           success: true,
           data: {},
@@ -515,7 +557,12 @@ export function createIdentityRouter(options: IdentityRouterOptions): Router {
       }
 
       try {
-        await options.resendVerification.execute(parsedRequest.data);
+        await requireHumanVerification(options.humanVerification, {
+          token: parsedRequest.data.humanVerificationToken,
+          remoteIp: request.ip ?? "unknown",
+          action: "resend_verification",
+        });
+        await options.resendVerification.execute({ email: parsedRequest.data.email });
         const body: ResendVerificationAcceptedResponse =
           resendVerificationAcceptedResponseSchema.parse({ success: true, data: {} });
         response.status(202).json(body);

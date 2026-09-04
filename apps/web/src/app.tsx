@@ -46,6 +46,9 @@ interface AppProps {
     registrationEnabled: boolean;
     passwordRecoveryEnabled: boolean;
   }>;
+  readonly humanVerification?:
+    | Readonly<{ enabled: false }>
+    | Readonly<{ enabled: true; provider: "turnstile"; siteKey: string }>;
   readonly readinessClient?: (apiBaseUrl: string) => ReturnType<typeof getReadiness>;
   readonly initialRoute?: ApplicationRoute;
 }
@@ -215,6 +218,7 @@ export function App({
     registrationEnabled: true,
     passwordRecoveryEnabled: true,
   },
+  humanVerification = { enabled: false },
   readinessClient = getReadiness,
   initialRoute = { name: "dashboard" },
 }: AppProps): React.JSX.Element {
@@ -254,7 +258,10 @@ export function App({
   if (state.status !== "authenticated") {
     return (
       <PublicApplicationShell environment={environment}>
-        <AuthenticationPanel publicAccountFeatures={publicAccountFeatures} />
+        <AuthenticationPanel
+          publicAccountFeatures={publicAccountFeatures}
+          humanVerification={humanVerification}
+        />
       </PublicApplicationShell>
     );
   }

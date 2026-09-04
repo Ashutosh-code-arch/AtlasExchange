@@ -20,6 +20,7 @@ const email = {
   SMTP_USERNAME: "test-user",
   SMTP_PASSWORD: "test-password",
 };
+const humanVerification = { TURNSTILE_SECRET_KEY: "turnstile-server-secret" };
 
 describe("capped beta configuration", () => {
   it("keeps operator email testing off by default and binds explicit enablement to one identity", () => {
@@ -72,6 +73,7 @@ describe("capped beta configuration", () => {
     const identity = parseApiConfig({
       ...demo,
       ...email,
+      ...humanVerification,
       PUBLIC_REGISTRATION_ENABLED: "true",
     }).identity;
     expect(identity.registrationMaximumUsers).toBe(20);
@@ -81,27 +83,51 @@ describe("capped beta configuration", () => {
     });
     expect(identity.emailDelivery.requireTls).toBe(true);
     expect(
-      parseApiConfig({ ...demo, ...email, PUBLIC_PASSWORD_RECOVERY_ENABLED: "true" }).identity
-        .publicAccountFeatures,
+      parseApiConfig({
+        ...demo,
+        ...email,
+        ...humanVerification,
+        PUBLIC_PASSWORD_RECOVERY_ENABLED: "true",
+      }).identity.publicAccountFeatures,
     ).toEqual({ registrationEnabled: false, passwordRecoveryEnabled: true });
+    expect(identity.humanVerification).toEqual({
+      enabled: true,
+      secretKey: humanVerification.TURNSTILE_SECRET_KEY,
+      expectedHostname: "atlas-demo.example.workers.dev",
+    });
   });
-  it("refuses activation without email configuration or on blocked/development ports", () => {
+  it("refuses activation without email and human-verification configuration or on blocked ports", () => {
     expect(() => parseApiConfig({ ...demo, PUBLIC_REGISTRATION_ENABLED: "true" })).toThrow();
+    expect(() =>
+      parseApiConfig({ ...demo, ...email, PUBLIC_REGISTRATION_ENABLED: "true" }),
+    ).toThrowError(/TURNSTILE_SECRET_KEY/);
     for (const SMTP_PORT of ["25", "465", "587", "1025"]) {
       expect(() =>
-        parseApiConfig({ ...demo, ...email, SMTP_PORT, PUBLIC_REGISTRATION_ENABLED: "true" }),
+        parseApiConfig({
+          ...demo,
+          ...email,
+          ...humanVerification,
+          SMTP_PORT,
+          PUBLIC_REGISTRATION_ENABLED: "true",
+        }),
       ).toThrow();
     }
     expect(() =>
       parseApiConfig({
         ...demo,
         ...email,
+        ...humanVerification,
         SMTP_HOST: "localhost",
         PUBLIC_REGISTRATION_ENABLED: "true",
       }),
     ).toThrow();
     expect(() =>
-      parseApiConfig({ ...demo, ...email, PUBLIC_REGISTRATION_ENABLED: "yes" }),
+      parseApiConfig({
+        ...demo,
+        ...email,
+        ...humanVerification,
+        PUBLIC_REGISTRATION_ENABLED: "yes",
+      }),
     ).toThrow();
   });
   it("retains local defaults and supports an explicit signup-off switch", () => {

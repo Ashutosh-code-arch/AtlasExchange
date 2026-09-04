@@ -512,12 +512,28 @@ a {
   font-size: 12px;
 }
 
+.human-verification {
+  grid-column: 1 / -1;
+  width: min(100%, 420px);
+  min-height: 65px;
+}
+
+.human-verification > div:first-child {
+  width: 100%;
+}
+
 .login-form__verification-recovery {
   grid-column: 1 / -1;
   display: flex;
   gap: 14px;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.login-form__verification-recovery .human-verification {
+  flex: 1 0 100%;
+  margin-left: auto;
 }
 
 .login-form__verification-recovery p {

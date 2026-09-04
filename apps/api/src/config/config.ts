@@ -47,6 +47,7 @@ const apiEnvironmentSchema = z.object({
   OPERATOR_EMAIL_TEST_USER_ID: z.uuid().optional(),
   PUBLIC_REGISTRATION_ENABLED: booleanString.optional(),
   PUBLIC_PASSWORD_RECOVERY_ENABLED: booleanString.optional(),
+  TURNSTILE_SECRET_KEY: z.string().min(1).max(256).optional(),
   PORT: integerString.transform(Number).pipe(z.number().int().min(1).max(65_535)).optional(),
   API_PORT: integerString
     .default("3000")
@@ -301,6 +302,13 @@ export interface ApiConfig {
       registrationEnabled: boolean;
       passwordRecoveryEnabled: boolean;
     }>;
+    humanVerification:
+      | Readonly<{ enabled: false }>
+      | Readonly<{
+          enabled: true;
+          secretKey: string;
+          expectedHostname: string;
+        }>;
     emailDelivery: Readonly<{
       host: string;
       port: number;
@@ -379,6 +387,13 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   const demoEmailRequired =
     values.ATLAS_ENV === "demo" &&
     (registrationEnabled || passwordRecoveryEnabled || values.OPERATOR_EMAIL_TEST_ENABLED);
+  if (
+    values.ATLAS_ENV === "demo" &&
+    (registrationEnabled || passwordRecoveryEnabled) &&
+    values.TURNSTILE_SECRET_KEY === undefined
+  ) {
+    throw new ConfigurationError(["TURNSTILE_SECRET_KEY"]);
+  }
 
   if (
     values.OPERATOR_EMAIL_TEST_ENABLED &&
@@ -590,6 +605,14 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
         registrationEnabled,
         passwordRecoveryEnabled,
       }),
+      humanVerification:
+        values.TURNSTILE_SECRET_KEY === undefined
+          ? Object.freeze({ enabled: false as const })
+          : Object.freeze({
+              enabled: true as const,
+              secretKey: values.TURNSTILE_SECRET_KEY,
+              expectedHostname: new URL(values.WEB_ORIGIN).hostname,
+            }),
       emailDelivery: Object.freeze({
         host: values.SMTP_HOST ?? "127.0.0.1",
         port: values.SMTP_PORT,

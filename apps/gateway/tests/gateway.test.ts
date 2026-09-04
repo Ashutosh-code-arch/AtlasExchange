@@ -5,6 +5,7 @@ import { createGateway, parseGatewayEnvironment, type GatewayEnvironment } from 
 const publicOrigin = "https://atlas-exchange-demo.owner.workers.dev";
 const apiOrigin = "https://atlas-api-demo.onrender.com";
 const gatewaySharedSecret = "a".repeat(64);
+const turnstileSiteKey = "0x4AAAA-test-atlas-turnstile-site-key";
 
 function environment(
   assetFetch: (request: Request) => Promise<Response> = vi.fn((_request: Request) =>
@@ -38,11 +39,16 @@ describe("demo gateway", () => {
       ...environment(),
       PUBLIC_REGISTRATION_ENABLED: "true",
       PUBLIC_PASSWORD_RECOVERY_ENABLED: "true",
+      TURNSTILE_SITE_KEY: turnstileSiteKey,
     });
     expect(response.status).toBe(200);
     const body = await response.text();
     expect(body).toContain('"registrationEnabled":true');
     expect(body).toContain('"passwordRecoveryEnabled":true');
+    expect(body).toContain(`"siteKey":"${turnstileSiteKey}"`);
+    expect(response.headers.get("content-security-policy")).toContain(
+      "script-src 'self' https://challenges.cloudflare.com",
+    );
     expect(body).not.toContain(gatewaySharedSecret);
   });
   it("accepts only the exact fail-closed demo environment", () => {
@@ -53,6 +59,8 @@ describe("demo gateway", () => {
       { ATLAS_ENV: "staging" },
       { PUBLIC_REGISTRATION_ENABLED: "yes" },
       { PUBLIC_PASSWORD_RECOVERY_ENABLED: "" },
+      { PUBLIC_REGISTRATION_ENABLED: "true" },
+      { PUBLIC_PASSWORD_RECOVERY_ENABLED: "true", TURNSTILE_SITE_KEY: "too-short" },
       { ATLAS_API_ORIGIN: "http://atlas-api-demo.onrender.com" },
       { ATLAS_API_ORIGIN: "https://atlas-api-demo.onrender.com:8443" },
       { ATLAS_API_ORIGIN: "https://api.example.com" },
@@ -88,6 +96,7 @@ describe("demo gateway", () => {
     expect(body).toContain('"environment":"demo"');
     expect(body).toContain('"registrationEnabled":false');
     expect(body).toContain('"passwordRecoveryEnabled":false');
+    expect(body).toContain('"humanVerification":{"enabled":false}');
     expect(body).not.toContain(apiOrigin);
     expect(body).not.toContain("cloudflareaccess.com");
   });

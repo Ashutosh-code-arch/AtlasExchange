@@ -2,9 +2,13 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { ApiHttpError } from "../../../shared/api/http-client";
 import { useAuthenticationSession } from "../session/use-authentication-session";
+import { HumanVerificationWidget } from "./human-verification-widget";
 
 export interface PasswordRecoveryFormProps {
   readonly onReturnToSignIn: () => void;
+  readonly humanVerification?:
+    | Readonly<{ enabled: false }>
+    | Readonly<{ enabled: true; provider: "turnstile"; siteKey: string }>;
 }
 
 function recoveryErrorMessage(error: unknown): string {
@@ -16,6 +20,10 @@ function recoveryErrorMessage(error: unknown): string {
       return "Enter a valid email address.";
     case "RATE_LIMITED":
       return "Too many recovery attempts. Try again later.";
+    case "HUMAN_VERIFICATION_FAILED":
+      return "Complete the human verification again.";
+    case "HUMAN_VERIFICATION_UNAVAILABLE":
+      return "Human verification is temporarily unavailable. Try again.";
     default:
       return "Password recovery is unavailable. Try again.";
   }
@@ -23,6 +31,7 @@ function recoveryErrorMessage(error: unknown): string {
 
 export function PasswordRecoveryForm({
   onReturnToSignIn,
+  humanVerification = { enabled: false },
 }: PasswordRecoveryFormProps): React.JSX.Element {
   const { requestPasswordReset } = useAuthenticationSession();
   const mountedRef = useRef(true);
@@ -30,6 +39,8 @@ export function PasswordRecoveryForm({
   const [submitting, setSubmitting] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [humanVerificationToken, setHumanVerificationToken] = useState<string | null>(null);
+  const [humanVerificationResetKey, setHumanVerificationResetKey] = useState(0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -45,7 +56,10 @@ export function PasswordRecoveryForm({
     }
     setSubmitting(true);
     setErrorMessage(null);
-    void requestPasswordReset({ email })
+    void requestPasswordReset({
+      email,
+      ...(humanVerificationToken === null ? {} : { humanVerificationToken }),
+    })
       .then(() => {
         if (mountedRef.current) {
           setEmail("");
@@ -60,6 +74,10 @@ export function PasswordRecoveryForm({
       .finally(() => {
         if (mountedRef.current) {
           setSubmitting(false);
+          if (humanVerification.enabled) {
+            setHumanVerificationToken(null);
+            setHumanVerificationResetKey((value) => value + 1);
+          }
         }
       });
   };
@@ -99,7 +117,19 @@ export function PasswordRecoveryForm({
             onChange={(event) => setEmail(event.currentTarget.value)}
           />
         </div>
-        <button className="login-form__submit" type="submit" disabled={submitting}>
+        {humanVerification.enabled ? (
+          <HumanVerificationWidget
+            action="forgot_password"
+            siteKey={humanVerification.siteKey}
+            resetKey={humanVerificationResetKey}
+            onTokenChange={setHumanVerificationToken}
+          />
+        ) : null}
+        <button
+          className="login-form__submit"
+          type="submit"
+          disabled={submitting || (humanVerification.enabled && humanVerificationToken === null)}
+        >
           {submitting ? "Requesting reset…" : "Request password reset"}
         </button>
         <p className="login-form__error" role="alert" aria-live="polite">

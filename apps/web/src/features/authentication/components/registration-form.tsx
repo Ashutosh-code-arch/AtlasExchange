@@ -2,9 +2,13 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { ApiHttpError } from "../../../shared/api/http-client";
 import { useAuthenticationSession } from "../session/use-authentication-session";
+import { HumanVerificationWidget } from "./human-verification-widget";
 
 export interface RegistrationFormProps {
   readonly onReturnToSignIn: () => void;
+  readonly humanVerification?:
+    | Readonly<{ enabled: false }>
+    | Readonly<{ enabled: true; provider: "turnstile"; siteKey: string }>;
 }
 
 function registrationErrorMessage(error: unknown): string {
@@ -16,6 +20,10 @@ function registrationErrorMessage(error: unknown): string {
       return "Use a valid email and a password that meets the requirements.";
     case "RATE_LIMITED":
       return "Too many registration attempts. Try again later.";
+    case "HUMAN_VERIFICATION_FAILED":
+      return "Complete the human verification again.";
+    case "HUMAN_VERIFICATION_UNAVAILABLE":
+      return "Human verification is temporarily unavailable. Try again.";
     case "BETA_CAPACITY_REACHED":
       return "The beta is full. All 20 account places are taken. Existing users can still sign in.";
     default:
@@ -23,7 +31,10 @@ function registrationErrorMessage(error: unknown): string {
   }
 }
 
-export function RegistrationForm({ onReturnToSignIn }: RegistrationFormProps): React.JSX.Element {
+export function RegistrationForm({
+  onReturnToSignIn,
+  humanVerification = { enabled: false },
+}: RegistrationFormProps): React.JSX.Element {
   const { register } = useAuthenticationSession();
   const mountedRef = useRef(true);
   const [email, setEmail] = useState("");
@@ -32,6 +43,8 @@ export function RegistrationForm({ onReturnToSignIn }: RegistrationFormProps): R
   const [submitting, setSubmitting] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [humanVerificationToken, setHumanVerificationToken] = useState<string | null>(null);
+  const [humanVerificationResetKey, setHumanVerificationResetKey] = useState(0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -51,7 +64,11 @@ export function RegistrationForm({ onReturnToSignIn }: RegistrationFormProps): R
     }
     setSubmitting(true);
     setErrorMessage(null);
-    void register({ email, password })
+    void register({
+      email,
+      password,
+      ...(humanVerificationToken === null ? {} : { humanVerificationToken }),
+    })
       .then(() => {
         if (mountedRef.current) {
           setPassword("");
@@ -67,6 +84,10 @@ export function RegistrationForm({ onReturnToSignIn }: RegistrationFormProps): R
       .finally(() => {
         if (mountedRef.current) {
           setSubmitting(false);
+          if (humanVerification.enabled) {
+            setHumanVerificationToken(null);
+            setHumanVerificationResetKey((value) => value + 1);
+          }
         }
       });
   };
@@ -135,7 +156,19 @@ export function RegistrationForm({ onReturnToSignIn }: RegistrationFormProps): R
             onChange={(event) => setPasswordConfirmation(event.currentTarget.value)}
           />
         </div>
-        <button className="login-form__submit" type="submit" disabled={submitting}>
+        {humanVerification.enabled ? (
+          <HumanVerificationWidget
+            action="register"
+            siteKey={humanVerification.siteKey}
+            resetKey={humanVerificationResetKey}
+            onTokenChange={setHumanVerificationToken}
+          />
+        ) : null}
+        <button
+          className="login-form__submit"
+          type="submit"
+          disabled={submitting || (humanVerification.enabled && humanVerificationToken === null)}
+        >
           {submitting ? "Creating account…" : "Create account"}
         </button>
         <p className="registration-form__guidance">

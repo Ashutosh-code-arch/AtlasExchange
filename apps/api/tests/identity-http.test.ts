@@ -6,6 +6,7 @@ import { createApp } from "../src/app.js";
 import { RegistrationCapacityError } from "../src/modules/identity/domain/registration-capacity-error.js";
 import type { AuthenticateAccess } from "../src/modules/identity/application/authenticate-access.js";
 import type { LoginUser } from "../src/modules/identity/application/login-user.js";
+import type { HumanVerification } from "../src/modules/identity/application/human-verification.js";
 import type { ListSessions } from "../src/modules/identity/application/list-sessions.js";
 import type { LogoutSession } from "../src/modules/identity/application/logout-session.js";
 import type { LogoutAllSessions } from "../src/modules/identity/application/logout-all-sessions.js";
@@ -111,6 +112,7 @@ function createTestApp(
       registrationEnabled: boolean;
       passwordRecoveryEnabled: boolean;
     }>;
+    readonly humanVerification?: HumanVerification;
   } = {},
 ): {
   readonly app: ReturnType<typeof createApp>;
@@ -219,6 +221,9 @@ function createTestApp(
     },
     secureCookies: options.secureCookies ?? false,
     webOrigin,
+    ...(options.humanVerification === undefined
+      ? {}
+      : { humanVerification: options.humanVerification }),
     ...(options.publicAccountFeatures === undefined
       ? {}
       : { publicAccountFeatures: options.publicAccountFeatures }),
@@ -1181,6 +1186,74 @@ describe("Identity registration HTTP API", () => {
 });
 
 describe("Identity demo HTTP surface", () => {
+  it("requires server-verified, action-bound human challenges before public account actions", async () => {
+    const verify = vi
+      .fn<HumanVerification["verify"]>()
+      .mockResolvedValueOnce("verified")
+      .mockResolvedValueOnce("rejected")
+      .mockResolvedValueOnce("unavailable");
+    const harness = createTestApp({ humanVerification: { verify } });
+
+    const registration = await request(harness.app)
+      .post("/api/v1/auth/register")
+      .set("origin", webOrigin)
+      .send({ ...validRegistration, humanVerificationToken: "registration-token" });
+    const rejectedResend = await request(harness.app)
+      .post("/api/v1/auth/resend-verification")
+      .set("origin", webOrigin)
+      .send({ email: validRegistration.email, humanVerificationToken: "resend-token" });
+    const unavailableRecovery = await request(harness.app)
+      .post("/api/v1/auth/forgot-password")
+      .set("origin", webOrigin)
+      .send({ email: validRegistration.email, humanVerificationToken: "recovery-token" });
+
+    expect(registration.status).toBe(202);
+    expect(harness.execute).toHaveBeenCalledWith(validRegistration);
+    expect(rejectedResend.status).toBe(400);
+    expect(rejectedResend.body).toMatchObject({
+      error: { code: "HUMAN_VERIFICATION_FAILED" },
+    });
+    expect(harness.resendVerification).not.toHaveBeenCalled();
+    expect(unavailableRecovery.status).toBe(503);
+    expect(unavailableRecovery.body).toMatchObject({
+      error: { code: "HUMAN_VERIFICATION_UNAVAILABLE" },
+    });
+    expect(harness.requestPasswordReset).not.toHaveBeenCalled();
+    expect(verify).toHaveBeenCalledTimes(3);
+    expect(verify.mock.calls[0]?.[0]).toMatchObject({
+      token: "registration-token",
+      action: "register",
+    });
+    expect(verify.mock.calls[1]?.[0]).toMatchObject({
+      token: "resend-token",
+      action: "resend_verification",
+    });
+    expect(verify.mock.calls[2]?.[0]).toMatchObject({
+      token: "recovery-token",
+      action: "forgot_password",
+    });
+    for (const [input] of verify.mock.calls) expect(typeof input.remoteIp).toBe("string");
+  });
+
+  it("rejects a missing human-verification token when the verifier is active", async () => {
+    const verify = vi.fn<HumanVerification["verify"]>().mockResolvedValue("rejected");
+    const harness = createTestApp({ humanVerification: { verify } });
+
+    const response = await request(harness.app)
+      .post("/api/v1/auth/register")
+      .set("origin", webOrigin)
+      .send(validRegistration);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ error: { code: "HUMAN_VERIFICATION_FAILED" } });
+    expect(verify.mock.calls[0]?.[0]).toMatchObject({
+      token: undefined,
+      action: "register",
+    });
+    expect(typeof verify.mock.calls[0]?.[0].remoteIp).toBe("string");
+    expect(harness.execute).not.toHaveBeenCalled();
+  });
+
   it("hides every public provisioning and recovery route while preserving login", async () => {
     const harness = createTestApp({
       publicAccountFeatures: {
