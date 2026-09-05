@@ -35,7 +35,7 @@ RUN --mount=type=cache,id=atlas-pnpm,target=/pnpm/store \
 
 FROM secured-node AS runtime
 
-ARG ATLAS_IMAGE_VERSION=0.2.4-local
+ARG ATLAS_IMAGE_VERSION=0.2.5-local
 ARG ATLAS_IMAGE_REVISION=unknown
 ARG ATLAS_IMAGE_CREATED=1970-01-01T00:00:00.000Z
 ARG ATLAS_IMAGE_SOURCE=https://github.com/Ashutosh-code-arch/AtlasExchange
