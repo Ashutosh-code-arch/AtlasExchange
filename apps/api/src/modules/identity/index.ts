@@ -228,6 +228,9 @@ export async function createIdentityModuleRouter(
     sessionCsrfTokenService,
     secureCookies: options.sessionSecurity.secureCookies,
     webOrigin: options.webOrigin,
+    ...(options.humanVerification === undefined
+      ? {}
+      : { humanVerification: options.humanVerification }),
     ...(options.publicAccountFeatures === undefined
       ? {}
       : { publicAccountFeatures: options.publicAccountFeatures }),

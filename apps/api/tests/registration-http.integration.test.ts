@@ -4,8 +4,9 @@ import { Kysely, PostgresDialect } from "kysely";
 import pino from "pino";
 import { Pool } from "pg";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { sessionsResponseSchema } from "@atlas/contracts";
+import type { HumanVerification } from "../src/modules/identity/application/human-verification.js";
 import type { DeliverPasswordResetEmailInput } from "../src/modules/identity/application/password-reset-email-delivery.js";
 
 import { createApp } from "../src/app.js";
@@ -48,28 +49,35 @@ const database = new Kysely<IdentityDatabaseSchema>({
 let app: ReturnType<typeof createApp>;
 const deliveredPasswordResets: DeliverPasswordResetEmailInput[] = [];
 
+function createTestIdentityRouter(
+  humanVerification?: HumanVerification,
+): ReturnType<typeof createIdentityModuleRouter> {
+  return createIdentityModuleRouter({
+    database,
+    passwordBlocklistPath: new URL(
+      "../resources/development-password-blocklist.sha256",
+      import.meta.url,
+    ).pathname,
+    verificationEmailDelivery: {
+      deliver: () => Promise.resolve({ status: "delivered" }),
+    },
+    passwordResetEmailDelivery: {
+      deliver: (input) => {
+        deliveredPasswordResets.push(input);
+        return Promise.resolve({ status: "delivered" });
+      },
+    },
+    ...(humanVerification === undefined ? {} : { humanVerification }),
+    sessionSecurity: { secureCookies: false, csrfHmacKey },
+    webOrigin,
+  });
+}
+
 describe("composed registration HTTP flow", () => {
   beforeAll(async () => {
     await adminPool.query(`CREATE DATABASE "${databaseName}"`);
     await applyMigrations(integrationDatabaseUrl);
-    const identityRouter = await createIdentityModuleRouter({
-      database,
-      passwordBlocklistPath: new URL(
-        "../resources/development-password-blocklist.sha256",
-        import.meta.url,
-      ).pathname,
-      verificationEmailDelivery: {
-        deliver: () => Promise.resolve({ status: "delivered" }),
-      },
-      passwordResetEmailDelivery: {
-        deliver: (input) => {
-          deliveredPasswordResets.push(input);
-          return Promise.resolve({ status: "delivered" });
-        },
-      },
-      sessionSecurity: { secureCookies: false, csrfHmacKey },
-      webOrigin,
-    });
+    const identityRouter = await createTestIdentityRouter();
     app = createApp({
       lifecycle: new LifecycleState({ checkReadiness: () => Promise.resolve(true) }),
       logger: pino({ enabled: false }),
@@ -82,6 +90,40 @@ describe("composed registration HTTP flow", () => {
     await database.destroy();
     await adminPool.query(`DROP DATABASE IF EXISTS "${databaseName}"`);
     await adminPool.end();
+  });
+
+  it("forwards human verification through the composed module before registration", async () => {
+    const verifyHuman = vi.fn<HumanVerification["verify"]>().mockResolvedValue("rejected");
+    const verifiedIdentityRouter = await createTestIdentityRouter({ verify: verifyHuman });
+    const verifiedApp = createApp({
+      lifecycle: new LifecycleState({ checkReadiness: () => Promise.resolve(true) }),
+      logger: pino({ enabled: false }),
+      webOrigin,
+      identityRouter: verifiedIdentityRouter,
+    });
+    const response = await request(verifiedApp)
+      .post("/api/v1/auth/register")
+      .set("origin", webOrigin)
+      .send({
+        email: "fabricated-challenge@example.com",
+        password: "unique fabricated challenge passphrase",
+        humanVerificationToken: "fabricated-turnstile-token",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ error: { code: "HUMAN_VERIFICATION_FAILED" } });
+    expect(verifyHuman).toHaveBeenCalledWith(
+      expect.objectContaining({
+        token: "fabricated-turnstile-token",
+        action: "register",
+      }),
+    );
+    const user = await database
+      .selectFrom("identity.users")
+      .select("id")
+      .where("normalized_email", "=", "fabricated-challenge@example.com")
+      .executeTakeFirst();
+    expect(user).toBeUndefined();
   });
 
   it("rejects a locally blocked password without creating an account", async () => {
