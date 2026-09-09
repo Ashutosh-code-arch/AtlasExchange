@@ -264,3 +264,10 @@ See the [release runbook](docs/engineering/release-and-deployment.md) for image 
 
 **Canonical owner/source:** Accepted architecture decisions and the linked engineering runbooks.
 This README is an onboarding guide, not a replacement for those decision records.
+
+## License
+
+Atlas Exchange is licensed under the [MIT License](LICENSE).
+
+This project is a simulated trading platform for educational and demonstration
+purposes. It does not execute real trades or provide financial advice.
