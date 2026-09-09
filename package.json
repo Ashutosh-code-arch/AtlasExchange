@@ -3,6 +3,7 @@
   "version": "0.2.5",
   "private": true,
   "type": "module",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Ashutosh-code-arch/AtlasExchange.git"
