@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # Frontend artifacts are architecture-neutral; keep Node and pnpm off QEMU during cross-builds.
-FROM --platform=$BUILDPLATFORM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS build
+FROM --platform=$BUILDPLATFORM node:26.12.0-alpine3.23@sha256:2ae3a23c9c5d2129398f4844c7c43400c061faf6973852f0fa837323bff9a5a8 AS build
 
 RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0
 
@@ -30,7 +30,7 @@ RUN pnpm --filter @atlas/web build
 RUN --mount=type=cache,id=atlas-pnpm,target=/pnpm/store \
     pnpm --filter @atlas/web deploy --prod /deploy/web
 
-FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS runtime
+FROM node:26.12.0-alpine3.23@sha256:2ae3a23c9c5d2129398f4844c7c43400c061faf6973852f0fa837323bff9a5a8 AS runtime
 
 RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0
 
