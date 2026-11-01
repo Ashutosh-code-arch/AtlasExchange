@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839 AS config-validation
+FROM grafana/alloy:v1.21.3@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4 AS config-validation
 
 COPY infra/observability/alloy/config.alloy /etc/alloy/config.alloy
 
